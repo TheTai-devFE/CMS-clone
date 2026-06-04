@@ -1,0 +1,190 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  username     String     @unique @db.VarChar(50)
+  email        String     @unique @db.VarChar(255)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  role         String     @default("user") @db.VarChar(20) // 'admin', 'user'
+  licenseLimit Int        @default(1) @map("license_limit")
+  status       String     @default("active") @db.VarChar(20) // 'active', 'suspended'
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  
+  devices      Device[]
+  media        Media[]
+  playlists    Playlist[]
+  schedules    Schedule[]
+
+  @@map("users")
+}
+
+model Device {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String?          @map("user_id") @db.Uuid
+  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deviceName      String           @map("device_name") @db.VarChar(255)
+  apiKey          String           @unique @map("api_key") @db.VarChar(255)
+  status          String           @default("offline") @db.VarChar(20) // 'online', 'offline'
+  approvalStatus  String           @default("pending") @map("approval_status") @db.VarChar(20) // 'pending', 'approved'
+  
+  // Thông tin phần cứng & Mạng
+  macAddress      String?          @map("mac_address") @db.VarChar(17)
+  ipAddress       String?          @map("ip_address") @db.VarChar(50)
+  screenResolution String?         @map("screen_resolution") @db.VarChar(50)
+  osVersion       String?          @map("os_version") @db.VarChar(20)
+  appVersion      String?          @map("app_version") @db.VarChar(20)
+  
+  lastHeartbeat   DateTime?        @map("last_heartbeat")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  
+  heartbeatLogs   HeartbeatLog[]
+  playbackLogs    PlaybackLog[]
+  interactiveLogs InteractiveLog[]
+  schedules       DeviceSchedule[]
+
+  @@index([status])
+  @@index([lastHeartbeat])
+  @@index([userId])
+  @@map("devices")
+}
+
+model HeartbeatLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  deviceId       String   @map("device_id") @db.Uuid
+  device         Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  status         String   @db.VarChar(20)
+  currentMediaId String?  @map("current_media_id") @db.Uuid
+  cpuUsage       Int?     @map("cpu_usage")
+  freeMemoryMb   Int?     @map("free_memory_mb")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("heartbeat_logs")
+}
+
+model Media {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @map("user_id") @db.Uuid
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName        String           @map("file_name") @db.VarChar(255)
+  fileUrl         String           @map("file_url") @db.VarChar(512)
+  fileSize        BigInt           @map("file_size")
+  mimeType        String           @map("mime_type") @db.VarChar(100)
+  checksum        String           @db.VarChar(64)
+  createdAt       DateTime         @default(now()) @map("created_at")
+  
+  playlistItems   PlaylistItem[]
+  playbackLogs    PlaybackLog[]
+  interactiveLogs InteractiveLog[]
+
+  @@index([userId])
+  @@map("media")
+}
+
+model Playlist {
+  id            String         @id @default(uuid()) @db.Uuid
+  userId        String         @map("user_id") @db.Uuid
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playlistName  String         @map("playlist_name") @db.VarChar(255)
+  description   String?        @db.Text
+  isSyncGroup   Boolean        @default(false) @map("is_sync_group")
+  syncLayout    Json?          @map("sync_layout")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  
+  playlistItems PlaylistItem[]
+  schedules     Schedule[]
+
+  @@index([userId])
+  @@map("playlists")
+}
+
+model PlaylistItem {
+  id               String   @id @default(uuid()) @db.Uuid
+  playlistId       String   @map("playlist_id") @db.Uuid
+  playlist         Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  mediaId          String   @map("media_id") @db.Uuid
+  media            Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  sortOrder        Int      @map("sort_order")
+  duration         Int      @default(10)
+  transitionEffect String   @default("none") @map("transition_effect") @db.VarChar(50)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([playlistId])
+  @@map("playlist_items")
+}
+
+model Schedule {
+  id           String           @id @default(uuid()) @db.Uuid
+  userId       String           @map("user_id") @db.Uuid
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduleName String           @map("schedule_name") @db.VarChar(255)
+  playlistId   String           @map("playlist_id") @db.Uuid
+  playlist     Playlist         @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  
+  startDate    DateTime         @map("start_date") @db.Date
+  endDate      DateTime         @map("end_date") @db.Date
+  startTime    String           @default("00:00:00") @map("start_time") @db.VarChar(8)
+  endTime      String           @default("23:59:59") @map("end_time") @db.VarChar(8)
+  dayOfWeek    Int[]            @map("day_of_week")
+  
+  priority     Int              @default(1)
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  
+  devices      DeviceSchedule[]
+
+  @@index([userId])
+  @@map("schedules")
+}
+
+model DeviceSchedule {
+  deviceId   String   @map("device_id") @db.Uuid
+  device     Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  scheduleId String   @map("schedule_id") @db.Uuid
+  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@id([deviceId, scheduleId])
+  @@map("device_schedules")
+}
+
+model PlaybackLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  deviceId       String   @map("device_id") @db.Uuid
+  device         Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  mediaId        String?  @map("media_id") @db.Uuid
+  media          Media?   @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  startedAt      DateTime @map("started_at")
+  endedAt        DateTime @map("ended_at")
+  durationPlayed Int      @map("duration_played")
+  status         String   @default("success") @db.VarChar(20)
+
+  @@index([deviceId, startedAt])
+  @@map("playback_logs")
+}
+
+model InteractiveLog {
+  id              String   @id @default(uuid()) @db.Uuid
+  deviceId        String   @map("device_id") @db.Uuid
+  device          Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  mediaId         String?  @map("media_id") @db.Uuid
+  media           Media?   @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  interactionType String   @map("interaction_type") @db.VarChar(50)
+  interactionData Json?    @map("interaction_data")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([deviceId, createdAt])
+  @@map("interactive_logs")
+}

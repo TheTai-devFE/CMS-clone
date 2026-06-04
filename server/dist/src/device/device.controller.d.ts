@@ -1,0 +1,54 @@
+import { DeviceService } from './device.service';
+import { AssignDeviceDto } from './dto/assign-device.dto';
+import { HeartbeatDto } from './dto/heartbeat.dto';
+import { RegisterDeviceDto } from './dto/register-device.dto';
+export declare class DeviceController {
+    private readonly deviceService;
+    constructor(deviceService: DeviceService);
+    registerDevice(dto: RegisterDeviceDto, ip: string): Promise<{
+        id: string;
+        apiKey: string;
+        deviceName: string;
+        approvalStatus: string;
+    }>;
+    heartbeat(dto: HeartbeatDto): Promise<{
+        deviceId: string;
+        deviceName: string;
+        approvalStatus: string;
+        status: string;
+    }>;
+    getUserDevices(user: any): Promise<any[]>;
+    deleteDevice(id: string, user: any): Promise<{
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        apiKey: string;
+        deviceName: string;
+        macAddress: string | null;
+        screenResolution: string | null;
+        osVersion: string | null;
+        appVersion: string | null;
+        userId: string | null;
+        approvalStatus: string;
+        ipAddress: string | null;
+        lastHeartbeat: Date | null;
+    }>;
+    getPendingDevices(): Promise<any[]>;
+    assignDevice(id: string, dto: AssignDeviceDto): Promise<{
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        apiKey: string;
+        deviceName: string;
+        macAddress: string | null;
+        screenResolution: string | null;
+        osVersion: string | null;
+        appVersion: string | null;
+        userId: string | null;
+        approvalStatus: string;
+        ipAddress: string | null;
+        lastHeartbeat: Date | null;
+    }>;
+}
