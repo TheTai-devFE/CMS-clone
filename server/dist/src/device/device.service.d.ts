@@ -53,5 +53,15 @@ export declare class DeviceService {
         ipAddress: string | null;
         lastHeartbeat: Date | null;
     }>;
+    getSystemLogs(user: {
+        id: string;
+        role: string;
+    }): Promise<{
+        id: string;
+        deviceName: string;
+        status: string;
+        detail: string;
+        time: string;
+    }[]>;
     private enrichDevicesWithRealtimeStatus;
 }

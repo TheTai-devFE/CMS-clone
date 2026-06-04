@@ -17,6 +17,7 @@ const redis_module_1 = require("./redis/redis.module");
 const device_module_1 = require("./device/device.module");
 const media_module_1 = require("./media/media.module");
 const playlist_module_1 = require("./playlist/playlist.module");
+const template_module_1 = require("./template/template.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -30,6 +31,7 @@ exports.AppModule = AppModule = __decorate([
             device_module_1.DeviceModule,
             media_module_1.MediaModule,
             playlist_module_1.PlaylistModule,
+            template_module_1.TemplateModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

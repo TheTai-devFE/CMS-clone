@@ -26,6 +26,7 @@ model User {
   media        Media[]
   playlists    Playlist[]
   schedules    Schedule[]
+  templates    Template[]
 
   @@map("users")
 }
@@ -131,8 +132,10 @@ model Schedule {
   userId       String           @map("user_id") @db.Uuid
   user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   scheduleName String           @map("schedule_name") @db.VarChar(255)
-  playlistId   String           @map("playlist_id") @db.Uuid
-  playlist     Playlist         @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  playlistId   String?          @map("playlist_id") @db.Uuid
+  playlist     Playlist?        @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  templateId   String?          @map("template_id") @db.Uuid
+  template     Template?        @relation(fields: [templateId], references: [id], onDelete: Cascade)
   
   startDate    DateTime         @map("start_date") @db.Date
   endDate      DateTime         @map("end_date") @db.Date
@@ -187,4 +190,37 @@ model InteractiveLog {
 
   @@index([deviceId, createdAt])
   @@map("interactive_logs")
+}
+
+model Template {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String   @map("name") @db.VarChar(255)
+  width       Int      @default(1920)
+  height      Int      @default(1080)
+  orientation String   @default("landscape") @db.VarChar(20)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  zones       Zone[]
+  schedules   Schedule[]
+
+  @@index([userId])
+  @@map("templates")
+}
+
+model Zone {
+  id          String   @id @default(uuid()) @db.Uuid
+  templateId  String   @map("template_id") @db.Uuid
+  template    Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  name        String   @db.VarChar(100)
+  type        String   @db.VarChar(30)
+  x           Int
+  y           Int
+  width       Int
+  height      Int
+  contentData Json?    @map("content_data")
+
+  @@map("template_zones")
 }
