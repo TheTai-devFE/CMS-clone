@@ -10,11 +10,11 @@ export declare class AuthService {
     private readonly configService;
     constructor(prisma: PrismaService, jwtService: JwtService, configService: ConfigService);
     register(dto: RegisterDto): Promise<{
-        email: string;
+        id: string;
         username: string;
+        email: string;
         role: string;
         licenseLimit: number;
-        id: string;
         status: string;
         createdAt: Date;
     }>;
@@ -32,11 +32,11 @@ export declare class AuthService {
     }>;
     private generateTokens;
     getAllUsers(): Promise<{
-        email: string;
+        id: string;
         username: string;
+        email: string;
         role: string;
         licenseLimit: number;
-        id: string;
         status: string;
         createdAt: Date;
     }[]>;

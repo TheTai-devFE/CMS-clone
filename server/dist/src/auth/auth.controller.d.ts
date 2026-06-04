@@ -6,11 +6,11 @@ export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
     register(dto: RegisterDto): Promise<{
-        email: string;
+        id: string;
         username: string;
+        email: string;
         role: string;
         licenseLimit: number;
-        id: string;
         status: string;
         createdAt: Date;
     }>;
@@ -31,11 +31,11 @@ export declare class AuthController {
         message: string;
     }>;
     getAllUsers(): Promise<{
-        email: string;
+        id: string;
         username: string;
+        email: string;
         role: string;
         licenseLimit: number;
-        id: string;
         status: string;
         createdAt: Date;
     }[]>;
