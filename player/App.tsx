@@ -16,7 +16,7 @@ import ExitModal from './src/components/ExitModal';
 
 // Screens
 import HomeScreen from './src/screens/HomeScreen';
-import AdPlayerScreen from './src/screens/AdPlayerScreen';
+import AdPlayerScreen, { PLAYLIST } from './src/screens/AdPlayerScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import NetworkScreen from './src/screens/NetworkScreen';
@@ -151,10 +151,14 @@ export default function App() {
         {/* Dynamic content rendering based on activeTab */}
         <View style={styles.contentArea}>
           {activeTab === null ? (
-            <AdPlayerScreen
-              isLandscape={isLandscape}
-              onRelaunchRequest={() => setActiveTab(null)}
-            />
+            PLAYLIST.length > 0 ? (
+              <AdPlayerScreen
+                isLandscape={isLandscape}
+                onRelaunchRequest={() => setActiveTab(null)}
+              />
+            ) : (
+              <HomeScreen isLandscape={isLandscape} />
+            )
           ) : activeTab === 'register' ? (
             <RegisterScreen
               isLandscape={isLandscape}
