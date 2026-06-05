@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import { RegisterDeviceDto } from './dto/register-device.dto';
+import { CreatePairingCodeDto } from './dto/create-pairing-code.dto';
+import { ClaimDeviceDto } from './dto/claim-device.dto';
 
 @Injectable()
 export class DeviceService {
@@ -11,6 +13,105 @@ export class DeviceService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
   ) {}
+
+  async generatePairingCode(dto: CreatePairingCodeDto) {
+    // Sinh mã liên kết ngẫu nhiên 6 chữ số
+    const pairingCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const tempDeviceId = crypto.randomUUID();
+
+    const tempInfo = {
+      macAddress: dto.macAddress,
+      screenResolution: dto.screenResolution,
+      osVersion: dto.osVersion,
+      appVersion: dto.appVersion,
+      tempDeviceId,
+    };
+
+    // Lưu mã liên kết vào Redis (hết hạn sau 10 phút)
+    await this.redis.set(`pairing_code:${pairingCode}`, JSON.stringify(tempInfo), 600);
+    // Lưu trạng thái kết nối tạm thời
+    await this.redis.set(`pairing_status:${tempDeviceId}`, JSON.stringify({ status: 'pending' }), 600);
+
+    return {
+      pairingCode,
+      tempDeviceId,
+      expireAt: Date.now() + 600000,
+    };
+  }
+
+  async getPairingStatus(tempDeviceId: string) {
+    const statusStr = await this.redis.get(`pairing_status:${tempDeviceId}`);
+    if (!statusStr) {
+      return { status: 'expired' };
+    }
+    return JSON.parse(statusStr);
+  }
+
+  async claimDevice(userId: string, dto: ClaimDeviceDto) {
+    const pairingCode = dto.pairingCode.trim();
+    const tempInfoStr = await this.redis.get(`pairing_code:${pairingCode}`);
+    
+    if (!tempInfoStr) {
+      throw new BadRequestException('Mã liên kết không tồn tại hoặc đã hết hạn');
+    }
+
+    const tempInfo = JSON.parse(tempInfoStr);
+
+    // 1. Kiểm tra giới hạn license của User
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng');
+    }
+
+    const assignedCount = await this.prisma.device.count({
+      where: { userId },
+    });
+
+    if (assignedCount >= user.licenseLimit) {
+      throw new BadRequestException(
+        `Vượt quá giới hạn bản quyền (Hạn mức: ${user.licenseLimit} thiết bị. Hiện tại đã gán: ${assignedCount} thiết bị)`
+      );
+    }
+
+    // 2. Tạo thiết bị chính thức gán cho User
+    const apiKey = 'dev_' + crypto.randomBytes(24).toString('hex');
+    const device = await this.prisma.device.create({
+      data: {
+        userId,
+        deviceName: dto.deviceName,
+        apiKey,
+        macAddress: tempInfo.macAddress,
+        screenResolution: tempInfo.screenResolution,
+        osVersion: tempInfo.osVersion,
+        appVersion: tempInfo.appVersion,
+        status: 'offline',
+        approvalStatus: 'approved',
+      },
+    });
+
+    // 3. Cập nhật trạng thái liên kết trên Redis để Player đang polling nhận biết được
+    await this.redis.set(
+      `pairing_status:${tempInfo.tempDeviceId}`,
+      JSON.stringify({
+        status: 'linked',
+        apiKey,
+        deviceId: device.id,
+      }),
+      120 // 2 phút để player polling
+    );
+
+    // Xóa pairing code để không cho claim lại
+    await this.redis.del(`pairing_code:${pairingCode}`);
+
+    return {
+      success: true,
+      deviceId: device.id,
+      deviceName: device.deviceName,
+    };
+  }
 
   async register(dto: RegisterDeviceDto, ipAddress: string) {
     if (dto.deviceId) {

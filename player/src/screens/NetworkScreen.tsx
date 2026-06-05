@@ -43,15 +43,15 @@ export default function NetworkScreen({
         style={styles.scrollContainer}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: isLandscape ? 40 : 120 },
+          { paddingBottom: isLandscape ? 110 : 130 },
         ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.networkContentWrapper}>
           {/* Header Title Section */}
-          <View style={styles.screenHeader}>
-            <Text style={styles.screenMainTitle}>Mạng & Thiết bị</Text>
-            <Text style={styles.screenSubTitle}>
+          <View style={[styles.screenHeader, isLandscape && styles.screenHeaderLandscape]}>
+            <Text style={[styles.screenMainTitle, isLandscape && styles.screenMainTitleLandscape]}>Mạng & Thiết bị</Text>
+            <Text style={[styles.screenSubTitle, isLandscape && styles.screenSubTitleLandscape]}>
               Kiểm tra trạng thái kết nối và thông số kỹ thuật.
             </Text>
           </View>
@@ -59,7 +59,7 @@ export default function NetworkScreen({
           {/* Glassmorphic List Card */}
           <View style={styles.glassListCard}>
             {/* Status Row 1: Network Status */}
-            <View style={styles.listRow}>
+            <View style={[styles.listRow, isLandscape && styles.listRowLandscape]}>
               <View style={styles.listRowLeft}>
                 <Text style={styles.listRowIcon}>📶</Text>
                 <Text style={styles.listLabel}>Trạng thái mạng</Text>
@@ -68,7 +68,7 @@ export default function NetworkScreen({
             </View>
 
             {/* Status Row 2: Local IP */}
-            <View style={styles.listRow}>
+            <View style={[styles.listRow, isLandscape && styles.listRowLandscape]}>
               <View style={styles.listRowLeft}>
                 <Text style={styles.listRowIcon}>💻</Text>
                 <Text style={styles.listLabel}>IP Cục bộ</Text>
@@ -77,7 +77,7 @@ export default function NetworkScreen({
             </View>
 
             {/* Status Row 3: Network Type */}
-            <View style={styles.listRow}>
+            <View style={[styles.listRow, isLandscape && styles.listRowLandscape]}>
               <View style={styles.listRowLeft}>
                 <Text style={styles.listRowIcon}>🔌</Text>
                 <Text style={styles.listLabel}>Mạng</Text>
@@ -86,7 +86,7 @@ export default function NetworkScreen({
             </View>
 
             {/* Status Row 4: Server Connection */}
-            <View style={styles.listRow}>
+            <View style={[styles.listRow, isLandscape && styles.listRowLandscape]}>
               <View style={styles.listRowLeft}>
                 <Text style={styles.listRowIcon}>🌐</Text>
                 <Text style={styles.listLabel}>Kết nối Máy chủ</Text>
@@ -98,7 +98,7 @@ export default function NetworkScreen({
             </View>
 
             {/* Status Row 5: XMPP Status */}
-            <View style={[styles.listRow, { borderBottomWidth: 0 }]}>
+            <View style={[styles.listRow, isLandscape && styles.listRowLandscape, { borderBottomWidth: 0 }]}>
               <View style={styles.listRowLeft}>
                 <Text style={styles.listRowIcon}>⚙️</Text>
                 <Text style={styles.listLabel}>Dịch vụ XMPP</Text>
@@ -109,7 +109,7 @@ export default function NetworkScreen({
 
           {/* Refresh Action Button */}
           <TouchableOpacity
-            style={styles.btnRefresh}
+            style={[styles.btnRefresh, isLandscape && styles.btnRefreshLandscape]}
             activeOpacity={0.7}
             onPress={onRefresh}
           >
@@ -300,5 +300,24 @@ const styles = StyleSheet.create({
     color: colors.secondary,
     fontSize: 13,
     fontWeight: '700',
+  },
+  screenHeaderLandscape: {
+    marginBottom: 10,
+  },
+  screenMainTitleLandscape: {
+    fontSize: 20,
+  },
+  screenSubTitleLandscape: {
+    fontSize: 11,
+    marginTop: 2,
+    lineHeight: 14,
+  },
+  listRowLandscape: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  btnRefreshLandscape: {
+    marginTop: 12,
+    paddingVertical: 8,
   },
 });

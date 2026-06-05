@@ -54,6 +54,76 @@ let DeviceService = class DeviceService {
         this.prisma = prisma;
         this.redis = redis;
     }
+    async generatePairingCode(dto) {
+        const pairingCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const tempDeviceId = crypto.randomUUID();
+        const tempInfo = {
+            macAddress: dto.macAddress,
+            screenResolution: dto.screenResolution,
+            osVersion: dto.osVersion,
+            appVersion: dto.appVersion,
+            tempDeviceId,
+        };
+        await this.redis.set(`pairing_code:${pairingCode}`, JSON.stringify(tempInfo), 600);
+        await this.redis.set(`pairing_status:${tempDeviceId}`, JSON.stringify({ status: 'pending' }), 600);
+        return {
+            pairingCode,
+            tempDeviceId,
+            expireAt: Date.now() + 600000,
+        };
+    }
+    async getPairingStatus(tempDeviceId) {
+        const statusStr = await this.redis.get(`pairing_status:${tempDeviceId}`);
+        if (!statusStr) {
+            return { status: 'expired' };
+        }
+        return JSON.parse(statusStr);
+    }
+    async claimDevice(userId, dto) {
+        const pairingCode = dto.pairingCode.trim();
+        const tempInfoStr = await this.redis.get(`pairing_code:${pairingCode}`);
+        if (!tempInfoStr) {
+            throw new common_1.BadRequestException('Mã liên kết không tồn tại hoặc đã hết hạn');
+        }
+        const tempInfo = JSON.parse(tempInfoStr);
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+        if (!user) {
+            throw new common_1.NotFoundException('Không tìm thấy người dùng');
+        }
+        const assignedCount = await this.prisma.device.count({
+            where: { userId },
+        });
+        if (assignedCount >= user.licenseLimit) {
+            throw new common_1.BadRequestException(`Vượt quá giới hạn bản quyền (Hạn mức: ${user.licenseLimit} thiết bị. Hiện tại đã gán: ${assignedCount} thiết bị)`);
+        }
+        const apiKey = 'dev_' + crypto.randomBytes(24).toString('hex');
+        const device = await this.prisma.device.create({
+            data: {
+                userId,
+                deviceName: dto.deviceName,
+                apiKey,
+                macAddress: tempInfo.macAddress,
+                screenResolution: tempInfo.screenResolution,
+                osVersion: tempInfo.osVersion,
+                appVersion: tempInfo.appVersion,
+                status: 'offline',
+                approvalStatus: 'approved',
+            },
+        });
+        await this.redis.set(`pairing_status:${tempInfo.tempDeviceId}`, JSON.stringify({
+            status: 'linked',
+            apiKey,
+            deviceId: device.id,
+        }), 120);
+        await this.redis.del(`pairing_code:${pairingCode}`);
+        return {
+            success: true,
+            deviceId: device.id,
+            deviceName: device.deviceName,
+        };
+    }
     async register(dto, ipAddress) {
         if (dto.deviceId) {
             try {

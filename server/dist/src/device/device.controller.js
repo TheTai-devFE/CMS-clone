@@ -22,16 +22,27 @@ const device_service_1 = require("./device.service");
 const assign_device_dto_1 = require("./dto/assign-device.dto");
 const heartbeat_dto_1 = require("./dto/heartbeat.dto");
 const register_device_dto_1 = require("./dto/register-device.dto");
+const create_pairing_code_dto_1 = require("./dto/create-pairing-code.dto");
+const claim_device_dto_1 = require("./dto/claim-device.dto");
 let DeviceController = class DeviceController {
     deviceService;
     constructor(deviceService) {
         this.deviceService = deviceService;
+    }
+    async generatePairingCode(dto) {
+        return this.deviceService.generatePairingCode(dto);
+    }
+    async getPairingStatus(tempDeviceId) {
+        return this.deviceService.getPairingStatus(tempDeviceId);
     }
     async registerDevice(dto, ip) {
         return this.deviceService.register(dto, ip);
     }
     async heartbeat(dto) {
         return this.deviceService.heartbeat(dto);
+    }
+    async claimDevice(user, dto) {
+        return this.deviceService.claimDevice(user.id, dto);
     }
     async getUserDevices(user) {
         if (user.role === 'admin') {
@@ -58,6 +69,20 @@ let DeviceController = class DeviceController {
 };
 exports.DeviceController = DeviceController;
 __decorate([
+    (0, common_1.Post)('api/player/pairing-code'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [create_pairing_code_dto_1.CreatePairingCodeDto]),
+    __metadata("design:returntype", Promise)
+], DeviceController.prototype, "generatePairingCode", null);
+__decorate([
+    (0, common_1.Get)('api/player/pairing-status/:tempDeviceId'),
+    __param(0, (0, common_1.Param)('tempDeviceId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], DeviceController.prototype, "getPairingStatus", null);
+__decorate([
     (0, common_1.Post)('api/player/register'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Ip)()),
@@ -72,6 +97,15 @@ __decorate([
     __metadata("design:paramtypes", [heartbeat_dto_1.HeartbeatDto]),
     __metadata("design:returntype", Promise)
 ], DeviceController.prototype, "heartbeat", null);
+__decorate([
+    (0, common_1.Post)('api/devices/claim'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, claim_device_dto_1.ClaimDeviceDto]),
+    __metadata("design:returntype", Promise)
+], DeviceController.prototype, "claimDevice", null);
 __decorate([
     (0, common_1.Get)('api/devices'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

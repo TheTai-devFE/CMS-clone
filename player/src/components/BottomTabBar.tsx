@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, Animated, View } from 'react-native';
+import { StyleSheet, Text, Pressable, Animated, View } from 'react-native';
 import { colors } from '../theme/colors';
 
 interface BottomTabBarProps {
@@ -31,64 +31,124 @@ export default function BottomTabBar({
       ]}
     >
       {/* Tab 1: Register */}
-      <TouchableOpacity
-        style={styles.tabItem}
+      <Pressable
+        focusable={true}
+        hasTVPreferredFocus={activeTab === 'register' || activeTab === null}
+        style={({ focused }) => [
+          styles.tabItem,
+          focused && styles.tabItemFocused
+        ]}
         onPress={() => handlePress('register')}
-        activeOpacity={0.7}
+        onFocus={onInteraction}
       >
-        <Text style={[styles.tabIcon, activeTab === 'register' && styles.tabIconActive]}>
-          👤
-        </Text>
-        <Text style={[styles.tabLabel, activeTab === 'register' && styles.tabLabelActive]}>
-          Register
-        </Text>
-        {activeTab === 'register' && <View style={styles.activeTabIndicator} />}
-      </TouchableOpacity>
+        {({ focused }) => (
+          <View style={styles.tabItemContent}>
+            <Text style={[
+              styles.tabIcon, 
+              (activeTab === 'register' || focused) && styles.tabIconActive
+            ]}>
+              👤
+            </Text>
+            <Text style={[
+              styles.tabLabel, 
+              (activeTab === 'register' || focused) && styles.tabLabelActive
+            ]}>
+              Register
+            </Text>
+            {activeTab === 'register' && <View style={styles.activeTabIndicator} />}
+          </View>
+        )}
+      </Pressable>
 
       {/* Tab 2: Settings */}
-      <TouchableOpacity
-        style={styles.tabItem}
+      <Pressable
+        focusable={true}
+        hasTVPreferredFocus={activeTab === 'settings'}
+        style={({ focused }) => [
+          styles.tabItem,
+          focused && styles.tabItemFocused
+        ]}
         onPress={() => handlePress('settings')}
-        activeOpacity={0.7}
+        onFocus={onInteraction}
       >
-        <Text style={[styles.tabIcon, activeTab === 'settings' && styles.tabIconActive]}>
-          ⚙️
-        </Text>
-        <Text style={[styles.tabLabel, activeTab === 'settings' && styles.tabLabelActive]}>
-          Settings
-        </Text>
-        {activeTab === 'settings' && <View style={styles.activeTabIndicator} />}
-      </TouchableOpacity>
+        {({ focused }) => (
+          <View style={styles.tabItemContent}>
+            <Text style={[
+              styles.tabIcon, 
+              (activeTab === 'settings' || focused) && styles.tabIconActive
+            ]}>
+              ⚙️
+            </Text>
+            <Text style={[
+              styles.tabLabel, 
+              (activeTab === 'settings' || focused) && styles.tabLabelActive
+            ]}>
+              Settings
+            </Text>
+            {activeTab === 'settings' && <View style={styles.activeTabIndicator} />}
+          </View>
+        )}
+      </Pressable>
 
       {/* Tab 3: Network */}
-      <TouchableOpacity
-        style={styles.tabItem}
+      <Pressable
+        focusable={true}
+        hasTVPreferredFocus={activeTab === 'network'}
+        style={({ focused }) => [
+          styles.tabItem,
+          focused && styles.tabItemFocused
+        ]}
         onPress={() => handlePress('network')}
-        activeOpacity={0.7}
+        onFocus={onInteraction}
       >
-        <Text style={[styles.tabIcon, activeTab === 'network' && styles.tabIconActive]}>
-          📶
-        </Text>
-        <Text style={[styles.tabLabel, activeTab === 'network' && styles.tabLabelActive]}>
-          Network
-        </Text>
-        {activeTab === 'network' && <View style={styles.activeTabIndicator} />}
-      </TouchableOpacity>
+        {({ focused }) => (
+          <View style={styles.tabItemContent}>
+            <Text style={[
+              styles.tabIcon, 
+              (activeTab === 'network' || focused) && styles.tabIconActive
+            ]}>
+              📶
+            </Text>
+            <Text style={[
+              styles.tabLabel, 
+              (activeTab === 'network' || focused) && styles.tabLabelActive
+            ]}>
+              Network
+            </Text>
+            {activeTab === 'network' && <View style={styles.activeTabIndicator} />}
+          </View>
+        )}
+      </Pressable>
 
       {/* Tab 4: Exit */}
-      <TouchableOpacity
-        style={styles.tabItem}
+      <Pressable
+        focusable={true}
+        hasTVPreferredFocus={activeTab === 'exit'}
+        style={({ focused }) => [
+          styles.tabItem,
+          focused && styles.tabItemFocused
+        ]}
         onPress={() => handlePress('exit')}
-        activeOpacity={0.7}
+        onFocus={onInteraction}
       >
-        <Text style={[styles.tabIcon, activeTab === 'exit' && styles.tabIconActive]}>
-          🚪
-        </Text>
-        <Text style={[styles.tabLabel, activeTab === 'exit' && styles.tabLabelActive]}>
-          Exit
-        </Text>
-        {activeTab === 'exit' && <View style={styles.activeTabIndicator} />}
-      </TouchableOpacity>
+        {({ focused }) => (
+          <View style={styles.tabItemContent}>
+            <Text style={[
+              styles.tabIcon, 
+              (activeTab === 'exit' || focused) && styles.tabIconActive
+            ]}>
+              🚪
+            </Text>
+            <Text style={[
+              styles.tabLabel, 
+              (activeTab === 'exit' || focused) && styles.tabLabelActive
+            ]}>
+              Exit
+            </Text>
+            {activeTab === 'exit' && <View style={styles.activeTabIndicator} />}
+          </View>
+        )}
+      </Pressable>
     </Animated.View>
   );
 }
@@ -96,35 +156,47 @@ export default function BottomTabBar({
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 84,
+    bottom: 16,
+    left: 24,
+    right: 24,
+    height: 72,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    backgroundColor: colors.glassBackground,
-    borderTopWidth: 1,
-    borderTopColor: colors.glassBorder,
+    backgroundColor: 'rgba(10, 15, 29, 0.85)', // Dark glassmorphic background
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 24,
     paddingHorizontal: 16,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.03,
-    shadowRadius: 24,
-    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
     zIndex: 100,
   },
   tabItem: {
     flex: 1,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+    marginVertical: 4,
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  tabItemContent: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    height: '100%',
     position: 'relative',
     paddingBottom: 6,
   },
   tabIcon: {
     fontSize: 20,
-    opacity: 0.6,
+    opacity: 0.5,
   },
   tabIconActive: {
     opacity: 1,
@@ -132,20 +204,24 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.textMuted,
+    color: 'rgba(255, 255, 255, 0.5)',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginTop: 4,
   },
   tabLabelActive: {
-    color: colors.secondary,
+    color: '#00b894', // Emerald green to match CDM logo
   },
   activeTabIndicator: {
     position: 'absolute',
-    bottom: 12,
-    width: 16,
-    height: 2,
-    backgroundColor: colors.secondary,
-    borderRadius: 1,
+    bottom: 8,
+    width: 20,
+    height: 3,
+    backgroundColor: '#00b894',
+    borderRadius: 1.5,
+  },
+  tabItemFocused: {
+    backgroundColor: 'rgba(0, 184, 148, 0.15)', // Sáng lên tông màu xanh lá khi được focus bằng D-Pad
+    borderColor: 'rgba(0, 184, 148, 0.4)',
   },
 });
