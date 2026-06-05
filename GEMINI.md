@@ -96,7 +96,7 @@ Sử dụng các lệnh sau để kích hoạt quy trình tác chiến chuyên s
 
 ## Hướng dẫn tùy chỉnh
 
-Thêm các hướng dẫn cụ thể cho dự án của bạn tại đây.
+1. **Ràng buộc Kiến trúc (Rất quan trọng)**: Khi phát triển hoặc sửa đổi giao diện/tính năng Next.js, **bắt buộc** phải phân chia thư mục, tách nhỏ mã nguồn thành các Component riêng biệt và cấu trúc các Page riêng biệt sử dụng hệ thống định tuyến (Routing) của Next.js thay vì gom hết logic, hook và component vào một trang đơn duy nhất. Điều này giúp hệ thống dễ bảo trì, mở rộng và thay thế.
 
 ---
 *Được tạo bởi Antigravity IDE*

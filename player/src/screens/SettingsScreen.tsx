@@ -76,13 +76,13 @@ export default function SettingsScreen({
         style={styles.scrollContainer}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: isLandscape ? 40 : 120 },
+          { paddingBottom: isLandscape ? 110 : 130 },
         ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.settingsContentWrapper}>
           {/* Section: General */}
-          <View style={styles.sectionContainer}>
+          <View style={[styles.sectionContainer, isLandscape && styles.sectionContainerLandscape]}>
             <Text style={styles.sectionHeader}>HỆ THỐNG</Text>
             <View style={styles.glassListCard}>
               {/* Item: IP Address */}
@@ -93,7 +93,7 @@ export default function SettingsScreen({
                   </View>
                   <View>
                     <Text style={styles.itemTitle}>Địa chỉ IP</Text>
-                    <Text style={styles.itemSub}>{formIp || '192.168.1.100'}</Text>
+                    <Text style={styles.itemSub}>{formIp || '192.168.2.229'}</Text>
                   </View>
                 </View>
                 <Text style={styles.arrowIcon}>➔</Text>
@@ -132,7 +132,7 @@ export default function SettingsScreen({
           </View>
 
           {/* Section: Function Settings */}
-          <View style={styles.sectionContainer}>
+          <View style={[styles.sectionContainer, isLandscape && styles.sectionContainerLandscape]}>
             <Text style={styles.sectionHeader}>CHỨC NĂNG</Text>
             <View style={styles.glassListCard}>
               {/* Item: Background Sync */}
@@ -394,5 +394,8 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontSize: 14,
     fontWeight: '700',
+  },
+  sectionContainerLandscape: {
+    marginBottom: 14,
   },
 });

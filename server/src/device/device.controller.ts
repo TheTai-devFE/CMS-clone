@@ -7,6 +7,8 @@ import { DeviceService } from './device.service';
 import { AssignDeviceDto } from './dto/assign-device.dto';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import { RegisterDeviceDto } from './dto/register-device.dto';
+import { CreatePairingCodeDto } from './dto/create-pairing-code.dto';
+import { ClaimDeviceDto } from './dto/claim-device.dto';
 
 @Controller()
 export class DeviceController {
@@ -15,6 +17,16 @@ export class DeviceController {
   // ==========================================
   // ENDPOINTS DÀNH CHO PLAYER (KHÔNG CẦN AUTH)
   // ==========================================
+
+  @Post('api/player/pairing-code')
+  async generatePairingCode(@Body() dto: CreatePairingCodeDto) {
+    return this.deviceService.generatePairingCode(dto);
+  }
+
+  @Get('api/player/pairing-status/:tempDeviceId')
+  async getPairingStatus(@Param('tempDeviceId') tempDeviceId: string) {
+    return this.deviceService.getPairingStatus(tempDeviceId);
+  }
 
   @Post('api/player/register')
   async registerDevice(@Body() dto: RegisterDeviceDto, @Ip() ip: string) {
@@ -30,6 +42,12 @@ export class DeviceController {
   // ==========================================
   // ENDPOINTS DÀNH CHO USER (YÊU CẦU AUTH)
   // ==========================================
+
+  @Post('api/devices/claim')
+  @UseGuards(JwtAuthGuard)
+  async claimDevice(@CurrentUser() user: any, @Body() dto: ClaimDeviceDto) {
+    return this.deviceService.claimDevice(user.id, dto);
+  }
 
   @Get('api/devices')
   @UseGuards(JwtAuthGuard)

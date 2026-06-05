@@ -8,32 +8,24 @@ interface AdPlayerScreenProps {
   onRelaunchRequest?: () => void;
 }
 
-type MediaItem = 
+export type MediaItem = 
   | { type: 'image'; url: string; duration: number }
   | { type: 'video'; url: string; duration: number }; // fallback duration in ms
 
-const PLAYLIST: MediaItem[] = [
-  {
-    type: 'image',
-    url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=1200',
-    duration: 8000, // 8 seconds
-  },
-  {
-    type: 'video',
-    url: 'https://player.vimeo.com/external/371433846.sd.mp4?s=236da2f3c022f733f3d3621478541c888d3e2307&profile_id=139&oauth2_token_id=57447761',
-    duration: 15000, // 15 seconds fallback
-  },
-  {
-    type: 'image',
-    url: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=1200',
-    duration: 8000, // 8 seconds
-  },
-];
+export const PLAYLIST: MediaItem[] = [];
 
 export default function AdPlayerScreen({ isLandscape }: AdPlayerScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
-  const currentItem = PLAYLIST[currentIndex];
+  
+  const currentItem = PLAYLIST.length > 0 ? PLAYLIST[currentIndex] : null;
+
+  const imageSource = React.useMemo(() => {
+    if (currentItem && currentItem.type === 'image') {
+      return { uri: currentItem.url };
+    }
+    return null;
+  }, [currentItem]);
 
   const slideTimer = useRef<any>(null);
 
@@ -45,12 +37,14 @@ export default function AdPlayerScreen({ isLandscape }: AdPlayerScreenProps) {
   });
 
   const handleNext = () => {
+    if (PLAYLIST.length === 0) return;
     setCurrentIndex((prevIndex) => (prevIndex + 1) % PLAYLIST.length);
     setImageLoading(true);
   };
 
   // Handle slide switching logic
   useEffect(() => {
+    if (!currentItem) return;
     // Clear any existing timer
     if (slideTimer.current) {
       clearTimeout(slideTimer.current);
@@ -80,10 +74,11 @@ export default function AdPlayerScreen({ isLandscape }: AdPlayerScreenProps) {
         clearTimeout(slideTimer.current);
       }
     };
-  }, [currentIndex]);
+  }, [currentIndex, currentItem]);
 
   // Listen to video completion event using expo-video listener
   useEffect(() => {
+    if (!currentItem) return;
     const subscription = player.addListener('playToEnd', () => {
       if (currentItem.type === 'video') {
         handleNext();
@@ -93,15 +88,30 @@ export default function AdPlayerScreen({ isLandscape }: AdPlayerScreenProps) {
     return () => {
       subscription.remove();
     };
-  }, [player, currentIndex]);
+  }, [player, currentIndex, currentItem]);
+
+  if (PLAYLIST.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyIconCircle}>
+          <Text style={styles.emptyIconText}>📺</Text>
+        </View>
+        <Text style={styles.emptyTitle}>Chưa có nội dung trình chiếu</Text>
+        <Text style={styles.emptySubtitle}>
+          Thiết bị hiện đang ở chế độ chờ. Vui lòng liên kết thiết bị với CMS và gán lịch phát để cập nhật nội dung.
+        </Text>
+        <Text style={styles.emptyHint}>Chạm vào màn hình để mở bảng cấu hình</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       {/* Image container */}
       <View style={[styles.mediaContainer, { display: currentItem.type === 'image' ? 'flex' : 'none' }]}>
-        {currentItem.type === 'image' && (
+        {currentItem.type === 'image' && imageSource && (
           <Image
-            source={{ uri: currentItem.url }}
+            source={imageSource}
             style={styles.media}
             resizeMode="cover"
             onLoadStart={() => setImageLoading(true)}
@@ -140,6 +150,55 @@ export default function AdPlayerScreen({ isLandscape }: AdPlayerScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  emptyContainer: {
+    flex: 1,
+    backgroundColor: '#0a0f1d', // Ultra dark background matching premium signage style
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyIconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  emptyIconText: {
+    fontSize: 40,
+  },
+  emptyTitle: {
+    color: '#ffffff',
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 12,
+    letterSpacing: -0.5,
+  },
+  emptySubtitle: {
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: 14,
+    textAlign: 'center',
+    maxWidth: 420,
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  emptyHint: {
+    color: colors.success,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.15)',
+    textTransform: 'uppercase',
+  },
   container: {
     flex: 1,
     backgroundColor: '#000000',

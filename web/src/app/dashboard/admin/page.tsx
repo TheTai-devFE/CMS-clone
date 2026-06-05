@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic';
 
-import React from 'react';
 import AdminPageClient from './AdminPageClient';
 import { Metadata } from 'next';
 

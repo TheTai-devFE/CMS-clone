@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Theme & Custom components
 import { colors } from './src/theme/colors';
@@ -16,7 +17,7 @@ import ExitModal from './src/components/ExitModal';
 
 // Screens
 import HomeScreen from './src/screens/HomeScreen';
-import AdPlayerScreen from './src/screens/AdPlayerScreen';
+import AdPlayerScreen, { PLAYLIST } from './src/screens/AdPlayerScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import NetworkScreen from './src/screens/NetworkScreen';
@@ -29,9 +30,57 @@ export default function App() {
   const [showExitModal, setShowExitModal] = useState(false);
 
   // Form Configurations
-  const [formIp, setFormIp] = useState('192.168.1.100');
+  const [formIp, setFormIp] = useState('192.168.2.229');
   const [formPort, setFormPort] = useState('3000');
   const [formName, setFormName] = useState('Màn hình Phòng khách');
+
+  // Registered Device Credentials
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [registeredDeviceName, setRegisteredDeviceName] = useState<string>('');
+
+  // Load configuration from AsyncStorage on mount
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const storedIp = await AsyncStorage.getItem('serverIp');
+        const storedPort = await AsyncStorage.getItem('serverPort');
+        const storedId = await AsyncStorage.getItem('deviceId');
+        const storedKey = await AsyncStorage.getItem('apiKey');
+        const storedName = await AsyncStorage.getItem('deviceName');
+        
+        if (storedIp) setFormIp(storedIp);
+        if (storedPort) setFormPort(storedPort);
+        if (storedId) setDeviceId(storedId);
+        if (storedKey) setApiKey(storedKey);
+        if (storedName) {
+          setFormName(storedName);
+          setRegisteredDeviceName(storedName);
+        }
+      } catch (e) {
+        console.error('Lỗi khi tải cấu hình từ AsyncStorage:', e);
+      }
+    };
+    loadConfig();
+  }, []);
+
+  const handleSetFormIp = async (ip: string) => {
+    setFormIp(ip);
+    try {
+      await AsyncStorage.setItem('serverIp', ip);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSetFormPort = async (port: string) => {
+    setFormPort(port);
+    try {
+      await AsyncStorage.setItem('serverPort', port);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Animation values
   const translateYAnim = useRef(new Animated.Value(0)).current; // Tab bar trượt
@@ -128,15 +177,23 @@ export default function App() {
     }, 3000);
   };
 
-  // Submit action in RegisterScreen
-  const handleRegisterSubmit = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+  // Success action in RegisterScreen
+  const handleRegisterSuccess = async (id: string, key: string, name: string) => {
+    try {
+      await AsyncStorage.setItem('deviceId', id);
+      await AsyncStorage.setItem('apiKey', key);
+      await AsyncStorage.setItem('deviceName', name);
+      
+      setDeviceId(id);
+      setApiKey(key);
+      setFormName(name);
+      setRegisteredDeviceName(name);
+      
       triggerToast();
-      // Auto switch back to AdPlayer screen after successful registration
-      setActiveTab(null);
-    }, 1500);
+      // Không tự động đóng tab Register, hiển thị giao diện kích hoạt ngay tại đây
+    } catch (e) {
+      console.error('Lỗi lưu thông tin sau đăng ký thành công:', e);
+    }
   };
 
   // Screen orientation/dimensions
@@ -151,22 +208,31 @@ export default function App() {
         {/* Dynamic content rendering based on activeTab */}
         <View style={styles.contentArea}>
           {activeTab === null ? (
-            <AdPlayerScreen
-              isLandscape={isLandscape}
-              onRelaunchRequest={() => setActiveTab(null)}
-            />
+            PLAYLIST.length > 0 ? (
+              <AdPlayerScreen
+                isLandscape={isLandscape}
+                onRelaunchRequest={() => setActiveTab(null)}
+              />
+            ) : (
+              <HomeScreen 
+                isLandscape={isLandscape}
+                deviceId={deviceId}
+                deviceName={registeredDeviceName}
+                serverIp={formIp}
+                serverPort={formPort}
+              />
+            )
           ) : activeTab === 'register' ? (
             <RegisterScreen
               isLandscape={isLandscape}
-              onSubmit={handleRegisterSubmit}
-              isLoading={isLoading}
+              onSuccess={handleRegisterSuccess}
               formIp={formIp}
-              setFormIp={setFormIp}
+              setFormIp={handleSetFormIp}
               formPort={formPort}
-              setFormPort={setFormPort}
-              formName={formName}
-              setFormName={setFormName}
+              setFormPort={handleSetFormPort}
               onBack={() => setActiveTab(null)}
+              deviceId={deviceId}
+              deviceName={registeredDeviceName}
             />
           ) : activeTab === 'settings' ? (
             <SettingsScreen
@@ -175,11 +241,19 @@ export default function App() {
               formPort={formPort}
               formName={formName}
               onBack={() => setActiveTab(null)}
-              onLogout={() => {
-                setFormIp('');
-                setFormPort('');
-                setFormName('');
-                setActiveTab('register');
+              onLogout={async () => {
+                try {
+                  await AsyncStorage.removeItem('deviceId');
+                  await AsyncStorage.removeItem('apiKey');
+                  await AsyncStorage.removeItem('deviceName');
+                  setDeviceId(null);
+                  setApiKey(null);
+                  setFormName('');
+                  setRegisteredDeviceName('');
+                  setActiveTab('register');
+                } catch (e) {
+                  console.error('Lỗi khi xóa cấu hình thiết bị:', e);
+                }
               }}
             />
           ) : activeTab === 'network' ? (
@@ -194,7 +268,13 @@ export default function App() {
             />
           ) : (
             // Placeholder/Fallback to welcome screen if tab is undefined
-            <HomeScreen isLandscape={isLandscape} />
+            <HomeScreen 
+              isLandscape={isLandscape}
+              deviceId={deviceId}
+              deviceName={registeredDeviceName}
+              serverIp={formIp}
+              serverPort={formPort}
+            />
           )}
         </View>
 
