@@ -54,7 +54,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={`flex min-h-screen w-full bg-background text-foreground ${isDarkMode ? 'dark' : ''}`}>
-      
+
       {/* Sidebar navigation */}
       {currentUser && (
         <Sidebar
@@ -70,7 +70,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
       {/* Main Workspace wrapper */}
       <div className="flex-1 flex flex-col min-w-0">
-        
+
         {/* Header bar */}
         {currentUser && (
           <Header
@@ -94,7 +94,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         {/* Workspace scrollable view */}
         <div className="flex-1 overflow-y-auto">
           <main className="p-4 md:p-8 w-full mx-auto space-y-6">
-            
+
             {/* Global Alerts */}
             {(error || successMsg) && (
               <div className="space-y-3">
@@ -139,7 +139,6 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-<<<<<<< HEAD
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -148,5 +147,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </DashboardProvider>
   );
 }
-=======
->>>>>>> 907f59a1f1346f645b2f5921b62b50314ad5772d
