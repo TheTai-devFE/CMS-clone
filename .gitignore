@@ -44,3 +44,8 @@ next-env.d.ts
 pnpm-lock.yaml
 bun.lock
 bun.lockb
+/build
+/dist
+
+# generated
+/generated/prisma
