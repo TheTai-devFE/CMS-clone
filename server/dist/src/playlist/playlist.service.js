@@ -109,11 +109,24 @@ let PlaylistService = class PlaylistService {
         });
     }
     async createSchedule(dto, userId) {
-        const playlist = await this.prisma.playlist.findUnique({
-            where: { id: dto.playlistId },
-        });
-        if (!playlist) {
-            throw new common_1.NotFoundException('Không tìm thấy danh sách phát để lập lịch');
+        if (dto.playlistId) {
+            const playlist = await this.prisma.playlist.findUnique({
+                where: { id: dto.playlistId },
+            });
+            if (!playlist) {
+                throw new common_1.NotFoundException('Không tìm thấy danh sách phát để lập lịch');
+            }
+        }
+        else if (dto.templateId) {
+            const template = await this.prisma.template.findUnique({
+                where: { id: dto.templateId },
+            });
+            if (!template) {
+                throw new common_1.NotFoundException('Không tìm thấy bố cục để lập lịch');
+            }
+        }
+        else {
+            throw new common_1.BadRequestException('Vui lòng chọn Playlist hoặc Bố cục hiển thị');
         }
         const startDate = new Date(dto.startDate);
         const endDate = new Date(dto.endDate);
@@ -121,7 +134,8 @@ let PlaylistService = class PlaylistService {
             data: {
                 userId,
                 scheduleName: dto.scheduleName,
-                playlistId: dto.playlistId,
+                playlistId: dto.playlistId ?? null,
+                templateId: dto.templateId ?? null,
                 startDate,
                 endDate,
                 startTime: dto.startTime || '00:00:00',
@@ -145,6 +159,7 @@ let PlaylistService = class PlaylistService {
             where,
             include: {
                 playlist: true,
+                template: true,
                 devices: {
                     include: {
                         device: true,
@@ -197,6 +212,11 @@ let PlaylistService = class PlaylistService {
                         },
                     },
                 },
+                template: {
+                    include: {
+                        zones: true,
+                    },
+                },
             },
             orderBy: {
                 priority: 'desc',
@@ -210,25 +230,57 @@ let PlaylistService = class PlaylistService {
                 items: [],
             };
         }
-        const targetPlaylist = activeSchedules[0].playlist;
+        const activeSchedule = activeSchedules[0];
+        if (activeSchedule.playlist) {
+            const targetPlaylist = activeSchedule.playlist;
+            return {
+                status: 'active',
+                type: 'playlist',
+                playlistId: targetPlaylist.id,
+                playlistName: targetPlaylist.playlistName,
+                isSyncGroup: targetPlaylist.isSyncGroup,
+                syncLayout: targetPlaylist.syncLayout,
+                items: targetPlaylist.playlistItems.map((item) => ({
+                    itemId: item.id,
+                    mediaId: item.media.id,
+                    fileName: item.media.fileName,
+                    fileUrl: item.media.fileUrl,
+                    fileSize: item.media.fileSize.toString(),
+                    mimeType: item.media.mimeType,
+                    checksum: item.media.checksum,
+                    sortOrder: item.sortOrder,
+                    duration: item.duration,
+                    transitionEffect: item.transitionEffect,
+                })),
+            };
+        }
+        else if (activeSchedule.template) {
+            const targetTemplate = activeSchedule.template;
+            return {
+                status: 'active',
+                type: 'template',
+                templateId: targetTemplate.id,
+                templateName: targetTemplate.name,
+                width: targetTemplate.width,
+                height: targetTemplate.height,
+                orientation: targetTemplate.orientation,
+                zones: targetTemplate.zones.map((zone) => ({
+                    id: zone.id,
+                    name: zone.name,
+                    type: zone.type,
+                    x: zone.x,
+                    y: zone.y,
+                    width: zone.width,
+                    height: zone.height,
+                    contentData: zone.contentData,
+                })),
+            };
+        }
         return {
             status: 'active',
-            playlistId: targetPlaylist.id,
-            playlistName: targetPlaylist.playlistName,
-            isSyncGroup: targetPlaylist.isSyncGroup,
-            syncLayout: targetPlaylist.syncLayout,
-            items: targetPlaylist.playlistItems.map((item) => ({
-                itemId: item.id,
-                mediaId: item.media.id,
-                fileName: item.media.fileName,
-                fileUrl: item.media.fileUrl,
-                fileSize: item.media.fileSize.toString(),
-                mimeType: item.media.mimeType,
-                checksum: item.media.checksum,
-                sortOrder: item.sortOrder,
-                duration: item.duration,
-                transitionEffect: item.transitionEffect,
-            })),
+            playlistId: null,
+            playlistName: 'Default Playback',
+            items: [],
         };
     }
 };

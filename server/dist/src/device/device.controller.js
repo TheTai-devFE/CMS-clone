@@ -50,6 +50,9 @@ let DeviceController = class DeviceController {
         }
         return this.deviceService.getUserDevices(user.id);
     }
+    async getSystemLogs(user) {
+        return this.deviceService.getSystemLogs(user);
+    }
     async deleteDevice(id, user) {
         if (user.role !== 'admin') {
             const userDevices = await this.deviceService.getUserDevices(user.id);
@@ -114,6 +117,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], DeviceController.prototype, "getUserDevices", null);
+__decorate([
+    (0, common_1.Get)('api/devices/logs'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], DeviceController.prototype, "getSystemLogs", null);
 __decorate([
     (0, common_1.Delete)('api/devices/:id'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

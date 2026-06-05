@@ -14,6 +14,7 @@ const class_validator_1 = require("class-validator");
 class CreateScheduleDto {
     scheduleName;
     playlistId;
+    templateId;
     deviceIds;
     startDate;
     endDate;
@@ -29,9 +30,14 @@ __decorate([
 ], CreateScheduleDto.prototype, "scheduleName", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateScheduleDto.prototype, "playlistId", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateScheduleDto.prototype, "templateId", void 0);
 __decorate([
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.IsString)({ each: true }),

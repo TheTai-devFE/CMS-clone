@@ -58,6 +58,12 @@ export class DeviceController {
     return this.deviceService.getUserDevices(user.id);
   }
 
+  @Get('api/devices/logs')
+  @UseGuards(JwtAuthGuard)
+  async getSystemLogs(@CurrentUser() user: any) {
+    return this.deviceService.getSystemLogs(user);
+  }
+
   @Delete('api/devices/:id')
   @UseGuards(JwtAuthGuard)
   async deleteDevice(@Param('id') id: string, @CurrentUser() user: any) {

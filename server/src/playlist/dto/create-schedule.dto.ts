@@ -6,8 +6,12 @@ export class CreateScheduleDto {
   scheduleName: string;
 
   @IsString()
-  @IsNotEmpty()
-  playlistId: string;
+  @IsOptional()
+  playlistId?: string;
+
+  @IsString()
+  @IsOptional()
+  templateId?: string;
 
   @IsArray()
   @IsString({ each: true })

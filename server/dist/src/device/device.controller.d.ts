@@ -31,6 +31,13 @@ export declare class DeviceController {
         deviceName: string;
     }>;
     getUserDevices(user: any): Promise<any[]>;
+    getSystemLogs(user: any): Promise<{
+        id: string;
+        deviceName: string;
+        status: string;
+        detail: string;
+        time: string;
+    }[]>;
     deleteDevice(id: string, user: any): Promise<{
         id: string;
         status: string;

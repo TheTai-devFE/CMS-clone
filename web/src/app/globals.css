@@ -1,3 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: var(--canvas);
+    --foreground: var(--ink);
+
+    --card: var(--surface);
+    --card-foreground: var(--ink);
+
+    --popover: var(--surface);
+    --popover-foreground: var(--ink);
+
+    --primary: var(--accent);
+    --primary-foreground: var(--ink-inverse);
+
+    --secondary: var(--surface-elevated);
+    --secondary-foreground: var(--ink);
+
+    --muted: var(--surface-elevated);
+    --muted-foreground: var(--ink-secondary);
+
+    --accent-foreground: var(--ink-inverse);
+
+    --destructive: var(--error);
+    --destructive-foreground: var(--ink-inverse);
+
+    --border: var(--border);
+    --input: var(--border);
+    --ring: var(--accent);
+
+    --radius: var(--radius-md);
+  }
+
+  .dark {
+    --background: #0F172A;
+    --foreground: #F3F4F6;
+
+    --card: #1E293B;
+    --card-foreground: #F3F4F6;
+
+    --popover: #1E293B;
+    --popover-foreground: #F3F4F6;
+
+    --primary: var(--accent);
+    --primary-foreground: var(--ink-inverse);
+
+    --secondary: #334155;
+    --secondary-foreground: #F3F4F6;
+
+    --muted: #334155;
+    --muted-foreground: #9CA3AF;
+
+    --accent-foreground: var(--ink-inverse);
+
+    --destructive: var(--error);
+    --destructive-foreground: var(--ink-inverse);
+
+    --border: #334155;
+    --input: #334155;
+    --ring: var(--accent);
+  }
+}
+
 /* Font loaded via next/font in layout.tsx for non-blocking render */
 
 /* ============================================

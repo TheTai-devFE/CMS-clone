@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddPlaylistItemsDto } from './dto/add-playlist-items.dto';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
@@ -126,12 +126,22 @@ export class PlaylistService {
   // ==========================================
 
   async createSchedule(dto: CreateScheduleDto, userId: string) {
-    const playlist = await this.prisma.playlist.findUnique({
-      where: { id: dto.playlistId },
-    });
-
-    if (!playlist) {
-      throw new NotFoundException('Không tìm thấy danh sách phát để lập lịch');
+    if (dto.playlistId) {
+      const playlist = await this.prisma.playlist.findUnique({
+        where: { id: dto.playlistId },
+      });
+      if (!playlist) {
+        throw new NotFoundException('Không tìm thấy danh sách phát để lập lịch');
+      }
+    } else if (dto.templateId) {
+      const template = await this.prisma.template.findUnique({
+        where: { id: dto.templateId },
+      });
+      if (!template) {
+        throw new NotFoundException('Không tìm thấy bố cục để lập lịch');
+      }
+    } else {
+      throw new BadRequestException('Vui lòng chọn Playlist hoặc Bố cục hiển thị');
     }
 
     // Định dạng lại ngày để lưu vào PostgreSQL
@@ -142,7 +152,8 @@ export class PlaylistService {
       data: {
         userId,
         scheduleName: dto.scheduleName,
-        playlistId: dto.playlistId,
+        playlistId: dto.playlistId ?? null,
+        templateId: dto.templateId ?? null,
         startDate,
         endDate,
         startTime: dto.startTime || '00:00:00',
@@ -168,6 +179,7 @@ export class PlaylistService {
       where,
       include: {
         playlist: true,
+        template: true,
         devices: {
           include: {
             device: true,
@@ -237,6 +249,11 @@ export class PlaylistService {
             },
           },
         },
+        template: {
+          include: {
+            zones: true,
+          },
+        },
       },
       orderBy: {
         priority: 'desc', // Lấy lịch phát có ưu tiên cao nhất trước
@@ -252,27 +269,59 @@ export class PlaylistService {
       };
     }
 
-    // Lấy Playlist của lịch trình hoạt động có ưu tiên cao nhất
-    const targetPlaylist = activeSchedules[0].playlist;
+    const activeSchedule = activeSchedules[0];
+
+    // Trả về cấu trúc tương thích tùy theo lịch là Playlist hay Template Layout
+    if (activeSchedule.playlist) {
+      const targetPlaylist = activeSchedule.playlist;
+      return {
+        status: 'active',
+        type: 'playlist',
+        playlistId: targetPlaylist.id,
+        playlistName: targetPlaylist.playlistName,
+        isSyncGroup: targetPlaylist.isSyncGroup,
+        syncLayout: targetPlaylist.syncLayout,
+        items: targetPlaylist.playlistItems.map((item) => ({
+          itemId: item.id,
+          mediaId: item.media.id,
+          fileName: item.media.fileName,
+          fileUrl: item.media.fileUrl, // Link tải tương đối
+          fileSize: item.media.fileSize.toString(),
+          mimeType: item.media.mimeType,
+          checksum: item.media.checksum,
+          sortOrder: item.sortOrder,
+          duration: item.duration,
+          transitionEffect: item.transitionEffect,
+        })),
+      };
+    } else if (activeSchedule.template) {
+      const targetTemplate = activeSchedule.template;
+      return {
+        status: 'active',
+        type: 'template',
+        templateId: targetTemplate.id,
+        templateName: targetTemplate.name,
+        width: targetTemplate.width,
+        height: targetTemplate.height,
+        orientation: targetTemplate.orientation,
+        zones: targetTemplate.zones.map((zone) => ({
+          id: zone.id,
+          name: zone.name,
+          type: zone.type,
+          x: zone.x,
+          y: zone.y,
+          width: zone.width,
+          height: zone.height,
+          contentData: zone.contentData,
+        })),
+      };
+    }
 
     return {
       status: 'active',
-      playlistId: targetPlaylist.id,
-      playlistName: targetPlaylist.playlistName,
-      isSyncGroup: targetPlaylist.isSyncGroup,
-      syncLayout: targetPlaylist.syncLayout,
-      items: targetPlaylist.playlistItems.map((item) => ({
-        itemId: item.id,
-        mediaId: item.media.id,
-        fileName: item.media.fileName,
-        fileUrl: item.media.fileUrl, // Link tải tương đối, ví dụ: /uploads/xxxx.mp4
-        fileSize: item.media.fileSize.toString(),
-        mimeType: item.media.mimeType,
-        checksum: item.media.checksum,
-        sortOrder: item.sortOrder,
-        duration: item.duration,
-        transitionEffect: item.transitionEffect,
-      })),
+      playlistId: null,
+      playlistName: 'Default Playback',
+      items: [],
     };
   }
 }

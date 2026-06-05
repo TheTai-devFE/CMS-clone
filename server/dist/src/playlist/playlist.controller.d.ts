@@ -11,18 +11,33 @@ export declare class PlaylistController {
         items: never[];
         playlistId?: undefined;
         playlistName?: undefined;
+        type?: undefined;
         isSyncGroup?: undefined;
         syncLayout?: undefined;
+        templateId?: undefined;
+        templateName?: undefined;
+        width?: undefined;
+        height?: undefined;
+        orientation?: undefined;
+        zones?: undefined;
     } | {
         status: string;
         playlistId: null;
         playlistName: string;
         items: never[];
         message?: undefined;
+        type?: undefined;
         isSyncGroup?: undefined;
         syncLayout?: undefined;
+        templateId?: undefined;
+        templateName?: undefined;
+        width?: undefined;
+        height?: undefined;
+        orientation?: undefined;
+        zones?: undefined;
     } | {
         status: string;
+        type: string;
         playlistId: string;
         playlistName: string;
         isSyncGroup: boolean;
@@ -40,6 +55,36 @@ export declare class PlaylistController {
             transitionEffect: string;
         }[];
         message?: undefined;
+        templateId?: undefined;
+        templateName?: undefined;
+        width?: undefined;
+        height?: undefined;
+        orientation?: undefined;
+        zones?: undefined;
+    } | {
+        status: string;
+        type: string;
+        templateId: string;
+        templateName: string;
+        width: number;
+        height: number;
+        orientation: string;
+        zones: {
+            id: string;
+            name: string;
+            type: string;
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+            contentData: import("@prisma/client/runtime/client").JsonValue;
+        }[];
+        message?: undefined;
+        items?: undefined;
+        playlistId?: undefined;
+        playlistName?: undefined;
+        isSyncGroup?: undefined;
+        syncLayout?: undefined;
     }>;
     createPlaylist(dto: CreatePlaylistDto, user: any): Promise<{
         id: string;
@@ -118,7 +163,8 @@ export declare class PlaylistController {
         updatedAt: Date;
         userId: string;
         scheduleName: string;
-        playlistId: string;
+        playlistId: string | null;
+        templateId: string | null;
         startDate: Date;
         endDate: Date;
         startTime: string;
@@ -136,7 +182,17 @@ export declare class PlaylistController {
             description: string | null;
             isSyncGroup: boolean;
             syncLayout: import("@prisma/client/runtime/client").JsonValue | null;
-        };
+        } | null;
+        template: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            userId: string;
+            width: number;
+            height: number;
+            orientation: string;
+        } | null;
         devices: ({
             device: {
                 id: string;
@@ -164,7 +220,8 @@ export declare class PlaylistController {
         updatedAt: Date;
         userId: string;
         scheduleName: string;
-        playlistId: string;
+        playlistId: string | null;
+        templateId: string | null;
         startDate: Date;
         endDate: Date;
         startTime: string;
