@@ -1,4 +1,5 @@
 import Cookies from 'js-cookie';
+import { User } from '@/types/dashboard';
 
 const ACCESS_TOKEN_KEY = 'cms_access_token';
 const REFRESH_TOKEN_KEY = 'cms_refresh_token';
@@ -17,7 +18,7 @@ export const cookieStorage = {
     Cookies.set(REFRESH_TOKEN_KEY, token, { expires: 7, secure: true, sameSite: 'strict' }); // 7 ngày
   },
 
-  getUserInfo: () => {
+  getUserInfo: (): User | null => {
     const info = Cookies.get(USER_INFO_KEY);
     try {
       return info ? JSON.parse(info) : null;
@@ -26,7 +27,7 @@ export const cookieStorage = {
     }
   },
 
-  setUserInfo: (user: any) => {
+  setUserInfo: (user: User) => {
     Cookies.set(USER_INFO_KEY, JSON.stringify(user), { expires: 7, secure: true, sameSite: 'strict' });
   },
 

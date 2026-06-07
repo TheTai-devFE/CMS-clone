@@ -1,6 +1,6 @@
 import { cookieStorage } from './cookie';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 interface RequestOptions extends RequestInit {
   useMultipart?: boolean;
@@ -24,13 +24,11 @@ export const api = {
       headers.set('Content-Type', 'application/json');
     }
 
+    const { useMultipart, ...restOptions } = options;
     const config: RequestInit = {
-      ...options,
+      ...restOptions,
       headers,
     };
-
-    // Loại bỏ key useMultipart trước khi chuyển cho fetch native
-    delete (config as any).useMultipart;
 
     try {
       const response = await fetch(url, config);
@@ -65,7 +63,7 @@ export const api = {
       }
 
       return await response.json();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`API Error [${endpoint}]:`, error);
       throw error;
     }
@@ -75,15 +73,15 @@ export const api = {
     return api.request(endpoint, { ...options, method: 'GET' });
   },
 
-  post: (endpoint: string, body: any, options: RequestOptions = {}) => {
+  post: (endpoint: string, body: unknown, options: RequestOptions = {}) => {
     return api.request(endpoint, {
       ...options,
       method: 'POST',
-      body: options.useMultipart ? body : JSON.stringify(body),
+      body: options.useMultipart ? (body as BodyInit) : JSON.stringify(body),
     });
   },
 
-  put: (endpoint: string, body: any, options: RequestOptions = {}) => {
+  put: (endpoint: string, body: unknown, options: RequestOptions = {}) => {
     return api.request(endpoint, {
       ...options,
       method: 'PUT',

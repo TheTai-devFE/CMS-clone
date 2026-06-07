@@ -1,24 +1,14 @@
-'use client';
+export const dynamic = 'force-dynamic';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { cookieStorage } from '../utils/cookie';
+import React from 'react';
+import HomePageClient from './HomePageClient';
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'CDM Signage CMS - Hệ thống quản lý màn hình quảng cáo',
+  description: 'Hệ thống CMS quản lý, đồng bộ và phân phối quảng cáo thời gian thực cho hệ thống màn hình CDM.',
+};
 
 export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    const token = cookieStorage.getAccessToken();
-    if (token) {
-      router.push('/dashboard');
-    } else {
-      router.push('/login');
-    }
-  }, [router]);
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--text-muted)' }}>
-      Đang chuyển hướng hệ thống...
-    </div>
-  );
+  return <HomePageClient />;
 }
