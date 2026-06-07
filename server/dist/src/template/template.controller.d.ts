@@ -5,114 +5,21 @@ export declare class TemplateController {
     constructor(templateService: TemplateService);
     create(dto: CreateTemplateDto, user: {
         id: string;
-    }): Promise<({
-        zones: {
-            id: string;
-            name: string;
-            y: number;
-            type: string;
-            templateId: string;
-            width: number;
-            height: number;
-            x: number;
-            contentData: import("@prisma/client/runtime/client").JsonValue | null;
-        }[];
-    } & {
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        name: string;
-        userId: string;
-        width: number;
-        height: number;
-        orientation: string;
-    }) | null>;
+    }): Promise<any>;
     findAll(user: {
         id: string;
         role: string;
-    }): Promise<({
-        zones: {
-            id: string;
-            name: string;
-            y: number;
-            type: string;
-            templateId: string;
-            width: number;
-            height: number;
-            x: number;
-            contentData: import("@prisma/client/runtime/client").JsonValue | null;
-        }[];
-    } & {
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        name: string;
-        userId: string;
-        width: number;
-        height: number;
-        orientation: string;
-    })[]>;
+    }): Promise<any>;
     findOne(id: string, user: {
         id: string;
         role: string;
-    }): Promise<{
-        zones: {
-            id: string;
-            name: string;
-            y: number;
-            type: string;
-            templateId: string;
-            width: number;
-            height: number;
-            x: number;
-            contentData: import("@prisma/client/runtime/client").JsonValue | null;
-        }[];
-    } & {
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        name: string;
-        userId: string;
-        width: number;
-        height: number;
-        orientation: string;
-    }>;
+    }): Promise<any>;
     update(id: string, dto: CreateTemplateDto, user: {
         id: string;
         role: string;
-    }): Promise<({
-        zones: {
-            id: string;
-            name: string;
-            y: number;
-            type: string;
-            templateId: string;
-            width: number;
-            height: number;
-            x: number;
-            contentData: import("@prisma/client/runtime/client").JsonValue | null;
-        }[];
-    } & {
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        name: string;
-        userId: string;
-        width: number;
-        height: number;
-        orientation: string;
-    }) | null>;
+    }): Promise<any>;
     remove(id: string, user: {
         id: string;
         role: string;
-    }): Promise<{
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        name: string;
-        userId: string;
-        width: number;
-        height: number;
-        orientation: string;
-    }>;
+    }): Promise<any>;
 }

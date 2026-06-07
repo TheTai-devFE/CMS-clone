@@ -9,37 +9,21 @@ export declare class AuthService {
     private readonly jwtService;
     private readonly configService;
     constructor(prisma: PrismaService, jwtService: JwtService, configService: ConfigService);
-    register(dto: RegisterDto): Promise<{
-        email: string;
-        username: string;
-        role: string;
-        licenseLimit: number;
-        id: string;
-        status: string;
-        createdAt: Date;
-    }>;
+    register(dto: RegisterDto): Promise<any>;
     login(dto: LoginDto): Promise<{
         accessToken: string;
         refreshToken: string;
         user: {
-            id: string;
-            username: string;
-            email: string;
-            role: string;
-            licenseLimit: number;
-            status: string;
+            id: any;
+            username: any;
+            email: any;
+            role: any;
+            licenseLimit: any;
+            status: any;
         };
     }>;
     private generateTokens;
-    getAllUsers(): Promise<{
-        email: string;
-        username: string;
-        role: string;
-        licenseLimit: number;
-        id: string;
-        status: string;
-        createdAt: Date;
-    }[]>;
+    getAllUsers(): Promise<any>;
     changePassword(userId: string, dto: ChangePasswordDto): Promise<{
         message: string;
     }>;

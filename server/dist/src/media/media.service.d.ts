@@ -5,35 +5,8 @@ export declare class MediaService {
     private readonly configService;
     private readonly uploadDir;
     constructor(prisma: PrismaService, configService: ConfigService);
-    saveUploadedFile(file: Express.Multer.File, userId: string): Promise<{
-        id: string;
-        createdAt: Date;
-        userId: string;
-        fileName: string;
-        fileUrl: string;
-        fileSize: bigint;
-        mimeType: string;
-        checksum: string;
-    } | {
-        fileSize: string;
-        id: string;
-        createdAt: Date;
-        userId: string;
-        fileName: string;
-        fileUrl: string;
-        mimeType: string;
-        checksum: string;
-    }>;
-    getUserMedia(userId: string, role: string): Promise<{
-        fileSize: string;
-        id: string;
-        createdAt: Date;
-        userId: string;
-        fileName: string;
-        fileUrl: string;
-        mimeType: string;
-        checksum: string;
-    }[]>;
+    saveUploadedFile(file: Express.Multer.File, userId: string): Promise<any>;
+    getUserMedia(userId: string, role: string): Promise<any>;
     deleteMedia(id: string, userId: string, role: string): Promise<{
         success: boolean;
     }>;

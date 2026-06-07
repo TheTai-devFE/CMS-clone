@@ -13,62 +13,21 @@ export declare class DeviceController {
         expireAt: number;
     }>;
     getPairingStatus(tempDeviceId: string): Promise<any>;
-    registerDevice(dto: RegisterDeviceDto, ip: string): Promise<{
-        id: string;
-        apiKey: string;
-        deviceName: string;
-        approvalStatus: string;
-    }>;
+    registerDevice(dto: RegisterDeviceDto, ip: string): Promise<any>;
     heartbeat(dto: HeartbeatDto): Promise<{
-        deviceId: string;
-        deviceName: string;
-        approvalStatus: string;
+        deviceId: any;
+        deviceName: any;
+        approvalStatus: any;
         status: string;
     }>;
     claimDevice(user: any, dto: ClaimDeviceDto): Promise<{
         success: boolean;
-        deviceId: string;
-        deviceName: string;
+        deviceId: any;
+        deviceName: any;
     }>;
     getUserDevices(user: any): Promise<any[]>;
-    getSystemLogs(user: any): Promise<{
-        id: string;
-        deviceName: string;
-        status: string;
-        detail: string;
-        time: string;
-    }[]>;
-    deleteDevice(id: string, user: any): Promise<{
-        id: string;
-        status: string;
-        createdAt: Date;
-        updatedAt: Date;
-        apiKey: string;
-        deviceName: string;
-        macAddress: string | null;
-        screenResolution: string | null;
-        osVersion: string | null;
-        appVersion: string | null;
-        userId: string | null;
-        approvalStatus: string;
-        ipAddress: string | null;
-        lastHeartbeat: Date | null;
-    }>;
+    getSystemLogs(user: any): Promise<any[]>;
+    deleteDevice(id: string, user: any): Promise<any>;
     getPendingDevices(): Promise<any[]>;
-    assignDevice(id: string, dto: AssignDeviceDto): Promise<{
-        id: string;
-        status: string;
-        createdAt: Date;
-        updatedAt: Date;
-        apiKey: string;
-        deviceName: string;
-        macAddress: string | null;
-        screenResolution: string | null;
-        osVersion: string | null;
-        appVersion: string | null;
-        userId: string | null;
-        approvalStatus: string;
-        ipAddress: string | null;
-        lastHeartbeat: Date | null;
-    }>;
+    assignDevice(id: string, dto: AssignDeviceDto): Promise<any>;
 }
