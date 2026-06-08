@@ -19,6 +19,7 @@ const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const add_playlist_items_dto_1 = require("./dto/add-playlist-items.dto");
 const create_playlist_dto_1 = require("./dto/create-playlist.dto");
 const create_schedule_dto_1 = require("./dto/create-schedule.dto");
+const update_playlist_dto_1 = require("./dto/update-playlist.dto");
 const playlist_service_1 = require("./playlist.service");
 let PlaylistController = class PlaylistController {
     playlistService;
@@ -30,6 +31,9 @@ let PlaylistController = class PlaylistController {
     }
     async createPlaylist(dto, user) {
         return this.playlistService.createPlaylist(dto, user.id);
+    }
+    async updatePlaylist(id, dto, user) {
+        return this.playlistService.updatePlaylist(id, dto, user.id, user.role);
     }
     async getPlaylists(user) {
         return this.playlistService.getPlaylists(user.id, user.role);
@@ -68,6 +72,16 @@ __decorate([
     __metadata("design:paramtypes", [create_playlist_dto_1.CreatePlaylistDto, Object]),
     __metadata("design:returntype", Promise)
 ], PlaylistController.prototype, "createPlaylist", null);
+__decorate([
+    (0, common_1.Put)('api/playlists/:id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, update_playlist_dto_1.UpdatePlaylistDto, Object]),
+    __metadata("design:returntype", Promise)
+], PlaylistController.prototype, "updatePlaylist", null);
 __decorate([
     (0, common_1.Get)('api/playlists'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

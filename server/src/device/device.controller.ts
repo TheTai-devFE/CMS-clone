@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Ip, NotFoundException, Param, Post, Put, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Ip,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -72,7 +83,9 @@ export class DeviceController {
       const userDevices = await this.deviceService.getUserDevices(user.id);
       const isOwner = userDevices.some((d) => d.id === id);
       if (!isOwner) {
-        throw new NotFoundException('Không tìm thấy thiết bị hoặc bạn không có quyền xóa');
+        throw new NotFoundException(
+          'Không tìm thấy thiết bị hoặc bạn không có quyền xóa',
+        );
       }
     }
     return this.deviceService.deleteDevice(id);

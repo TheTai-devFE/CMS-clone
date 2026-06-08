@@ -46,25 +46,33 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate phải có định dạng YYYY-MM-DD' }),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/, {
+        message: 'startDate phải có định dạng YYYY-MM-DD',
+    }),
     __metadata("design:type", String)
 ], CreateScheduleDto.prototype, "startDate", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate phải có định dạng YYYY-MM-DD' }),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/, {
+        message: 'endDate phải có định dạng YYYY-MM-DD',
+    }),
     __metadata("design:type", String)
 ], CreateScheduleDto.prototype, "endDate", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.Matches)(/^\d{2}:\d{2}:\d{2}$/, { message: 'startTime phải có định dạng HH:MM:SS' }),
+    (0, class_validator_1.Matches)(/^\d{2}:\d{2}:\d{2}$/, {
+        message: 'startTime phải có định dạng HH:MM:SS',
+    }),
     __metadata("design:type", String)
 ], CreateScheduleDto.prototype, "startTime", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.Matches)(/^\d{2}:\d{2}:\d{2}$/, { message: 'endTime phải có định dạng HH:MM:SS' }),
+    (0, class_validator_1.Matches)(/^\d{2}:\d{2}:\d{2}$/, {
+        message: 'endTime phải có định dạng HH:MM:SS',
+    }),
     __metadata("design:type", String)
 ], CreateScheduleDto.prototype, "endTime", void 0);
 __decorate([

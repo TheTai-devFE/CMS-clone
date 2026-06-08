@@ -6,9 +6,8 @@ import { api } from '@/utils/api';
 import { Button } from "@/components/ui/button";
 import ContentTab from '../components/ContentTab';
 import PlaylistTab from '../components/PlaylistTab';
-import TemplateTab from '../components/TemplateTab';
 import VideoPreviewModal from '../components/VideoPreviewModal';
-import { useMedia, useTemplates, usePlaylists } from '@/hooks/useApi';
+import { useMedia, usePlaylists } from '@/hooks/useApi';
 
 export default function ContentPageClient() {
   const {
@@ -23,11 +22,10 @@ export default function ContentPageClient() {
 
   // Use SWR hook for caching and automatic revalidation
   const { mediaList, mutate } = useMedia();
-  const { mutate: mutateTemplates } = useTemplates();
   const { playlists, mutate: mutatePlaylists } = usePlaylists();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<'media' | 'playlists' | 'templates'>('media');
+  const [activeSubTab, setActiveSubTab] = useState<'media' | 'playlists'>('media');
 
   // Filter media based on search query
   const filteredMedia = mediaList.filter(m => 
@@ -104,14 +102,6 @@ export default function ContentPageClient() {
         >
           Danh sách phát (Playlists)
         </Button>
-        <Button
-          type="button"
-          variant={activeSubTab === 'templates' ? 'default' : 'ghost'}
-          onClick={() => setActiveSubTab('templates')}
-          className="text-xs h-8 font-semibold shadow-none"
-        >
-          Mẫu bố cục (Layouts)
-        </Button>
       </div>
 
       {activeSubTab === 'media' ? (
@@ -126,14 +116,10 @@ export default function ContentPageClient() {
           API_BASE_URL={API_BASE_URL}
           formatBytes={formatBytes}
         />
-      ) : activeSubTab === 'playlists' ? (
+      ) : (
         <PlaylistTab
           playlists={playlists || []}
           fetchPlaylistsData={mutatePlaylists}
-        />
-      ) : (
-        <TemplateTab
-          fetchTemplatesData={mutateTemplates}
         />
       )}
 

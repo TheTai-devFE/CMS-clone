@@ -16,24 +16,65 @@ export declare class DeviceService {
     getPairingStatus(tempDeviceId: string): Promise<any>;
     claimDevice(userId: string, dto: ClaimDeviceDto): Promise<{
         success: boolean;
-        deviceId: any;
-        deviceName: any;
+        deviceId: string;
+        deviceName: string;
     }>;
-    register(dto: RegisterDeviceDto, ipAddress: string): Promise<any>;
+    register(dto: RegisterDeviceDto, ipAddress: string): Promise<{
+        id: string;
+        apiKey: string;
+        deviceName: string;
+        approvalStatus: string;
+    }>;
     heartbeat(dto: HeartbeatDto): Promise<{
-        deviceId: any;
-        deviceName: any;
-        approvalStatus: any;
+        deviceId: string;
+        deviceName: string;
+        approvalStatus: string;
         status: string;
     }>;
-    assignDevice(deviceId: string, userId: string): Promise<any>;
+    assignDevice(deviceId: string, userId: string): Promise<{
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        apiKey: string;
+        deviceName: string;
+        macAddress: string | null;
+        screenResolution: string | null;
+        osVersion: string | null;
+        appVersion: string | null;
+        userId: string | null;
+        approvalStatus: string;
+        ipAddress: string | null;
+        lastHeartbeat: Date | null;
+    }>;
     getPendingDevices(): Promise<any[]>;
     getUserDevices(userId: string): Promise<any[]>;
     getAllDevices(): Promise<any[]>;
-    deleteDevice(id: string): Promise<any>;
+    deleteDevice(id: string): Promise<{
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        apiKey: string;
+        deviceName: string;
+        macAddress: string | null;
+        screenResolution: string | null;
+        osVersion: string | null;
+        appVersion: string | null;
+        userId: string | null;
+        approvalStatus: string;
+        ipAddress: string | null;
+        lastHeartbeat: Date | null;
+    }>;
     getSystemLogs(user: {
         id: string;
         role: string;
-    }): Promise<any[]>;
+    }): Promise<{
+        id: string;
+        deviceName: string;
+        status: string;
+        detail: string;
+        time: string;
+    }[]>;
     private enrichDevicesWithRealtimeStatus;
 }

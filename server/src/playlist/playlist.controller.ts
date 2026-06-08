@@ -1,10 +1,27 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AddPlaylistItemsDto } from './dto/add-playlist-items.dto';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
+import { UpdatePlaylistDto } from './dto/update-playlist.dto';
 import { PlaylistService } from './playlist.service';
+
+interface AuthUser {
+  id: string;
+  role: string;
+  email?: string;
+}
 
 @Controller()
 export class PlaylistController {
@@ -28,19 +45,35 @@ export class PlaylistController {
 
   @Post('api/playlists')
   @UseGuards(JwtAuthGuard)
-  async createPlaylist(@Body() dto: CreatePlaylistDto, @CurrentUser() user: any) {
+  async createPlaylist(
+    @Body() dto: CreatePlaylistDto,
+    @CurrentUser() user: AuthUser,
+  ) {
     return this.playlistService.createPlaylist(dto, user.id);
+  }
+
+  @Put('api/playlists/:id')
+  @UseGuards(JwtAuthGuard)
+  async updatePlaylist(
+    @Param('id') id: string,
+    @Body() dto: UpdatePlaylistDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.playlistService.updatePlaylist(id, dto, user.id, user.role);
   }
 
   @Get('api/playlists')
   @UseGuards(JwtAuthGuard)
-  async getPlaylists(@CurrentUser() user: any) {
+  async getPlaylists(@CurrentUser() user: AuthUser) {
     return this.playlistService.getPlaylists(user.id, user.role);
   }
 
   @Get('api/playlists/:id/items')
   @UseGuards(JwtAuthGuard)
-  async getPlaylistItems(@Param('id') id: string, @CurrentUser() user: any) {
+  async getPlaylistItems(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
     return this.playlistService.getPlaylistItems(id, user.id, user.role);
   }
 
@@ -49,14 +82,14 @@ export class PlaylistController {
   async addPlaylistItems(
     @Param('id') id: string,
     @Body() dto: AddPlaylistItemsDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     return this.playlistService.addPlaylistItems(id, dto, user.id, user.role);
   }
 
   @Delete('api/playlists/:id')
   @UseGuards(JwtAuthGuard)
-  async deletePlaylist(@Param('id') id: string, @CurrentUser() user: any) {
+  async deletePlaylist(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.playlistService.deletePlaylist(id, user.id, user.role);
   }
 
@@ -66,13 +99,16 @@ export class PlaylistController {
 
   @Post('api/schedules')
   @UseGuards(JwtAuthGuard)
-  async createSchedule(@Body() dto: CreateScheduleDto, @CurrentUser() user: any) {
+  async createSchedule(
+    @Body() dto: CreateScheduleDto,
+    @CurrentUser() user: AuthUser,
+  ) {
     return this.playlistService.createSchedule(dto, user.id);
   }
 
   @Get('api/schedules')
   @UseGuards(JwtAuthGuard)
-  async getSchedules(@CurrentUser() user: any) {
+  async getSchedules(@CurrentUser() user: AuthUser) {
     return this.playlistService.getSchedules(user.id, user.role);
   }
 }
