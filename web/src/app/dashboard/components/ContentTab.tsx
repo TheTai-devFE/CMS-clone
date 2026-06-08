@@ -8,6 +8,7 @@ import {
   Play,
   Trash
 } from 'lucide-react';
+import { getFileUrl } from '@/utils/api';
 
 interface MediaItem {
   id: string;
@@ -90,7 +91,7 @@ export default function ContentTab({
                     className="relative aspect-video bg-muted cursor-pointer overflow-hidden flex items-center justify-center"
                     onClick={() => {
                       if (isVideo) {
-                        setPreviewVideoUrl(`${API_BASE_URL}${media.fileUrl}`);
+                        setPreviewVideoUrl(getFileUrl(media.fileUrl));
                       }
                     }}
                   >
@@ -103,7 +104,7 @@ export default function ContentTab({
                       </>
                     ) : (
                       <img
-                        src={`${API_BASE_URL}${media.fileUrl}`}
+                        src={getFileUrl(media.fileUrl)}
                         alt={media.fileName}
                         className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200"
                       />

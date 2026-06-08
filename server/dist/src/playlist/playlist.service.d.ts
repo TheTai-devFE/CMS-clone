@@ -2,6 +2,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AddPlaylistItemsDto } from './dto/add-playlist-items.dto';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
+import { UpdatePlaylistDto } from './dto/update-playlist.dto';
+import { Prisma } from '@prisma/client';
 export declare class PlaylistService {
     private readonly prisma;
     constructor(prisma: PrismaService);
@@ -13,7 +15,7 @@ export declare class PlaylistService {
         playlistName: string;
         description: string | null;
         isSyncGroup: boolean;
-        syncLayout: import("@prisma/client/runtime/client").JsonValue | null;
+        syncLayout: Prisma.JsonValue | null;
     }>;
     getPlaylists(userId: string, role: string): Promise<{
         id: string;
@@ -23,7 +25,7 @@ export declare class PlaylistService {
         playlistName: string;
         description: string | null;
         isSyncGroup: boolean;
-        syncLayout: import("@prisma/client/runtime/client").JsonValue | null;
+        syncLayout: Prisma.JsonValue | null;
     }[]>;
     getPlaylistItems(playlistId: string, userId: string, role: string): Promise<{
         id: string;
@@ -41,26 +43,32 @@ export declare class PlaylistService {
             checksum: string;
         };
     }[]>;
-    addPlaylistItems(playlistId: string, dto: AddPlaylistItemsDto, userId: string, role: string): Promise<({
+    addPlaylistItems(playlistId: string, dto: AddPlaylistItemsDto, userId: string, role: string): Promise<{
+        id: string;
+        sortOrder: number;
+        duration: number;
+        transitionEffect: string;
         media: {
+            fileSize: string;
             id: string;
             createdAt: Date;
             userId: string;
             fileName: string;
             fileUrl: string;
-            fileSize: bigint;
             mimeType: string;
             checksum: string;
         };
-    } & {
+    }[]>;
+    updatePlaylist(playlistId: string, dto: UpdatePlaylistDto, userId: string, role: string): Promise<{
         id: string;
         createdAt: Date;
-        mediaId: string;
-        sortOrder: number;
-        duration: number;
-        transitionEffect: string;
-        playlistId: string;
-    })[]>;
+        updatedAt: Date;
+        userId: string;
+        playlistName: string;
+        description: string | null;
+        isSyncGroup: boolean;
+        syncLayout: Prisma.JsonValue | null;
+    }>;
     deletePlaylist(playlistId: string, userId: string, role: string): Promise<{
         id: string;
         createdAt: Date;
@@ -69,7 +77,7 @@ export declare class PlaylistService {
         playlistName: string;
         description: string | null;
         isSyncGroup: boolean;
-        syncLayout: import("@prisma/client/runtime/client").JsonValue | null;
+        syncLayout: Prisma.JsonValue | null;
     }>;
     createSchedule(dto: CreateScheduleDto, userId: string): Promise<{
         devices: {
@@ -100,7 +108,7 @@ export declare class PlaylistService {
             playlistName: string;
             description: string | null;
             isSyncGroup: boolean;
-            syncLayout: import("@prisma/client/runtime/client").JsonValue | null;
+            syncLayout: Prisma.JsonValue | null;
         } | null;
         template: {
             id: string;
@@ -184,7 +192,7 @@ export declare class PlaylistService {
         playlistId: string;
         playlistName: string;
         isSyncGroup: boolean;
-        syncLayout: import("@prisma/client/runtime/client").JsonValue;
+        syncLayout: Prisma.JsonValue;
         items: {
             itemId: string;
             mediaId: string;
@@ -220,7 +228,7 @@ export declare class PlaylistService {
             y: number;
             width: number;
             height: number;
-            contentData: import("@prisma/client/runtime/client").JsonValue;
+            contentData: Prisma.JsonValue;
         }[];
         message?: undefined;
         items?: undefined;

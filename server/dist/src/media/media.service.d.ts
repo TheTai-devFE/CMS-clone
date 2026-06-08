@@ -3,7 +3,11 @@ import { PrismaService } from '../prisma/prisma.service';
 export declare class MediaService {
     private readonly prisma;
     private readonly configService;
+    private readonly storageType;
     private readonly uploadDir;
+    private s3Client;
+    private r2BucketName;
+    private r2PublicUrl;
     constructor(prisma: PrismaService, configService: ConfigService);
     saveUploadedFile(file: Express.Multer.File, userId: string): Promise<{
         id: string;

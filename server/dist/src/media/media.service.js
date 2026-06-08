@@ -49,16 +49,45 @@ const crypto = __importStar(require("crypto"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const prisma_service_1 = require("../prisma/prisma.service");
+const client_s3_1 = require("@aws-sdk/client-s3");
 let MediaService = class MediaService {
     prisma;
     configService;
+    storageType;
     uploadDir;
+    s3Client = null;
+    r2BucketName;
+    r2PublicUrl;
     constructor(prisma, configService) {
         this.prisma = prisma;
         this.configService = configService;
-        this.uploadDir = this.configService.get('UPLOAD_DIR') || './uploads';
+        this.storageType =
+            this.configService.get('STORAGE_TYPE') || 'local';
+        this.uploadDir =
+            this.configService.get('UPLOAD_DIR') || './uploads';
         if (!fs.existsSync(this.uploadDir)) {
             fs.mkdirSync(this.uploadDir, { recursive: true });
+        }
+        if (this.storageType === 'r2') {
+            const accessKeyId = this.configService.get('CLOUDFLARE_R2_ACCESS_KEY_ID');
+            const secretAccessKey = this.configService.get('CLOUDFLARE_R2_SECRET_ACCESS_KEY');
+            const endpoint = this.configService.get('CLOUDFLARE_R2_ENDPOINT');
+            this.r2BucketName =
+                this.configService.get('CLOUDFLARE_R2_BUCKET_NAME') ||
+                    'cms-media';
+            this.r2PublicUrl =
+                this.configService.get('CLOUDFLARE_R2_PUBLIC_URL') || '';
+            if (!accessKeyId || !secretAccessKey || !endpoint) {
+                throw new Error('Missing Cloudflare R2 configurations in environment variables');
+            }
+            this.s3Client = new client_s3_1.S3Client({
+                region: 'auto',
+                endpoint,
+                credentials: {
+                    accessKeyId,
+                    secretAccessKey,
+                },
+            });
         }
     }
     async saveUploadedFile(file, userId) {
@@ -74,13 +103,38 @@ let MediaService = class MediaService {
             const ext = path.extname(file.originalname).toLowerCase();
             const finalFileName = `${checksum}${ext}`;
             const finalFilePath = path.join(this.uploadDir, finalFileName);
-            if (!fs.existsSync(finalFilePath)) {
-                fs.renameSync(tempFilePath, finalFilePath);
+            let fileUrl = '';
+            if (this.storageType === 'r2') {
+                const fileKey = finalFileName;
+                if (!existingMedia) {
+                    const fileBuffer = fs.readFileSync(tempFilePath);
+                    if (!this.s3Client) {
+                        throw new Error('Cloudflare R2 client is not initialized');
+                    }
+                    await this.s3Client.send(new client_s3_1.PutObjectCommand({
+                        Bucket: this.r2BucketName,
+                        Key: fileKey,
+                        Body: fileBuffer,
+                        ContentType: file.mimetype,
+                    }));
+                }
+                if (fs.existsSync(tempFilePath)) {
+                    fs.unlinkSync(tempFilePath);
+                }
+                const baseUrl = this.r2PublicUrl.endsWith('/')
+                    ? this.r2PublicUrl.slice(0, -1)
+                    : this.r2PublicUrl;
+                fileUrl = `${baseUrl}/${fileKey}`;
             }
             else {
-                fs.unlinkSync(tempFilePath);
+                if (!fs.existsSync(finalFilePath)) {
+                    fs.renameSync(tempFilePath, finalFilePath);
+                }
+                else {
+                    fs.unlinkSync(tempFilePath);
+                }
+                fileUrl = `/uploads/${finalFileName}`;
             }
-            const fileUrl = `/uploads/${finalFileName}`;
             if (existingMedia && existingMedia.userId === userId) {
                 return existingMedia;
             }
@@ -135,9 +189,24 @@ let MediaService = class MediaService {
         });
         if (otherReferences === 0) {
             const fileName = path.basename(media.fileUrl);
-            const filePath = path.join(this.uploadDir, fileName);
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
+            if (this.storageType === 'r2') {
+                if (this.s3Client) {
+                    try {
+                        await this.s3Client.send(new client_s3_1.DeleteObjectCommand({
+                            Bucket: this.r2BucketName,
+                            Key: fileName,
+                        }));
+                    }
+                    catch (err) {
+                        console.error('Lỗi khi xóa tệp trên Cloudflare R2:', err);
+                    }
+                }
+            }
+            else {
+                const filePath = path.join(this.uploadDir, fileName);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
             }
         }
         return { success: true };

@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTemplateDto } from './dto/create-template.dto';
 
@@ -75,7 +79,12 @@ export class TemplateService {
     return template;
   }
 
-  async update(id: string, dto: CreateTemplateDto, userId: string, role: string) {
+  async update(
+    id: string,
+    dto: CreateTemplateDto,
+    userId: string,
+    role: string,
+  ) {
     const template = await this.prisma.template.findUnique({
       where: { id },
     });

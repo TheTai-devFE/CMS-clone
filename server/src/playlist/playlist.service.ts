@@ -1,8 +1,17 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddPlaylistItemsDto } from './dto/add-playlist-items.dto';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
+import { UpdatePlaylistDto } from './dto/update-playlist.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class PlaylistService {
@@ -15,7 +24,7 @@ export class PlaylistService {
         playlistName: dto.playlistName,
         description: dto.description,
         isSyncGroup: dto.isSyncGroup || false,
-        syncLayout: dto.syncLayout,
+        syncLayout: dto.syncLayout as Prisma.InputJsonValue,
       },
     });
   }
@@ -61,7 +70,12 @@ export class PlaylistService {
     }));
   }
 
-  async addPlaylistItems(playlistId: string, dto: AddPlaylistItemsDto, userId: string, role: string) {
+  async addPlaylistItems(
+    playlistId: string,
+    dto: AddPlaylistItemsDto,
+    userId: string,
+    role: string,
+  ) {
     const playlist = await this.prisma.playlist.findUnique({
       where: { id: playlistId },
     });
@@ -74,6 +88,21 @@ export class PlaylistService {
       throw new ForbiddenException('Bạn không có quyền sửa danh sách phát này');
     }
 
+    // 1. Kiểm tra xem toàn bộ mediaId có tồn tại trong database hay không
+    const mediaIds = dto.items.map((item) => item.mediaId);
+    const uniqueMediaIds = Array.from(new Set(mediaIds));
+    const existingMediaCount = await this.prisma.media.count({
+      where: {
+        id: { in: uniqueMediaIds },
+      },
+    });
+
+    if (existingMediaCount !== uniqueMediaIds.length) {
+      throw new BadRequestException(
+        'Một hoặc nhiều file phương tiện không tồn tại trong hệ thống',
+      );
+    }
+
     // Thực hiện trong một transaction để xóa items cũ và ghi đè items mới
     return this.prisma.$transaction(async (tx) => {
       // 1. Xóa toàn bộ playlist items cũ
@@ -81,8 +110,9 @@ export class PlaylistService {
         where: { playlistId },
       });
 
-      // 2. Tạo danh sách items mới
+      // 2. Tạo danh sách items mới (sinh UUID ngẫu nhiên để tránh lỗi Prisma createMany bypass generator)
       const createData = dto.items.map((item) => ({
+        id: crypto.randomUUID(),
         playlistId,
         mediaId: item.mediaId,
         sortOrder: item.sortOrder,
@@ -95,11 +125,51 @@ export class PlaylistService {
       });
 
       // Lấy lại danh sách vừa cập nhật
-      return tx.playlistItem.findMany({
+      const items = await tx.playlistItem.findMany({
         where: { playlistId },
         include: { media: true },
         orderBy: { sortOrder: 'asc' },
       });
+
+      return items.map((item) => ({
+        id: item.id,
+        sortOrder: item.sortOrder,
+        duration: item.duration,
+        transitionEffect: item.transitionEffect,
+        media: {
+          ...item.media,
+          fileSize: item.media.fileSize.toString(),
+        },
+      }));
+    });
+  }
+
+  async updatePlaylist(
+    playlistId: string,
+    dto: UpdatePlaylistDto,
+    userId: string,
+    role: string,
+  ) {
+    const playlist = await this.prisma.playlist.findUnique({
+      where: { id: playlistId },
+    });
+
+    if (!playlist) {
+      throw new NotFoundException('Không tìm thấy danh sách phát');
+    }
+
+    if (role !== 'admin' && playlist.userId !== userId) {
+      throw new ForbiddenException('Bạn không có quyền sửa danh sách phát này');
+    }
+
+    return this.prisma.playlist.update({
+      where: { id: playlistId },
+      data: {
+        playlistName: dto.playlistName,
+        description: dto.description,
+        isSyncGroup: dto.isSyncGroup,
+        syncLayout: dto.syncLayout as Prisma.InputJsonValue,
+      },
     });
   }
 
@@ -131,7 +201,9 @@ export class PlaylistService {
         where: { id: dto.playlistId },
       });
       if (!playlist) {
-        throw new NotFoundException('Không tìm thấy danh sách phát để lập lịch');
+        throw new NotFoundException(
+          'Không tìm thấy danh sách phát để lập lịch',
+        );
       }
     } else if (dto.templateId) {
       const template = await this.prisma.template.findUnique({
@@ -141,7 +213,9 @@ export class PlaylistService {
         throw new NotFoundException('Không tìm thấy bố cục để lập lịch');
       }
     } else {
-      throw new BadRequestException('Vui lòng chọn Playlist hoặc Bố cục hiển thị');
+      throw new BadRequestException(
+        'Vui lòng chọn Playlist hoặc Bố cục hiển thị',
+      );
     }
 
     // Định dạng lại ngày để lưu vào PostgreSQL
@@ -216,7 +290,7 @@ export class PlaylistService {
     const now = new Date();
     // Lấy ngày chuẩn định dạng ISO YYYY-MM-DD
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
+
     // Lấy thời gian HH:mm:ss hiện tại
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');

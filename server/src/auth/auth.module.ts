@@ -13,9 +13,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'cms_secret_key_change_me_in_production',
+        secret:
+          configService.get<string>('JWT_SECRET') ||
+          'cms_secret_key_change_me_in_production',
         signOptions: {
-          expiresIn: (configService.get<string>('JWT_EXPIRATION') as any) || '15m',
+          expiresIn:
+            (configService.get<string>('JWT_EXPIRATION') as any) || '15m',
         },
       }),
     }),

@@ -1,16 +1,50 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PlaylistService = void 0;
 const common_1 = require("@nestjs/common");
+const crypto = __importStar(require("crypto"));
 const prisma_service_1 = require("../prisma/prisma.service");
 let PlaylistService = class PlaylistService {
     prisma;
@@ -73,11 +107,22 @@ let PlaylistService = class PlaylistService {
         if (role !== 'admin' && playlist.userId !== userId) {
             throw new common_1.ForbiddenException('Bạn không có quyền sửa danh sách phát này');
         }
+        const mediaIds = dto.items.map((item) => item.mediaId);
+        const uniqueMediaIds = Array.from(new Set(mediaIds));
+        const existingMediaCount = await this.prisma.media.count({
+            where: {
+                id: { in: uniqueMediaIds },
+            },
+        });
+        if (existingMediaCount !== uniqueMediaIds.length) {
+            throw new common_1.BadRequestException('Một hoặc nhiều file phương tiện không tồn tại trong hệ thống');
+        }
         return this.prisma.$transaction(async (tx) => {
             await tx.playlistItem.deleteMany({
                 where: { playlistId },
             });
             const createData = dto.items.map((item) => ({
+                id: crypto.randomUUID(),
                 playlistId,
                 mediaId: item.mediaId,
                 sortOrder: item.sortOrder,
@@ -87,11 +132,41 @@ let PlaylistService = class PlaylistService {
             await tx.playlistItem.createMany({
                 data: createData,
             });
-            return tx.playlistItem.findMany({
+            const items = await tx.playlistItem.findMany({
                 where: { playlistId },
                 include: { media: true },
                 orderBy: { sortOrder: 'asc' },
             });
+            return items.map((item) => ({
+                id: item.id,
+                sortOrder: item.sortOrder,
+                duration: item.duration,
+                transitionEffect: item.transitionEffect,
+                media: {
+                    ...item.media,
+                    fileSize: item.media.fileSize.toString(),
+                },
+            }));
+        });
+    }
+    async updatePlaylist(playlistId, dto, userId, role) {
+        const playlist = await this.prisma.playlist.findUnique({
+            where: { id: playlistId },
+        });
+        if (!playlist) {
+            throw new common_1.NotFoundException('Không tìm thấy danh sách phát');
+        }
+        if (role !== 'admin' && playlist.userId !== userId) {
+            throw new common_1.ForbiddenException('Bạn không có quyền sửa danh sách phát này');
+        }
+        return this.prisma.playlist.update({
+            where: { id: playlistId },
+            data: {
+                playlistName: dto.playlistName,
+                description: dto.description,
+                isSyncGroup: dto.isSyncGroup,
+                syncLayout: dto.syncLayout,
+            },
         });
     }
     async deletePlaylist(playlistId, userId, role) {

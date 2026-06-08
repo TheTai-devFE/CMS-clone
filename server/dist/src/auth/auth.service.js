@@ -60,10 +60,7 @@ let AuthService = class AuthService {
     async register(dto) {
         const existingUser = await this.prisma.user.findFirst({
             where: {
-                OR: [
-                    { username: dto.username },
-                    { email: dto.email },
-                ],
+                OR: [{ username: dto.username }, { email: dto.email }],
             },
         });
         if (existingUser) {
@@ -71,7 +68,7 @@ let AuthService = class AuthService {
         }
         const passwordHash = await bcrypt.hash(dto.password, 10);
         const userCount = await this.prisma.user.count();
-        const assignedRole = userCount === 0 ? 'admin' : (dto.role || 'user');
+        const assignedRole = userCount === 0 ? 'admin' : dto.role || 'user';
         const user = await this.prisma.user.create({
             data: {
                 username: dto.username,
@@ -122,12 +119,15 @@ let AuthService = class AuthService {
     async generateTokens(userId, email, role) {
         const payload = { sub: userId, email, role };
         const accessToken = await this.jwtService.signAsync(payload, {
-            secret: this.configService.get('JWT_SECRET') || 'cms_secret_key_change_me_in_production',
+            secret: this.configService.get('JWT_SECRET') ||
+                'cms_secret_key_change_me_in_production',
             expiresIn: this.configService.get('JWT_EXPIRATION') || '15m',
         });
         const refreshToken = await this.jwtService.signAsync(payload, {
-            secret: this.configService.get('JWT_SECRET') || 'cms_secret_key_change_me_in_production',
-            expiresIn: this.configService.get('JWT_REFRESH_EXPIRATION') || '7d',
+            secret: this.configService.get('JWT_SECRET') ||
+                'cms_secret_key_change_me_in_production',
+            expiresIn: this.configService.get('JWT_REFRESH_EXPIRATION') ||
+                '7d',
         });
         return {
             accessToken,
