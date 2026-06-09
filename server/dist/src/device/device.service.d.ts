@@ -38,14 +38,14 @@ export declare class DeviceService {
         updatedAt: Date;
         apiKey: string;
         deviceName: string;
+        approvalStatus: string;
         macAddress: string | null;
+        ipAddress: string | null;
         screenResolution: string | null;
         osVersion: string | null;
         appVersion: string | null;
-        userId: string | null;
-        approvalStatus: string;
-        ipAddress: string | null;
         lastHeartbeat: Date | null;
+        userId: string | null;
     }>;
     getPendingDevices(): Promise<any[]>;
     getUserDevices(userId: string): Promise<any[]>;
@@ -57,14 +57,14 @@ export declare class DeviceService {
         updatedAt: Date;
         apiKey: string;
         deviceName: string;
+        approvalStatus: string;
         macAddress: string | null;
+        ipAddress: string | null;
         screenResolution: string | null;
         osVersion: string | null;
         appVersion: string | null;
-        userId: string | null;
-        approvalStatus: string;
-        ipAddress: string | null;
         lastHeartbeat: Date | null;
+        userId: string | null;
     }>;
     private enrichDevicesWithRealtimeStatus;
 }

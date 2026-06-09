@@ -6,8 +6,8 @@ export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
     register(dto: RegisterDto): Promise<{
-        email: string;
         username: string;
+        email: string;
         role: string;
         licenseLimit: number;
         id: string;
@@ -31,8 +31,8 @@ export declare class AuthController {
         message: string;
     }>;
     getAllUsers(): Promise<{
-        email: string;
         username: string;
+        email: string;
         role: string;
         licenseLimit: number;
         id: string;

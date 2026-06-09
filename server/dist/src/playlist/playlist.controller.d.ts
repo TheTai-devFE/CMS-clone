@@ -118,13 +118,14 @@ export declare class PlaylistController {
         updatedAt: Date;
         userId: string;
         scheduleName: string;
-        playlistId: string;
+        playlistId: string | null;
         startDate: Date;
         endDate: Date;
         startTime: string;
         endTime: string;
         dayOfWeek: number[];
         priority: number;
+        templateId: string | null;
     }>;
     getSchedules(user: any): Promise<({
         playlist: {
@@ -136,7 +137,7 @@ export declare class PlaylistController {
             description: string | null;
             isSyncGroup: boolean;
             syncLayout: import("@prisma/client/runtime/client").JsonValue | null;
-        };
+        } | null;
         devices: ({
             device: {
                 id: string;
@@ -145,14 +146,14 @@ export declare class PlaylistController {
                 updatedAt: Date;
                 apiKey: string;
                 deviceName: string;
+                approvalStatus: string;
                 macAddress: string | null;
+                ipAddress: string | null;
                 screenResolution: string | null;
                 osVersion: string | null;
                 appVersion: string | null;
-                userId: string | null;
-                approvalStatus: string;
-                ipAddress: string | null;
                 lastHeartbeat: Date | null;
+                userId: string | null;
             };
         } & {
             deviceId: string;
@@ -164,12 +165,13 @@ export declare class PlaylistController {
         updatedAt: Date;
         userId: string;
         scheduleName: string;
-        playlistId: string;
+        playlistId: string | null;
         startDate: Date;
         endDate: Date;
         startTime: string;
         endTime: string;
         dayOfWeek: number[];
         priority: number;
+        templateId: string | null;
     })[]>;
 }

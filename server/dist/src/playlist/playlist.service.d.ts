@@ -82,13 +82,14 @@ export declare class PlaylistService {
         updatedAt: Date;
         userId: string;
         scheduleName: string;
-        playlistId: string;
+        playlistId: string | null;
         startDate: Date;
         endDate: Date;
         startTime: string;
         endTime: string;
         dayOfWeek: number[];
         priority: number;
+        templateId: string | null;
     }>;
     getSchedules(userId: string, role: string): Promise<({
         playlist: {
@@ -100,7 +101,7 @@ export declare class PlaylistService {
             description: string | null;
             isSyncGroup: boolean;
             syncLayout: import("@prisma/client/runtime/client").JsonValue | null;
-        };
+        } | null;
         devices: ({
             device: {
                 id: string;
@@ -109,14 +110,14 @@ export declare class PlaylistService {
                 updatedAt: Date;
                 apiKey: string;
                 deviceName: string;
+                approvalStatus: string;
                 macAddress: string | null;
+                ipAddress: string | null;
                 screenResolution: string | null;
                 osVersion: string | null;
                 appVersion: string | null;
-                userId: string | null;
-                approvalStatus: string;
-                ipAddress: string | null;
                 lastHeartbeat: Date | null;
+                userId: string | null;
             };
         } & {
             deviceId: string;
@@ -128,13 +129,14 @@ export declare class PlaylistService {
         updatedAt: Date;
         userId: string;
         scheduleName: string;
-        playlistId: string;
+        playlistId: string | null;
         startDate: Date;
         endDate: Date;
         startTime: string;
         endTime: string;
         dayOfWeek: number[];
         priority: number;
+        templateId: string | null;
     })[]>;
     getSyncPlaylistForDevice(deviceId: string, apiKey: string): Promise<{
         status: string;
