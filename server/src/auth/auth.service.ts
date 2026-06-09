@@ -146,4 +146,21 @@ export class AuthService {
 
     return { message: 'Đổi mật khẩu thành công' };
   }
+
+  async updateSecurityPassword(userId: string, securityPassword?: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { securityPassword: securityPassword || null },
+    });
+
+    return { message: 'Cập nhật mã bảo mật thiết bị thành công' };
+  }
 }

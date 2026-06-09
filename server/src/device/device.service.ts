@@ -6,6 +6,7 @@ import { HeartbeatDto } from './dto/heartbeat.dto';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { CreatePairingCodeDto } from './dto/create-pairing-code.dto';
 import { ClaimDeviceDto } from './dto/claim-device.dto';
+import { UpdateDeviceDto } from './dto/update-device.dto';
 
 @Injectable()
 export class DeviceService {
@@ -172,7 +173,7 @@ export class DeviceService {
     return device;
   }
 
-  async heartbeat(dto: HeartbeatDto) {
+  async heartbeat(dto: HeartbeatDto, ipAddress?: string) {
     const device = await this.prisma.device.findUnique({
       where: { id: dto.deviceId },
     });
@@ -183,35 +184,57 @@ export class DeviceService {
 
     const now = new Date();
 
-    // 1. Cập nhật last_heartbeat & status trong DB PostgreSQL
-    await this.prisma.device.update({
-      where: { id: dto.deviceId },
-      data: {
-        lastHeartbeat: now,
-        status: 'online', // Luôn ghi nhận là online khi có heartbeat
-      },
-    });
+    // Clean up IP address (handle IPv6 mapping to IPv4 and localhost)
+    let cleanIp = ipAddress;
+    if (cleanIp) {
+      if (cleanIp.startsWith('::ffff:')) {
+        cleanIp = cleanIp.substring(7);
+      }
+      if (cleanIp === '::1') {
+        cleanIp = '127.0.0.1';
+      }
+    }
 
-    // 2. Ghi nhận trạng thái online trên Redis Cache với TTL 75 giây (2.5 lần chu kỳ 30s)
     const redisKey = `device:status:${dto.deviceId}`;
-    await this.redis.set(redisKey, 'online', 75);
+    const isAlreadyOnline = await this.redis.exists(redisKey);
 
-    // 3. Ghi log lịch sử heartbeat (tài nguyên máy)
-    await this.prisma.heartbeatLog.create({
-      data: {
-        deviceId: dto.deviceId,
-        status: 'online',
-        currentMediaId: dto.currentMediaId,
-        cpuUsage: dto.cpuUsage,
-        freeMemoryMb: dto.freeMemoryMb,
-      },
-    });
+    const lastUpdate = device.lastHeartbeat ? new Date(device.lastHeartbeat).getTime() : 0;
+    const isTimeForDbUpdate = (now.getTime() - lastUpdate) > 5 * 60 * 1000; // 5 minutes interval
+    const isIpChanged = cleanIp !== device.ipAddress;
+
+    // 1. Chỉ cập nhật PostgreSQL khi chuyển từ Offline sang Online, đổi IP, hoặc đã quá 5 phút
+    if (!isAlreadyOnline || isIpChanged || isTimeForDbUpdate) {
+      await this.prisma.device.update({
+        where: { id: dto.deviceId },
+        data: {
+          lastHeartbeat: now,
+          status: 'online',
+          ipAddress: cleanIp || undefined,
+        },
+      });
+    }
+
+    // 2. Ghi nhận trạng thái online trên Redis Cache với TTL 150 giây (2.5 lần chu kỳ 60s)
+    await this.redis.set(redisKey, 'online', 150);
+
+    // 3. Đã bỏ ghi log lịch sử heartbeat liên tục vào DB để tránh phình dữ liệu và tối ưu hiệu suất
+
+    // Lấy thông tin user sở hữu thiết bị để đọc securityPassword của user
+    const user = device.userId ? await this.prisma.user.findUnique({
+      where: { id: device.userId },
+      select: { securityPassword: true }
+    }) : null;
 
     return {
       deviceId: device.id,
       deviceName: device.deviceName,
       approvalStatus: device.approvalStatus,
       status: 'online',
+      useSecurityPassword: device.useSecurityPassword,
+      securityPassword: (device.useSecurityPassword && user) ? user.securityPassword : null,
+      sleepScheduleEnabled: device.sleepScheduleEnabled,
+      sleepStartTime: device.sleepStartTime,
+      sleepEndTime: device.sleepEndTime,
     };
   }
 
@@ -282,6 +305,27 @@ export class DeviceService {
     });
 
     return this.enrichDevicesWithRealtimeStatus(devices);
+  }
+
+  async updateDevice(id: string, dto: UpdateDeviceDto) {
+    const device = await this.prisma.device.findUnique({
+      where: { id },
+    });
+
+    if (!device) {
+      throw new NotFoundException('Không tìm thấy thiết bị để chỉnh sửa');
+    }
+
+    return this.prisma.device.update({
+      where: { id },
+      data: {
+        deviceName: dto.deviceName ?? undefined,
+        useSecurityPassword: dto.useSecurityPassword ?? undefined,
+        sleepScheduleEnabled: dto.sleepScheduleEnabled ?? undefined,
+        sleepStartTime: dto.sleepStartTime ?? undefined,
+        sleepEndTime: dto.sleepEndTime ?? undefined,
+      },
+    });
   }
 
   async deleteDevice(id: string) {

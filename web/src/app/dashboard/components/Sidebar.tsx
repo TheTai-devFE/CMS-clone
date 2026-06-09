@@ -91,7 +91,11 @@ export default function Sidebar({ currentUser }: SidebarProps) {
       
       {/* Sidebar Footer User Info */}
       <div className="p-4 border-t border-border bg-muted/20 shrink-0">
-        <div className="flex items-center gap-3">
+        <Link
+          href="/dashboard/profile"
+          className="flex items-center gap-3 hover:bg-muted/50 p-1.5 rounded-lg transition-colors"
+          title="Xem Hồ sơ & PIN bảo mật"
+        >
           <Avatar className="h-9 w-9 border border-border">
             <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm uppercase">
               {currentUser.username.substring(0, 2)}
@@ -101,7 +105,7 @@ export default function Sidebar({ currentUser }: SidebarProps) {
             <p className="text-xs font-semibold text-foreground truncate">{currentUser.username}</p>
             <p className="text-[10px] text-muted-foreground truncate">{currentUser.email}</p>
           </div>
-        </div>
+        </Link>
       </div>
     </aside>
   );

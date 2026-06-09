@@ -7,6 +7,7 @@ export interface User {
   role: 'admin' | 'user';
   licenseLimit: number;
   status: string;
+  securityPassword?: string;
 }
 
 export interface Device {
@@ -15,6 +16,10 @@ export interface Device {
   apiKey: string;
   status: 'online' | 'offline';
   approvalStatus: 'pending' | 'approved';
+  useSecurityPassword?: boolean;
+  sleepScheduleEnabled?: boolean;
+  sleepStartTime?: string;
+  sleepEndTime?: string;
   userId?: string;
   macAddress?: string;
   ipAddress?: string;

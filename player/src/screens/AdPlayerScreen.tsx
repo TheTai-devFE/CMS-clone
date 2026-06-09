@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Image, ActivityIndicator } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/colors';
 
 interface AdPlayerScreenProps {
   isLandscape: boolean;
   onRelaunchRequest?: () => void;
+  isSleeping?: boolean;
 }
 
 export type MediaItem = 
@@ -14,9 +16,10 @@ export type MediaItem =
 
 export const PLAYLIST: MediaItem[] = [];
 
-export default function AdPlayerScreen({ isLandscape }: AdPlayerScreenProps) {
+export default function AdPlayerScreen({ isLandscape, isSleeping }: AdPlayerScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
+  const [breakpointEnabled, setBreakpointEnabled] = useState(false);
   
   const currentItem = PLAYLIST.length > 0 ? PLAYLIST[currentIndex] : null;
 
@@ -35,6 +38,72 @@ export default function AdPlayerScreen({ isLandscape }: AdPlayerScreenProps) {
     playerInstance.loop = false;
     playerInstance.muted = true;
   });
+
+  // Load breakpoint settings
+  useEffect(() => {
+    const loadEnabled = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('breakpointContinuationEnabled') === 'true';
+        setBreakpointEnabled(stored);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    loadEnabled();
+  }, []);
+
+  // Handle sleep pause
+  useEffect(() => {
+    if (isSleeping) {
+      player.pause();
+    }
+  }, [isSleeping, player]);
+
+  // Save playback progress periodically
+  useEffect(() => {
+    let interval: any = null;
+    
+    const saveProgress = async () => {
+      if (breakpointEnabled && currentItem && currentItem.type === 'video' && player.playing) {
+        try {
+          await AsyncStorage.setItem('breakpoint_video_url', currentItem.url);
+          await AsyncStorage.setItem('breakpoint_playback_position', player.currentTime.toString());
+        } catch (err) {
+          console.error('Lỗi khi lưu tiến độ video:', err);
+        }
+      }
+    };
+
+    interval = setInterval(saveProgress, 2000); // Save every 2 seconds
+    return () => clearInterval(interval);
+  }, [currentItem, player, breakpointEnabled]);
+
+  // Restore playback progress
+  useEffect(() => {
+    const restoreProgress = async () => {
+      if (breakpointEnabled && currentItem && currentItem.type === 'video') {
+        try {
+          const savedUrl = await AsyncStorage.getItem('breakpoint_video_url');
+          const savedPosStr = await AsyncStorage.getItem('breakpoint_playback_position');
+          
+          if (savedUrl === currentItem.url && savedPosStr) {
+            const savedPos = parseFloat(savedPosStr);
+            if (savedPos > 0 && player.duration - savedPos > 2) {
+              player.currentTime = savedPos;
+              console.log('Khôi phục tiến độ phát video tại:', savedPos);
+            }
+            // Clear keys to prevent looping back to same point
+            await AsyncStorage.removeItem('breakpoint_video_url');
+            await AsyncStorage.removeItem('breakpoint_playback_position');
+          }
+        } catch (err) {
+          console.error('Lỗi khi khôi phục tiến độ video:', err);
+        }
+      }
+    };
+    
+    restoreProgress();
+  }, [currentIndex, currentItem, breakpointEnabled, player]);
 
   const handleNext = () => {
     if (PLAYLIST.length === 0) return;
@@ -60,8 +129,11 @@ export default function AdPlayerScreen({ isLandscape }: AdPlayerScreenProps) {
       }, currentItem.duration);
     } else if (currentItem.type === 'video') {
       // Play video
-      player.currentTime = 0;
-      player.play();
+      // If we are currently sleeping, do not start playing video
+      if (!isSleeping) {
+        player.currentTime = 0;
+        player.play();
+      }
 
       // Set fallback timer in case video end event doesn't fire
       slideTimer.current = setTimeout(() => {
@@ -74,7 +146,7 @@ export default function AdPlayerScreen({ isLandscape }: AdPlayerScreenProps) {
         clearTimeout(slideTimer.current);
       }
     };
-  }, [currentIndex, currentItem]);
+  }, [currentIndex, currentItem, isSleeping]);
 
   // Listen to video completion event using expo-video listener
   useEffect(() => {
@@ -90,7 +162,7 @@ export default function AdPlayerScreen({ isLandscape }: AdPlayerScreenProps) {
     };
   }, [player, currentIndex, currentItem]);
 
-  if (PLAYLIST.length === 0) {
+  if (!currentItem || PLAYLIST.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <View style={styles.emptyIconCircle}>
