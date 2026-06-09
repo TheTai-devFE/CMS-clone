@@ -37,6 +37,12 @@ export class AuthController {
     return this.authService.changePassword(user.id, dto);
   }
 
+  @Post('security-password')
+  @UseGuards(JwtAuthGuard)
+  async updateSecurityPassword(@CurrentUser() user: any, @Body() dto: { securityPassword?: string }) {
+    return this.authService.updateSecurityPassword(user.id, dto.securityPassword);
+  }
+
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')

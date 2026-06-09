@@ -34,14 +34,14 @@ export default function BottomTabBar({
       <Pressable
         focusable={true}
         hasTVPreferredFocus={activeTab === 'register' || activeTab === null}
-        style={({ focused }) => [
+        style={({ focused }: any) => [
           styles.tabItem,
           focused && styles.tabItemFocused
         ]}
         onPress={() => handlePress('register')}
         onFocus={onInteraction}
       >
-        {({ focused }) => (
+        {({ focused }: any) => (
           <View style={styles.tabItemContent}>
             <Text style={[
               styles.tabIcon, 
@@ -64,14 +64,14 @@ export default function BottomTabBar({
       <Pressable
         focusable={true}
         hasTVPreferredFocus={activeTab === 'settings'}
-        style={({ focused }) => [
+        style={({ focused }: any) => [
           styles.tabItem,
           focused && styles.tabItemFocused
         ]}
         onPress={() => handlePress('settings')}
         onFocus={onInteraction}
       >
-        {({ focused }) => (
+        {({ focused }: any) => (
           <View style={styles.tabItemContent}>
             <Text style={[
               styles.tabIcon, 
@@ -94,14 +94,14 @@ export default function BottomTabBar({
       <Pressable
         focusable={true}
         hasTVPreferredFocus={activeTab === 'network'}
-        style={({ focused }) => [
+        style={({ focused }: any) => [
           styles.tabItem,
           focused && styles.tabItemFocused
         ]}
         onPress={() => handlePress('network')}
         onFocus={onInteraction}
       >
-        {({ focused }) => (
+        {({ focused }: any) => (
           <View style={styles.tabItemContent}>
             <Text style={[
               styles.tabIcon, 
@@ -124,14 +124,14 @@ export default function BottomTabBar({
       <Pressable
         focusable={true}
         hasTVPreferredFocus={activeTab === 'exit'}
-        style={({ focused }) => [
+        style={({ focused }: any) => [
           styles.tabItem,
           focused && styles.tabItemFocused
         ]}
         onPress={() => handlePress('exit')}
         onFocus={onInteraction}
       >
-        {({ focused }) => (
+        {({ focused }: any) => (
           <View style={styles.tabItemContent}>
             <Text style={[
               styles.tabIcon, 

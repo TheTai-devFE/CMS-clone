@@ -20,6 +20,7 @@ import { HeartbeatDto } from './dto/heartbeat.dto';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { CreatePairingCodeDto } from './dto/create-pairing-code.dto';
 import { ClaimDeviceDto } from './dto/claim-device.dto';
+import { UpdateDeviceDto } from './dto/update-device.dto';
 
 @Controller()
 export class DeviceController {
@@ -46,8 +47,8 @@ export class DeviceController {
   }
 
   @Post('api/player/heartbeat')
-  async heartbeat(@Body() dto: HeartbeatDto) {
-    return this.deviceService.heartbeat(dto);
+  async heartbeat(@Body() dto: HeartbeatDto, @Ip() ip: string) {
+    return this.deviceService.heartbeat(dto, ip);
   }
 
   // ==========================================
@@ -73,6 +74,23 @@ export class DeviceController {
   @UseGuards(JwtAuthGuard)
   async getSystemLogs(@CurrentUser() user: any) {
     return this.deviceService.getSystemLogs(user);
+  }
+
+  @Put('api/devices/:id')
+  @UseGuards(JwtAuthGuard)
+  async updateDevice(
+    @Param('id') id: string,
+    @Body() dto: UpdateDeviceDto,
+    @CurrentUser() user: any,
+  ) {
+    if (user.role !== 'admin') {
+      const userDevices = await this.deviceService.getUserDevices(user.id);
+      const isOwner = userDevices.some((d) => d.id === id);
+      if (!isOwner) {
+        throw new NotFoundException('Không tìm thấy thiết bị hoặc bạn không có quyền chỉnh sửa');
+      }
+    }
+    return this.deviceService.updateDevice(id, dto);
   }
 
   @Delete('api/devices/:id')
