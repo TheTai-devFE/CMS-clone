@@ -40,7 +40,7 @@ export const ScheduleItem = ({
           ? "bg-white border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.04)]"
           : expired
           ? "bg-card/30 border-border/20 opacity-60"
-          : "bg-card/60 border-border/40 hover:bg-card hover:border-border transition-all shadow-[0_2px_8px_rgba(0,0,0,0.01)]"
+          : "bg-white border-border/40 hover:bg-card hover:border-border transition-all shadow-[0_2px_8px_rgba(0,0,0,0.01)]"
       }`}
     >
       {/* Cột 1: Trạng thái & Tên lịch trình */}
