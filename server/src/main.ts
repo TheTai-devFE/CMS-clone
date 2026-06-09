@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as express from 'express';
 import { join } from 'path';
 
@@ -16,8 +17,19 @@ async function bootstrap() {
   // Phục vụ file tĩnh từ thư mục ./uploads
   app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
 
+  // Cấu hình Swagger UI (UI Test API)
+  const config = new DocumentBuilder()
+    .setTitle('CMS API')
+    .setDescription('Tài liệu và giao diện kiểm thử các API cho hệ thống CMS')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
+
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   console.log(`CMS Backend is running on: http://localhost:${port}`);
+  console.log(`API Docs is available on: http://localhost:${port}/api/docs`);
 }
 bootstrap();
