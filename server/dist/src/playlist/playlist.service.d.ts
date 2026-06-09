@@ -79,6 +79,7 @@ export declare class PlaylistService {
         isSyncGroup: boolean;
         syncLayout: Prisma.JsonValue | null;
     }>;
+    private getDeviceIdsFromSyncLayout;
     createSchedule(dto: CreateScheduleDto, userId: string): Promise<{
         devices: {
             deviceId: string;
@@ -156,6 +157,41 @@ export declare class PlaylistService {
         dayOfWeek: number[];
         priority: number;
     })[]>;
+    updateSchedule(scheduleId: string, dto: CreateScheduleDto, userId: string, role: string): Promise<{
+        devices: {
+            deviceId: string;
+            scheduleId: string;
+        }[];
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        scheduleName: string;
+        playlistId: string | null;
+        templateId: string | null;
+        startDate: Date;
+        endDate: Date;
+        startTime: string;
+        endTime: string;
+        dayOfWeek: number[];
+        priority: number;
+    }>;
+    deleteSchedule(scheduleId: string, userId: string, role: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        scheduleName: string;
+        playlistId: string | null;
+        templateId: string | null;
+        startDate: Date;
+        endDate: Date;
+        startTime: string;
+        endTime: string;
+        dayOfWeek: number[];
+        priority: number;
+    }>;
     getSyncPlaylistForDevice(deviceId: string, apiKey: string): Promise<{
         status: string;
         message: string;

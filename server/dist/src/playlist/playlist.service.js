@@ -183,7 +183,32 @@ let PlaylistService = class PlaylistService {
             where: { id: playlistId },
         });
     }
+    getDeviceIdsFromSyncLayout(syncLayout) {
+        if (!syncLayout)
+            return [];
+        const deviceIds = new Set();
+        if (typeof syncLayout === 'object') {
+            if (syncLayout.targetDeviceId &&
+                typeof syncLayout.targetDeviceId === 'string') {
+                deviceIds.add(syncLayout.targetDeviceId);
+            }
+            if (syncLayout.deviceMapping &&
+                typeof syncLayout.deviceMapping === 'object') {
+                for (const key in syncLayout.deviceMapping) {
+                    const ids = syncLayout.deviceMapping[key];
+                    if (Array.isArray(ids)) {
+                        ids.forEach((id) => {
+                            if (typeof id === 'string')
+                                deviceIds.add(id);
+                        });
+                    }
+                }
+            }
+        }
+        return Array.from(deviceIds);
+    }
     async createSchedule(dto, userId) {
+        let deviceIds = [];
         if (dto.playlistId) {
             const playlist = await this.prisma.playlist.findUnique({
                 where: { id: dto.playlistId },
@@ -191,6 +216,7 @@ let PlaylistService = class PlaylistService {
             if (!playlist) {
                 throw new common_1.NotFoundException('Không tìm thấy danh sách phát để lập lịch');
             }
+            deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout);
         }
         else if (dto.templateId) {
             const template = await this.prisma.template.findUnique({
@@ -199,6 +225,10 @@ let PlaylistService = class PlaylistService {
             if (!template) {
                 throw new common_1.NotFoundException('Không tìm thấy bố cục để lập lịch');
             }
+            const userDevices = await this.prisma.device.findMany({
+                where: { userId },
+            });
+            deviceIds = userDevices.map((d) => d.id);
         }
         else {
             throw new common_1.BadRequestException('Vui lòng chọn Playlist hoặc Bố cục hiển thị');
@@ -217,7 +247,7 @@ let PlaylistService = class PlaylistService {
                 endTime: dto.endTime || '23:59:59',
                 dayOfWeek: dto.dayOfWeek || [1, 2, 3, 4, 5, 6, 0],
                 devices: {
-                    create: dto.deviceIds.map((deviceId) => ({
+                    create: deviceIds.map((deviceId) => ({
                         deviceId,
                     })),
                 },
@@ -242,6 +272,86 @@ let PlaylistService = class PlaylistService {
                 },
             },
             orderBy: { createdAt: 'desc' },
+        });
+    }
+    async updateSchedule(scheduleId, dto, userId, role) {
+        const schedule = await this.prisma.schedule.findUnique({
+            where: { id: scheduleId },
+            include: { devices: true },
+        });
+        if (!schedule) {
+            throw new common_1.NotFoundException('Không tìm thấy lịch trình');
+        }
+        if (role !== 'admin' && schedule.userId !== userId) {
+            throw new common_1.ForbiddenException('Bạn không có quyền chỉnh sửa lịch trình này');
+        }
+        let deviceIds = [];
+        if (dto.playlistId) {
+            const playlist = await this.prisma.playlist.findUnique({
+                where: { id: dto.playlistId },
+            });
+            if (!playlist) {
+                throw new common_1.NotFoundException('Không tìm thấy danh sách phát để lập lịch');
+            }
+            deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout);
+        }
+        else if (dto.templateId) {
+            const template = await this.prisma.template.findUnique({
+                where: { id: dto.templateId },
+            });
+            if (!template) {
+                throw new common_1.NotFoundException('Không tìm thấy bố cục để lập lịch');
+            }
+            const userDevices = await this.prisma.device.findMany({
+                where: { userId },
+            });
+            deviceIds = userDevices.map((d) => d.id);
+        }
+        else {
+            throw new common_1.BadRequestException('Vui lòng chọn Playlist hoặc Bố cục hiển thị');
+        }
+        const startDate = new Date(dto.startDate);
+        const endDate = new Date(dto.endDate);
+        return this.prisma.$transaction(async (tx) => {
+            await tx.deviceSchedule.deleteMany({
+                where: { scheduleId },
+            });
+            const updatedSchedule = await tx.schedule.update({
+                where: { id: scheduleId },
+                data: {
+                    scheduleName: dto.scheduleName,
+                    playlistId: dto.playlistId ?? null,
+                    templateId: dto.templateId ?? null,
+                    startDate,
+                    endDate,
+                    startTime: dto.startTime || '00:00:00',
+                    endTime: dto.endTime || '23:59:59',
+                    dayOfWeek: dto.dayOfWeek || [1, 2, 3, 4, 5, 6, 0],
+                    devices: {
+                        create: deviceIds.map((deviceId) => ({
+                            deviceId,
+                        })),
+                    },
+                },
+                include: {
+                    devices: true,
+                },
+            });
+            return updatedSchedule;
+        });
+    }
+    async deleteSchedule(scheduleId, userId, role) {
+        const schedule = await this.prisma.schedule.findUnique({
+            where: { id: scheduleId },
+        });
+        if (!schedule) {
+            throw new common_1.NotFoundException('Không tìm thấy lịch trình');
+        }
+        if (role !== 'admin' && schedule.userId !== userId) {
+            throw new common_1.ForbiddenException('Bạn không có quyền xóa lịch trình này');
+        }
+        return this.prisma.schedule.delete({
+            where: { id: scheduleId },
         });
     }
     async getSyncPlaylistForDevice(deviceId, apiKey) {

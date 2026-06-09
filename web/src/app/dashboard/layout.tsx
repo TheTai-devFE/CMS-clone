@@ -9,7 +9,7 @@ import { DashboardTab } from '@/types/dashboard';
 const getActiveTab = (pathname: string): DashboardTab => {
   const segment = pathname.split('/').pop();
   if (segment === 'dashboard') return 'home';
-  if (['home', 'content', 'player', 'admin', 'eventlog', 'resource'].includes(segment || '')) {
+  if (['home', 'content', 'player', 'admin', 'eventlog', 'resource', 'schedule'].includes(segment || '')) {
     return segment as DashboardTab;
   }
   return 'home';
@@ -53,7 +53,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className={`flex min-h-screen w-full bg-background text-foreground ${isDarkMode ? 'dark' : ''}`}>
+    <div className={`flex min-h-screen w-full bg-[#f6f6f6] dark:bg-[#1e1e1e] text-foreground ${isDarkMode ? 'dark' : ''}`}>
 
       {/* Sidebar navigation */}
       {currentUser && (
@@ -69,7 +69,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main Workspace wrapper */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f6f6] dark:bg-[#1e1e1e]">
 
         {/* Header bar */}
         {currentUser && (
@@ -93,7 +93,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
         {/* Workspace scrollable view */}
         <div className="flex-1 overflow-y-auto">
-          <main className="p-4 md:p-8 w-full mx-auto space-y-6">
+          <main className="p-6 md:p-8 w-full mx-auto space-y-6">
 
             {/* Global Alerts */}
             {(error || successMsg) && (

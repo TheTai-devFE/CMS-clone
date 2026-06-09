@@ -53,6 +53,12 @@ let PlaylistController = class PlaylistController {
     async getSchedules(user) {
         return this.playlistService.getSchedules(user.id, user.role);
     }
+    async updateSchedule(id, dto, user) {
+        return this.playlistService.updateSchedule(id, dto, user.id, user.role);
+    }
+    async deleteSchedule(id, user) {
+        return this.playlistService.deleteSchedule(id, user.id, user.role);
+    }
 };
 exports.PlaylistController = PlaylistController;
 __decorate([
@@ -135,6 +141,25 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], PlaylistController.prototype, "getSchedules", null);
+__decorate([
+    (0, common_1.Put)('api/schedules/:id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, create_schedule_dto_1.CreateScheduleDto, Object]),
+    __metadata("design:returntype", Promise)
+], PlaylistController.prototype, "updateSchedule", null);
+__decorate([
+    (0, common_1.Delete)('api/schedules/:id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PlaylistController.prototype, "deleteSchedule", null);
 exports.PlaylistController = PlaylistController = __decorate([
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [playlist_service_1.PlaylistService])
