@@ -8,6 +8,7 @@ import { RedisModule } from './redis/redis.module';
 import { DeviceModule } from './device/device.module';
 import { MediaModule } from './media/media.module';
 import { PlaylistModule } from './playlist/playlist.module';
+import { TemplateModule } from './template/template.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PlaylistModule } from './playlist/playlist.module';
     DeviceModule,
     MediaModule,
     PlaylistModule,
+    TemplateModule,
   ],
   controllers: [AppController],
   providers: [AppService],

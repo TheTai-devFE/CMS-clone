@@ -1,8 +1,17 @@
-import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddPlaylistItemsDto } from './dto/add-playlist-items.dto';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
+import { UpdatePlaylistDto } from './dto/update-playlist.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class PlaylistService {
@@ -15,7 +24,7 @@ export class PlaylistService {
         playlistName: dto.playlistName,
         description: dto.description,
         isSyncGroup: dto.isSyncGroup || false,
-        syncLayout: dto.syncLayout,
+        syncLayout: dto.syncLayout as Prisma.InputJsonValue,
       },
     });
   }
@@ -61,7 +70,12 @@ export class PlaylistService {
     }));
   }
 
-  async addPlaylistItems(playlistId: string, dto: AddPlaylistItemsDto, userId: string, role: string) {
+  async addPlaylistItems(
+    playlistId: string,
+    dto: AddPlaylistItemsDto,
+    userId: string,
+    role: string,
+  ) {
     const playlist = await this.prisma.playlist.findUnique({
       where: { id: playlistId },
     });
@@ -74,6 +88,21 @@ export class PlaylistService {
       throw new ForbiddenException('Bạn không có quyền sửa danh sách phát này');
     }
 
+    // 1. Kiểm tra xem toàn bộ mediaId có tồn tại trong database hay không
+    const mediaIds = dto.items.map((item) => item.mediaId);
+    const uniqueMediaIds = Array.from(new Set(mediaIds));
+    const existingMediaCount = await this.prisma.media.count({
+      where: {
+        id: { in: uniqueMediaIds },
+      },
+    });
+
+    if (existingMediaCount !== uniqueMediaIds.length) {
+      throw new BadRequestException(
+        'Một hoặc nhiều file phương tiện không tồn tại trong hệ thống',
+      );
+    }
+
     // Thực hiện trong một transaction để xóa items cũ và ghi đè items mới
     return this.prisma.$transaction(async (tx) => {
       // 1. Xóa toàn bộ playlist items cũ
@@ -81,8 +110,9 @@ export class PlaylistService {
         where: { playlistId },
       });
 
-      // 2. Tạo danh sách items mới
+      // 2. Tạo danh sách items mới (sinh UUID ngẫu nhiên để tránh lỗi Prisma createMany bypass generator)
       const createData = dto.items.map((item) => ({
+        id: crypto.randomUUID(),
         playlistId,
         mediaId: item.mediaId,
         sortOrder: item.sortOrder,
@@ -95,11 +125,51 @@ export class PlaylistService {
       });
 
       // Lấy lại danh sách vừa cập nhật
-      return tx.playlistItem.findMany({
+      const items = await tx.playlistItem.findMany({
         where: { playlistId },
         include: { media: true },
         orderBy: { sortOrder: 'asc' },
       });
+
+      return items.map((item) => ({
+        id: item.id,
+        sortOrder: item.sortOrder,
+        duration: item.duration,
+        transitionEffect: item.transitionEffect,
+        media: {
+          ...item.media,
+          fileSize: item.media.fileSize.toString(),
+        },
+      }));
+    });
+  }
+
+  async updatePlaylist(
+    playlistId: string,
+    dto: UpdatePlaylistDto,
+    userId: string,
+    role: string,
+  ) {
+    const playlist = await this.prisma.playlist.findUnique({
+      where: { id: playlistId },
+    });
+
+    if (!playlist) {
+      throw new NotFoundException('Không tìm thấy danh sách phát');
+    }
+
+    if (role !== 'admin' && playlist.userId !== userId) {
+      throw new ForbiddenException('Bạn không có quyền sửa danh sách phát này');
+    }
+
+    return this.prisma.playlist.update({
+      where: { id: playlistId },
+      data: {
+        playlistName: dto.playlistName,
+        description: dto.description,
+        isSyncGroup: dto.isSyncGroup,
+        syncLayout: dto.syncLayout as Prisma.InputJsonValue,
+      },
     });
   }
 
@@ -125,13 +195,65 @@ export class PlaylistService {
   // SCHEDULING (LẬP LỊCH)
   // ==========================================
 
-  async createSchedule(dto: CreateScheduleDto, userId: string) {
-    const playlist = await this.prisma.playlist.findUnique({
-      where: { id: dto.playlistId },
-    });
+  private getDeviceIdsFromSyncLayout(syncLayout: any): string[] {
+    if (!syncLayout) return [];
+    const deviceIds = new Set<string>();
 
-    if (!playlist) {
-      throw new NotFoundException('Không tìm thấy danh sách phát để lập lịch');
+    if (typeof syncLayout === 'object') {
+      if (
+        syncLayout.targetDeviceId &&
+        typeof syncLayout.targetDeviceId === 'string'
+      ) {
+        deviceIds.add(syncLayout.targetDeviceId);
+      }
+
+      if (
+        syncLayout.deviceMapping &&
+        typeof syncLayout.deviceMapping === 'object'
+      ) {
+        for (const key in syncLayout.deviceMapping) {
+          const ids = syncLayout.deviceMapping[key];
+          if (Array.isArray(ids)) {
+            ids.forEach((id) => {
+              if (typeof id === 'string') deviceIds.add(id);
+            });
+          }
+        }
+      }
+    }
+
+    return Array.from(deviceIds);
+  }
+
+  async createSchedule(dto: CreateScheduleDto, userId: string) {
+    let deviceIds: string[] = [];
+
+    if (dto.playlistId) {
+      const playlist = await this.prisma.playlist.findUnique({
+        where: { id: dto.playlistId },
+      });
+      if (!playlist) {
+        throw new NotFoundException(
+          'Không tìm thấy danh sách phát để lập lịch',
+        );
+      }
+      deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout);
+    } else if (dto.templateId) {
+      const template = await this.prisma.template.findUnique({
+        where: { id: dto.templateId },
+      });
+      if (!template) {
+        throw new NotFoundException('Không tìm thấy bố cục để lập lịch');
+      }
+      // Đối với Template, tự động gán toàn bộ thiết bị của user
+      const userDevices = await this.prisma.device.findMany({
+        where: { userId },
+      });
+      deviceIds = userDevices.map((d) => d.id);
+    } else {
+      throw new BadRequestException(
+        'Vui lòng chọn Playlist hoặc Bố cục hiển thị',
+      );
     }
 
     // Định dạng lại ngày để lưu vào PostgreSQL
@@ -142,14 +264,15 @@ export class PlaylistService {
       data: {
         userId,
         scheduleName: dto.scheduleName,
-        playlistId: dto.playlistId,
+        playlistId: dto.playlistId ?? null,
+        templateId: dto.templateId ?? null,
         startDate,
         endDate,
         startTime: dto.startTime || '00:00:00',
         endTime: dto.endTime || '23:59:59',
         dayOfWeek: dto.dayOfWeek || [1, 2, 3, 4, 5, 6, 0],
         devices: {
-          create: dto.deviceIds.map((deviceId) => ({
+          create: deviceIds.map((deviceId) => ({
             deviceId,
           })),
         },
@@ -168,6 +291,7 @@ export class PlaylistService {
       where,
       include: {
         playlist: true,
+        template: true,
         devices: {
           include: {
             device: true,
@@ -175,6 +299,110 @@ export class PlaylistService {
         },
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async updateSchedule(
+    scheduleId: string,
+    dto: CreateScheduleDto,
+    userId: string,
+    role: string,
+  ) {
+    const schedule = await this.prisma.schedule.findUnique({
+      where: { id: scheduleId },
+      include: { devices: true },
+    });
+
+    if (!schedule) {
+      throw new NotFoundException('Không tìm thấy lịch trình');
+    }
+
+    if (role !== 'admin' && schedule.userId !== userId) {
+      throw new ForbiddenException(
+        'Bạn không có quyền chỉnh sửa lịch trình này',
+      );
+    }
+
+    let deviceIds: string[] = [];
+
+    if (dto.playlistId) {
+      const playlist = await this.prisma.playlist.findUnique({
+        where: { id: dto.playlistId },
+      });
+      if (!playlist) {
+        throw new NotFoundException(
+          'Không tìm thấy danh sách phát để lập lịch',
+        );
+      }
+      deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout);
+    } else if (dto.templateId) {
+      const template = await this.prisma.template.findUnique({
+        where: { id: dto.templateId },
+      });
+      if (!template) {
+        throw new NotFoundException('Không tìm thấy bố cục để lập lịch');
+      }
+      const userDevices = await this.prisma.device.findMany({
+        where: { userId },
+      });
+      deviceIds = userDevices.map((d) => d.id);
+    } else {
+      throw new BadRequestException(
+        'Vui lòng chọn Playlist hoặc Bố cục hiển thị',
+      );
+    }
+
+    const startDate = new Date(dto.startDate);
+    const endDate = new Date(dto.endDate);
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Xóa các liên kết thiết bị cũ
+      await tx.deviceSchedule.deleteMany({
+        where: { scheduleId },
+      });
+
+      // 2. Cập nhật lịch trình và tạo các liên kết thiết bị mới tự động
+      const updatedSchedule = await tx.schedule.update({
+        where: { id: scheduleId },
+        data: {
+          scheduleName: dto.scheduleName,
+          playlistId: dto.playlistId ?? null,
+          templateId: dto.templateId ?? null,
+          startDate,
+          endDate,
+          startTime: dto.startTime || '00:00:00',
+          endTime: dto.endTime || '23:59:59',
+          dayOfWeek: dto.dayOfWeek || [1, 2, 3, 4, 5, 6, 0],
+          devices: {
+            create: deviceIds.map((deviceId) => ({
+              deviceId,
+            })),
+          },
+        },
+        include: {
+          devices: true,
+        },
+      });
+
+      return updatedSchedule;
+    });
+  }
+
+  async deleteSchedule(scheduleId: string, userId: string, role: string) {
+    const schedule = await this.prisma.schedule.findUnique({
+      where: { id: scheduleId },
+    });
+
+    if (!schedule) {
+      throw new NotFoundException('Không tìm thấy lịch trình');
+    }
+
+    if (role !== 'admin' && schedule.userId !== userId) {
+      throw new ForbiddenException('Bạn không có quyền xóa lịch trình này');
+    }
+
+    return this.prisma.schedule.delete({
+      where: { id: scheduleId },
     });
   }
 
@@ -204,7 +432,7 @@ export class PlaylistService {
     const now = new Date();
     // Lấy ngày chuẩn định dạng ISO YYYY-MM-DD
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
+
     // Lấy thời gian HH:mm:ss hiện tại
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
@@ -237,6 +465,11 @@ export class PlaylistService {
             },
           },
         },
+        template: {
+          include: {
+            zones: true,
+          },
+        },
       },
       orderBy: {
         priority: 'desc', // Lấy lịch phát có ưu tiên cao nhất trước
@@ -252,27 +485,59 @@ export class PlaylistService {
       };
     }
 
-    // Lấy Playlist của lịch trình hoạt động có ưu tiên cao nhất
-    const targetPlaylist = activeSchedules[0].playlist;
+    const activeSchedule = activeSchedules[0];
+
+    // Trả về cấu trúc tương thích tùy theo lịch là Playlist hay Template Layout
+    if (activeSchedule.playlist) {
+      const targetPlaylist = activeSchedule.playlist;
+      return {
+        status: 'active',
+        type: 'playlist',
+        playlistId: targetPlaylist.id,
+        playlistName: targetPlaylist.playlistName,
+        isSyncGroup: targetPlaylist.isSyncGroup,
+        syncLayout: targetPlaylist.syncLayout,
+        items: targetPlaylist.playlistItems.map((item) => ({
+          itemId: item.id,
+          mediaId: item.media.id,
+          fileName: item.media.fileName,
+          fileUrl: item.media.fileUrl, // Link tải tương đối
+          fileSize: item.media.fileSize.toString(),
+          mimeType: item.media.mimeType,
+          checksum: item.media.checksum,
+          sortOrder: item.sortOrder,
+          duration: item.duration,
+          transitionEffect: item.transitionEffect,
+        })),
+      };
+    } else if (activeSchedule.template) {
+      const targetTemplate = activeSchedule.template;
+      return {
+        status: 'active',
+        type: 'template',
+        templateId: targetTemplate.id,
+        templateName: targetTemplate.name,
+        width: targetTemplate.width,
+        height: targetTemplate.height,
+        orientation: targetTemplate.orientation,
+        zones: targetTemplate.zones.map((zone) => ({
+          id: zone.id,
+          name: zone.name,
+          type: zone.type,
+          x: zone.x,
+          y: zone.y,
+          width: zone.width,
+          height: zone.height,
+          contentData: zone.contentData,
+        })),
+      };
+    }
 
     return {
       status: 'active',
-      playlistId: targetPlaylist.id,
-      playlistName: targetPlaylist.playlistName,
-      isSyncGroup: targetPlaylist.isSyncGroup,
-      syncLayout: targetPlaylist.syncLayout,
-      items: targetPlaylist.playlistItems.map((item) => ({
-        itemId: item.id,
-        mediaId: item.media.id,
-        fileName: item.media.fileName,
-        fileUrl: item.media.fileUrl, // Link tải tương đối, ví dụ: /uploads/xxxx.mp4
-        fileSize: item.media.fileSize.toString(),
-        mimeType: item.media.mimeType,
-        checksum: item.media.checksum,
-        sortOrder: item.sortOrder,
-        duration: item.duration,
-        transitionEffect: item.transitionEffect,
-      })),
+      playlistId: null,
+      playlistName: 'Default Playback',
+      items: [],
     };
   }
 }

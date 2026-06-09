@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -28,9 +33,17 @@ export class DeviceService {
     };
 
     // Lưu mã liên kết vào Redis (hết hạn sau 10 phút)
-    await this.redis.set(`pairing_code:${pairingCode}`, JSON.stringify(tempInfo), 600);
+    await this.redis.set(
+      `pairing_code:${pairingCode}`,
+      JSON.stringify(tempInfo),
+      600,
+    );
     // Lưu trạng thái kết nối tạm thời
-    await this.redis.set(`pairing_status:${tempDeviceId}`, JSON.stringify({ status: 'pending' }), 600);
+    await this.redis.set(
+      `pairing_status:${tempDeviceId}`,
+      JSON.stringify({ status: 'pending' }),
+      600,
+    );
 
     return {
       pairingCode,
@@ -50,9 +63,11 @@ export class DeviceService {
   async claimDevice(userId: string, dto: ClaimDeviceDto) {
     const pairingCode = dto.pairingCode.trim();
     const tempInfoStr = await this.redis.get(`pairing_code:${pairingCode}`);
-    
+
     if (!tempInfoStr) {
-      throw new BadRequestException('Mã liên kết không tồn tại hoặc đã hết hạn');
+      throw new BadRequestException(
+        'Mã liên kết không tồn tại hoặc đã hết hạn',
+      );
     }
 
     const tempInfo = JSON.parse(tempInfoStr);
@@ -72,7 +87,7 @@ export class DeviceService {
 
     if (assignedCount >= user.licenseLimit) {
       throw new BadRequestException(
-        `Vượt quá giới hạn bản quyền (Hạn mức: ${user.licenseLimit} thiết bị. Hiện tại đã gán: ${assignedCount} thiết bị)`
+        `Vượt quá giới hạn bản quyền (Hạn mức: ${user.licenseLimit} thiết bị. Hiện tại đã gán: ${assignedCount} thiết bị)`,
       );
     }
 
@@ -100,7 +115,7 @@ export class DeviceService {
         apiKey,
         deviceId: device.id,
       }),
-      120 // 2 phút để player polling
+      120, // 2 phút để player polling
     );
 
     // Xóa pairing code để không cho claim lại
@@ -127,7 +142,8 @@ export class DeviceService {
               deviceName: dto.deviceName,
               macAddress: dto.macAddress || existingDevice.macAddress,
               ipAddress: ipAddress || existingDevice.ipAddress,
-              screenResolution: dto.screenResolution || existingDevice.screenResolution,
+              screenResolution:
+                dto.screenResolution || existingDevice.screenResolution,
               osVersion: dto.osVersion || existingDevice.osVersion,
               appVersion: dto.appVersion || existingDevice.appVersion,
               approvalStatus: 'approved',
@@ -241,7 +257,7 @@ export class DeviceService {
 
       if (assignedCount >= user.licenseLimit) {
         throw new BadRequestException(
-          `Vượt quá giới hạn bản quyền (Hạn mức: ${user.licenseLimit} thiết bị. Hiện tại đã gán: ${assignedCount} thiết bị)`
+          `Vượt quá giới hạn bản quyền (Hạn mức: ${user.licenseLimit} thiết bị. Hiện tại đã gán: ${assignedCount} thiết bị)`,
         );
       }
 
@@ -301,6 +317,87 @@ export class DeviceService {
     });
   }
 
+  async getSystemLogs(user: { id: string; role: string }) {
+    // 1. Lấy danh sách thiết bị thuộc quyền quản lý của người dùng
+    let devices;
+    if (user.role === 'admin') {
+      devices = await this.prisma.device.findMany({
+        select: { id: true, deviceName: true },
+      });
+    } else {
+      devices = await this.prisma.device.findMany({
+        where: { userId: user.id },
+        select: { id: true, deviceName: true },
+      });
+    }
+
+    const deviceIds = devices.map((d) => d.id);
+    if (deviceIds.length === 0) {
+      return [];
+    }
+
+    // 2. Lấy HeartbeatLog mới nhất của các thiết bị này
+    const heartbeatLogs = await this.prisma.heartbeatLog.findMany({
+      where: {
+        deviceId: { in: deviceIds },
+      },
+      include: {
+        device: {
+          select: { deviceName: true },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 50,
+    });
+
+    // 3. Lấy PlaybackLog mới nhất của các thiết bị này
+    const playbackLogs = await this.prisma.playbackLog.findMany({
+      where: {
+        deviceId: { in: deviceIds },
+      },
+      include: {
+        device: {
+          select: { deviceName: true },
+        },
+        media: {
+          select: { fileName: true },
+        },
+      },
+      orderBy: {
+        startedAt: 'desc',
+      },
+      take: 50,
+    });
+
+    // 4. Định dạng và trộn các log lại
+    const formattedLogs = [
+      ...heartbeatLogs.map((log) => ({
+        id: `hb-${log.id}`,
+        deviceName: log.device.deviceName,
+        status: log.cpuUsage !== null ? 'Heartbeat' : 'Online',
+        detail: `CPU: ${log.cpuUsage ?? 0}% | Memory Free: ${log.freeMemoryMb ?? 0}MB`,
+        time: log.createdAt.toISOString(),
+      })),
+      ...playbackLogs.map((log) => ({
+        id: `pb-${log.id}`,
+        deviceName: log.device.deviceName,
+        status: 'Playback Success',
+        detail: `Đã phát file: ${log.media?.fileName ?? 'N/A'} (Thời lượng: ${log.durationPlayed ?? 0}s)`,
+        time: log.startedAt.toISOString(),
+      })),
+    ];
+
+    // Sắp xếp giảm dần theo thời gian
+    formattedLogs.sort(
+      (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime(),
+    );
+
+    // Trả về tối đa 100 log mới nhất
+    return formattedLogs.slice(0, 100);
+  }
+
   // Helper function để đọc trạng thái realtime từ Redis cho danh sách thiết bị
   private async enrichDevicesWithRealtimeStatus(devices: any[]) {
     const enriched = await Promise.all(
@@ -311,7 +408,7 @@ export class DeviceService {
           ...device,
           status: isOnline ? 'online' : 'offline',
         };
-      })
+      }),
     );
     return enriched;
   }

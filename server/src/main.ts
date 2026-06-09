@@ -6,7 +6,7 @@ import { join } from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Kích hoạt CORS cho frontend & app client
   app.enableCors();
 

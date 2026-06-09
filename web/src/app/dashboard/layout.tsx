@@ -1,196 +1,149 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { cookieStorage } from '../../utils/cookie';
-import Link from 'next/link';
+import React, { useState } from 'react';
+import { DashboardProvider, useDashboard } from './context/DashboardContext';
+import Sidebar from './components/Sidebar';
+import Header from './components/Header';
+import { DashboardTab } from '@/types/dashboard';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const profileMenuRef = useRef<HTMLDivElement>(null);
+const getActiveTab = (pathname: string): DashboardTab => {
+  const segment = pathname.split('/').pop();
+  if (segment === 'dashboard') return 'home';
+  if (['home', 'content', 'player', 'admin', 'eventlog', 'resource', 'schedule'].includes(segment || '')) {
+    return segment as DashboardTab;
+  }
+  return 'home';
+};
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('dashboard-theme');
-    if (savedTheme === 'dark') {
-      setIsDarkMode(true);
-    }
-  }, []);
+// Shadcn UI Components
+import { Button } from "@/components/ui/button";
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
-        setShowUserDropdown(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+// Lucide Icons
+import {
+  X,
+  AlertCircle,
+  CheckCircle2,
+  RefreshCw
+} from 'lucide-react';
 
-  const toggleTheme = () => {
-    const nextTheme = !isDarkMode;
-    setIsDarkMode(nextTheme);
-    localStorage.setItem('dashboard-theme', nextTheme ? 'dark' : 'light');
-  };
+function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
+  const {
+    currentUser,
+    isDarkMode,
+    toggleTheme,
+    loading,
+    error,
+    setError,
+    successMsg,
+    setSuccessMsg,
+    searchQuery,
+    setSearchQuery,
+    handleLogout
+  } = useDashboard();
 
-  useEffect(() => {
-    const user = cookieStorage.getUserInfo();
-    const token = cookieStorage.getAccessToken();
-
-    if (!token || !user) {
-      router.push('/login');
-      return;
-    }
-
-    setCurrentUser(user);
-    setLoading(false);
-  }, [router]);
-
-  const handleLogout = () => {
-    cookieStorage.clearAll();
-    router.push('/login');
-  };
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   if (loading || !currentUser) {
     return (
-      <div className="loading-container" style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column', gap: '15px' }}>
-        <span className="spinner"></span>
-        <p>Đang kiểm tra quyền truy cập...</p>
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-foreground gap-3">
+        <RefreshCw className="h-8 w-8 text-primary animate-spin" />
+        <p className="text-muted-foreground font-medium">Đang khởi động hệ thống...</p>
       </div>
     );
   }
 
-  const getActiveTab = () => {
-    if (pathname === '/dashboard') return 'home';
-    if (pathname.startsWith('/dashboard/content')) return 'content';
-    if (pathname.startsWith('/dashboard/player')) return 'player';
-    if (pathname.startsWith('/dashboard/admin')) return 'admin';
-    if (pathname.startsWith('/dashboard/eventlog')) return 'eventlog';
-    if (pathname.startsWith('/dashboard/resource')) return 'resource';
-    if (pathname.startsWith('/dashboard/profile')) return 'profile';
-    return 'home';
-  };
-
-  const activeTab = getActiveTab();
-
   return (
-    <div className={`dashboard ${isDarkMode ? 'dark-theme' : 'light-theme'}`}>
-      {/* ====== HEADER VINTAGE ====== */}
-      <header className="dash-header-vintage">
-        <div className="vintage-logo" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img src="/Logo-CDM-transparent.png" alt="CDM Logo" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
-          <span>Control Digital Media</span>
-        </div>
-        <div className="header-profile-wrapper" ref={profileMenuRef}>
-          <button className="profile-trigger-btn" onClick={() => setShowUserDropdown(!showUserDropdown)}>
-            <div className="profile-avatar-circle">
-              {currentUser.username.substring(0, 1).toUpperCase()}
-            </div>
-            <span className="profile-trigger-name">{currentUser.username}</span>
-            <svg className={`profile-trigger-arrow ${showUserDropdown ? 'open' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
+    <div className={`flex min-h-screen w-full bg-[#f6f6f6] dark:bg-[#1e1e1e] text-foreground ${isDarkMode ? 'dark' : ''}`}>
 
-          {showUserDropdown && (
-            <div className="profile-dropdown-menu">
-              <div className="dropdown-user-header">
-                <div className="dropdown-user-name">{currentUser.username}</div>
-                <div className="dropdown-user-email">{currentUser.email}</div>
-                <div className="dropdown-user-role-badge">
-                  {currentUser.role === 'admin' ? 'SYSTEM ADMIN' : 'USER'}
-                </div>
-              </div>
+      {/* Sidebar navigation */}
+      {currentUser && (
+        <Sidebar
+          activeTab={
+            typeof window !== 'undefined'
+              ? getActiveTab(window.location.pathname)
+              : 'home'
+          }
+          setActiveTab={() => {}} // Next.js links inside Sidebar will handle route changes
+          currentUser={currentUser}
+        />
+      )}
 
-              <div className="dropdown-divider"></div>
+      {/* Main Workspace wrapper */}
+      <div className="flex-1 flex flex-col min-w-0 bg-[#f6f6f6] dark:bg-[#1e1e1e]">
 
-              <Link href="/dashboard/profile" className="dropdown-item" onClick={() => setShowUserDropdown(false)}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                Trang cá nhân (Profile)
-              </Link>
-
-              <button className="dropdown-item" onClick={toggleTheme}>
-                {isDarkMode ? (
-                  <>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="5" />
-                      <line x1="12" y1="1" x2="12" y2="3" />
-                      <line x1="12" y1="21" x2="12" y2="23" />
-                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                      <line x1="1" y1="12" x2="3" y2="12" />
-                      <line x1="21" y1="12" x2="23" y2="12" />
-                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                    </svg>
-                    Chế độ sáng (Light Mode)
-                  </>
-                ) : (
-                  <>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                    </svg>
-                    Chế độ tối (Dark Mode)
-                  </>
-                )}
-              </button>
-
-              <div className="dropdown-divider"></div>
-
-              <button className="dropdown-item logout" onClick={handleLogout}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                  <polyline points="16 17 21 12 16 7"></polyline>
-                  <line x1="21" y1="12" x2="9" y2="12"></line>
-                </svg>
-                Đăng xuất
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
-
-      {/* ====== HORIZONTAL NAV BAR ====== */}
-      <div className="dash-nav-horizontal">
-        <Link href="/dashboard" className={`nav-item-horiz ${activeTab === 'home' ? 'active' : ''}`}>
-          Home
-        </Link>
-        <Link href="/dashboard/content" className={`nav-item-horiz ${activeTab === 'content' ? 'active' : ''}`}>
-          Content
-        </Link>
-        <Link href="/dashboard/player" className={`nav-item-horiz ${activeTab === 'player' ? 'active' : ''}`}>
-          Player
-        </Link>
-        {currentUser.role === 'admin' && (
-          <Link href="/dashboard/admin" className={`nav-item-horiz ${activeTab === 'admin' ? 'active' : ''}`}>
-            Admin
-          </Link>
+        {/* Header bar */}
+        {currentUser && (
+          <Header
+            activeTab={
+              typeof window !== 'undefined'
+                ? getActiveTab(window.location.pathname)
+                : 'home'
+            }
+            setActiveTab={() => {}} // Next.js links inside Header will handle route changes
+            currentUser={currentUser}
+            isDarkMode={isDarkMode}
+            toggleTheme={toggleTheme}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            isMobileMenuOpen={isMobileMenuOpen}
+            setIsMobileMenuOpen={setIsMobileMenuOpen}
+            handleLogout={handleLogout}
+          />
         )}
-        <Link href="/dashboard/eventlog" className={`nav-item-horiz ${activeTab === 'eventlog' ? 'active' : ''}`}>
-          Event Log
-        </Link>
-        <Link href="/dashboard/resource" className={`nav-item-horiz ${activeTab === 'resource' ? 'active' : ''}`}>
-          Resource
-        </Link>
-      </div>
 
-      {/* ====== MAIN WORKSPACE ====== */}
-      <div className="dash-content">
-        <div className="homepage-container">
-          <div className="homepage-workspace">
-            {children}
-          </div>
+        {/* Workspace scrollable view */}
+        <div className="flex-1 overflow-y-auto">
+          <main className="p-6 md:p-8 w-full mx-auto space-y-6">
+
+            {/* Global Alerts */}
+            {(error || successMsg) && (
+              <div className="space-y-3">
+                {error && (
+                  <div className="flex items-center justify-between p-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-950/20 dark:text-red-400 border border-red-200 dark:border-red-900/50 animate-in fade-in slide-in-from-top-1 duration-200" role="alert">
+                    <div className="flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-2 shrink-0" />
+                      <span>{error}</span>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setError('')} className="h-6 w-6 rounded-full text-red-800 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+                {successMsg && (
+                  <div className="flex items-center justify-between p-4 text-sm text-green-800 rounded-lg bg-green-50 dark:bg-green-950/20 dark:text-green-400 border border-green-200 dark:border-green-900/50 animate-in fade-in slide-in-from-top-1 duration-200" role="alert">
+                    <div className="flex items-center">
+                      <CheckCircle2 className="h-4 w-4 mr-2 shrink-0" />
+                      <span>{successMsg}</span>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setSuccessMsg('')} className="h-6 w-6 rounded-full text-green-800 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+                <RefreshCw className="h-8 w-8 text-primary animate-spin" />
+                <p className="text-muted-foreground font-medium">Đang tải dữ liệu...</p>
+              </div>
+            ) : (
+              <div className="w-full">
+                {children}
+              </div>
+            )}
+          </main>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <DashboardProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </DashboardProvider>
   );
 }

@@ -1,22 +1,70 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 
 @Injectable()
 export class MediaService {
+  private readonly storageType: string;
   private readonly uploadDir: string;
+  private s3Client: S3Client | null = null;
+  private r2BucketName: string;
+  private r2PublicUrl: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
-    this.uploadDir = this.configService.get<string>('UPLOAD_DIR') || './uploads';
-    // Đảm bảo thư mục upload tồn tại
+    this.storageType =
+      this.configService.get<string>('STORAGE_TYPE') || 'local';
+    this.uploadDir =
+      this.configService.get<string>('UPLOAD_DIR') || './uploads';
+
+    // Đảm bảo thư mục upload tạm/local tồn tại
     if (!fs.existsSync(this.uploadDir)) {
       fs.mkdirSync(this.uploadDir, { recursive: true });
+    }
+
+    if (this.storageType === 'r2') {
+      const accessKeyId = this.configService.get<string>(
+        'CLOUDFLARE_R2_ACCESS_KEY_ID',
+      );
+      const secretAccessKey = this.configService.get<string>(
+        'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
+      );
+      const endpoint = this.configService.get<string>('CLOUDFLARE_R2_ENDPOINT');
+      this.r2BucketName =
+        this.configService.get<string>('CLOUDFLARE_R2_BUCKET_NAME') ||
+        'cms-media';
+      this.r2PublicUrl =
+        this.configService.get<string>('CLOUDFLARE_R2_PUBLIC_URL') || '';
+
+      if (!accessKeyId || !secretAccessKey || !endpoint) {
+        throw new Error(
+          'Missing Cloudflare R2 configurations in environment variables',
+        );
+      }
+
+      this.s3Client = new S3Client({
+        region: 'auto',
+        endpoint,
+        credentials: {
+          accessKeyId,
+          secretAccessKey,
+        },
+      });
     }
   }
 
@@ -40,17 +88,43 @@ export class MediaService {
       const finalFileName = `${checksum}${ext}`;
       const finalFilePath = path.join(this.uploadDir, finalFileName);
 
-      // Nếu tệp vật lý chưa tồn tại trên đĩa, di chuyển file từ thư mục tạm sang file chính thức
-      if (!fs.existsSync(finalFilePath)) {
-        fs.renameSync(tempFilePath, finalFilePath);
+      let fileUrl = '';
+      if (this.storageType === 'r2') {
+        const fileKey = finalFileName;
+        // Nếu file chưa tồn tại (chưa có media nào với checksum này trong hệ thống), ta thực hiện upload lên Cloudflare R2
+        if (!existingMedia) {
+          const fileBuffer = fs.readFileSync(tempFilePath);
+          if (!this.s3Client) {
+            throw new Error('Cloudflare R2 client is not initialized');
+          }
+          await this.s3Client.send(
+            new PutObjectCommand({
+              Bucket: this.r2BucketName,
+              Key: fileKey,
+              Body: fileBuffer,
+              ContentType: file.mimetype,
+            }),
+          );
+        }
+        // Xóa file tạm local sau khi đã upload hoặc nếu file đã tồn tại
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+        // Tạo file URL trỏ đến public URL của Cloudflare R2
+        const baseUrl = this.r2PublicUrl.endsWith('/')
+          ? this.r2PublicUrl.slice(0, -1)
+          : this.r2PublicUrl;
+        fileUrl = `${baseUrl}/${fileKey}`;
       } else {
-        // Nếu file đã tồn tại trên đĩa (trùng checksum), xóa file tạm vừa upload đi để tiết kiệm bộ nhớ
-        fs.unlinkSync(tempFilePath);
+        // Nếu tệp vật lý chưa tồn tại trên đĩa, di chuyển file từ thư mục tạm sang file chính thức
+        if (!fs.existsSync(finalFilePath)) {
+          fs.renameSync(tempFilePath, finalFilePath);
+        } else {
+          // Nếu file đã tồn tại trên đĩa (trùng checksum), xóa file tạm vừa upload đi để tiết kiệm bộ nhớ
+          fs.unlinkSync(tempFilePath);
+        }
+        fileUrl = `/uploads/${finalFileName}`;
       }
-
-      // Tạo đường dẫn URL tĩnh để truy cập file
-      // URL sẽ trỏ về route static assets ví dụ: /uploads/xxxxxx.mp4
-      const fileUrl = `/uploads/${finalFileName}`;
 
       // Nếu đã có bản ghi trong DB của User hiện tại, trả về luôn để tránh trùng lặp
       if (existingMedia && existingMedia.userId === userId) {
@@ -118,12 +192,27 @@ export class MediaService {
       where: { checksum: media.checksum },
     });
 
-    // Nếu không còn bản ghi nào khác dùng chung file này, tiến hành xóa file vật lý trên đĩa
+    // Nếu không còn bản ghi nào khác dùng chung file này, tiến hành xóa file vật lý
     if (otherReferences === 0) {
       const fileName = path.basename(media.fileUrl);
-      const filePath = path.join(this.uploadDir, fileName);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      if (this.storageType === 'r2') {
+        if (this.s3Client) {
+          try {
+            await this.s3Client.send(
+              new DeleteObjectCommand({
+                Bucket: this.r2BucketName,
+                Key: fileName,
+              }),
+            );
+          } catch (err) {
+            console.error('Lỗi khi xóa tệp trên Cloudflare R2:', err);
+          }
+        }
+      } else {
+        const filePath = path.join(this.uploadDir, fileName);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
       }
     }
 
