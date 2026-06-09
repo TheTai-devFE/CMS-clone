@@ -111,4 +111,20 @@ export class PlaylistController {
   async getSchedules(@CurrentUser() user: AuthUser) {
     return this.playlistService.getSchedules(user.id, user.role);
   }
+
+  @Put('api/schedules/:id')
+  @UseGuards(JwtAuthGuard)
+  async updateSchedule(
+    @Param('id') id: string,
+    @Body() dto: CreateScheduleDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.playlistService.updateSchedule(id, dto, user.id, user.role);
+  }
+
+  @Delete('api/schedules/:id')
+  @UseGuards(JwtAuthGuard)
+  async deleteSchedule(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.playlistService.deleteSchedule(id, user.id, user.role);
+  }
 }

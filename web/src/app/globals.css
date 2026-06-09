@@ -27,39 +27,39 @@
     --destructive: var(--error);
     --destructive-foreground: var(--ink-inverse);
 
-    --border: var(--border);
-    --input: var(--border);
+    --border: var(--border-color);
+    --input: var(--border-color);
     --ring: var(--accent);
 
     --radius: var(--radius-md);
   }
 
   .dark {
-    --background: #0F172A;
-    --foreground: #F3F4F6;
+    --background: #1e1e1e;
+    --foreground: #f5f5f7;
 
-    --card: #1E293B;
-    --card-foreground: #F3F4F6;
+    --card: #2d2d2d;
+    --card-foreground: #f5f5f7;
 
-    --popover: #1E293B;
-    --popover-foreground: #F3F4F6;
+    --popover: #2d2d2d;
+    --popover-foreground: #f5f5f7;
 
     --primary: var(--accent);
     --primary-foreground: var(--ink-inverse);
 
-    --secondary: #334155;
-    --secondary-foreground: #F3F4F6;
+    --secondary: #3a3a3c;
+    --secondary-foreground: #f5f5f7;
 
-    --muted: #334155;
-    --muted-foreground: #9CA3AF;
+    --muted: #3a3a3c;
+    --muted-foreground: #86868b;
 
     --accent-foreground: var(--ink-inverse);
 
     --destructive: var(--error);
     --destructive-foreground: var(--ink-inverse);
 
-    --border: #334155;
-    --input: #334155;
+    --border: #3a3a3c;
+    --input: #3a3a3c;
     --ring: var(--accent);
   }
 }
@@ -67,63 +67,63 @@
 /* Font loaded via next/font in layout.tsx for non-blocking render */
 
 /* ============================================
-   1. DESIGN TOKENS (Light Mode Premium)
+   1. DESIGN TOKENS (macOS Style Light Mode)
    ============================================ */
 :root {
   /* Surface & Background */
-  --canvas: #FAFAF9;
-  --surface: #FFFFFF;
-  --surface-elevated: #F5F5F4;
-  --surface-hover: #F5F5F4;
+  --canvas: #f6f6f6;
+  --surface: #ffffff;
+  --surface-elevated: #efeff4;
+  --surface-hover: #e5e5ea;
 
   /* Text */
-  --ink: #1C1917;
-  --ink-secondary: #78716C;
-  --ink-muted: #A8A29E;
-  --ink-inverse: #FFFFFF;
+  --ink: #1d1d1f;
+  --ink-secondary: #86868b;
+  --ink-muted: #a1a1a6;
+  --ink-inverse: #ffffff;
 
   /* Borders */
-  --border: #E7E5E4;
-  --border-hover: #D6D3D1;
-  --border-active: #0D9488;
+  --border-color: #e5e5ea;
+  --border-hover: #d1d1d6;
+  --border-active: #0d9488;
 
-  /* Accent (Teal — single accent) */
-  --accent: #0D9488;
-  --accent-hover: #0F766E;
-  --accent-active: #115E59;
-  --accent-light: #CCFBF1;
+  /* Accent (Teal / Emerald gốc của dự án) */
+  --accent: #0d9488;
+  --accent-hover: #0f766e;
+  --accent-active: #115e59;
+  --accent-light: #ccfbf1;
   --accent-subtle: rgba(13, 148, 136, 0.08);
 
   /* Semantic */
-  --success: #059669;
-  --success-light: #D1FAE5;
-  --success-border: #A7F3D0;
-  --warning: #EA580C;
-  --warning-light: #FFF7ED;
-  --warning-border: #FED7AA;
-  --error: #E11D48;
-  --error-light: #FFE4E6;
-  --error-border: #FECDD3;
-  --info-light: #EDE9FE;
-  --info: #7C3AED;
-  --info-border: #DDD6FE;
+  --success: #34c759;
+  --success-light: #e8f8ec;
+  --success-border: #c2f0ca;
+  --warning: #ff9500;
+  --warning-light: #fff4e5;
+  --warning-border: #ffe2b8;
+  --error: #ff3b30;
+  --error-light: #ffebe9;
+  --error-border: #ffc9c6;
+  --info-light: #f2f2f7;
+  --info: #007aff;
+  --info-border: #c7e0ff;
 
-  /* Shadows */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.08);
-  --shadow-xl: 0 25px 50px rgba(0, 0, 0, 0.12);
+  /* Apple-style smooth soft shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.02);
+  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.08), 0 1px 6px rgba(0, 0, 0, 0.02);
 
-  /* Radius */
+  /* Radius (Apple rounded squircle styles) */
   --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
 
-  /* Font */
-  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  /* Font (macOS System Font) */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", Monaco, Consolas, "Liberation Mono", monospace;
 
   /* Spacing */
   --space-xs: 4px;

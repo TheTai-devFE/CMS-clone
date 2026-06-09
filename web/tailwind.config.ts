@@ -44,6 +44,13 @@ const config: Config = {
           DEFAULT: "var(--card)",
           foreground: "var(--card-foreground)",
         },
+        emerald: {
+          50: "rgba(13, 148, 136, 0.05)",
+          100: "var(--accent-light)",
+          500: "var(--accent)",
+          600: "var(--accent-hover)",
+          700: "var(--accent-active)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

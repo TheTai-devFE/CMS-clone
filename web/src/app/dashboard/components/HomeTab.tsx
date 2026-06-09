@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DashboardTab } from '@/types/dashboard';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ interface MediaItem {
 interface HomeTabProps {
   devices: Device[];
   mediaList: MediaItem[];
-  setActiveTab: (tab: 'home' | 'content' | 'player' | 'admin' | 'eventlog' | 'resource') => void;
+  setActiveTab: (tab: DashboardTab) => void;
 }
 
 export default function HomeTab({ devices, mediaList, setActiveTab }: HomeTabProps) {

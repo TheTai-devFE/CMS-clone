@@ -6,7 +6,7 @@ import { useDashboard } from './context/DashboardContext';
 import HomeTab from './components/HomeTab';
 import KpiCards from './components/KpiCards';
 import { useDevices, useMedia, usePendingDevices, useDeviceLogs } from '@/hooks/useApi';
-import { EventLog } from '@/types/dashboard';
+import { EventLog, DashboardTab } from '@/types/dashboard';
 
 // Shadcn UI Components
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +33,7 @@ export default function OverviewPageClient() {
     (d.macAddress && d.macAddress.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const handleSetActiveTab = (tab: 'home' | 'content' | 'player' | 'admin' | 'eventlog' | 'resource') => {
+  const handleSetActiveTab = (tab: DashboardTab) => {
     if (tab === 'home') {
       router.push('/dashboard');
     } else {

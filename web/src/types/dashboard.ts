@@ -1,4 +1,4 @@
-export type DashboardTab = 'home' | 'content' | 'player' | 'admin' | 'eventlog' | 'resource';
+export type DashboardTab = 'home' | 'content' | 'player' | 'admin' | 'eventlog' | 'resource' | 'schedule';
 
 export interface User {
   id: string;

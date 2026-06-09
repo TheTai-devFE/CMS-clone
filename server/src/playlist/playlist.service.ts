@@ -195,7 +195,39 @@ export class PlaylistService {
   // SCHEDULING (LẬP LỊCH)
   // ==========================================
 
+  private getDeviceIdsFromSyncLayout(syncLayout: any): string[] {
+    if (!syncLayout) return [];
+    const deviceIds = new Set<string>();
+
+    if (typeof syncLayout === 'object') {
+      if (
+        syncLayout.targetDeviceId &&
+        typeof syncLayout.targetDeviceId === 'string'
+      ) {
+        deviceIds.add(syncLayout.targetDeviceId);
+      }
+
+      if (
+        syncLayout.deviceMapping &&
+        typeof syncLayout.deviceMapping === 'object'
+      ) {
+        for (const key in syncLayout.deviceMapping) {
+          const ids = syncLayout.deviceMapping[key];
+          if (Array.isArray(ids)) {
+            ids.forEach((id) => {
+              if (typeof id === 'string') deviceIds.add(id);
+            });
+          }
+        }
+      }
+    }
+
+    return Array.from(deviceIds);
+  }
+
   async createSchedule(dto: CreateScheduleDto, userId: string) {
+    let deviceIds: string[] = [];
+
     if (dto.playlistId) {
       const playlist = await this.prisma.playlist.findUnique({
         where: { id: dto.playlistId },
@@ -205,6 +237,7 @@ export class PlaylistService {
           'Không tìm thấy danh sách phát để lập lịch',
         );
       }
+      deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout);
     } else if (dto.templateId) {
       const template = await this.prisma.template.findUnique({
         where: { id: dto.templateId },
@@ -212,6 +245,11 @@ export class PlaylistService {
       if (!template) {
         throw new NotFoundException('Không tìm thấy bố cục để lập lịch');
       }
+      // Đối với Template, tự động gán toàn bộ thiết bị của user
+      const userDevices = await this.prisma.device.findMany({
+        where: { userId },
+      });
+      deviceIds = userDevices.map((d) => d.id);
     } else {
       throw new BadRequestException(
         'Vui lòng chọn Playlist hoặc Bố cục hiển thị',
@@ -234,7 +272,7 @@ export class PlaylistService {
         endTime: dto.endTime || '23:59:59',
         dayOfWeek: dto.dayOfWeek || [1, 2, 3, 4, 5, 6, 0],
         devices: {
-          create: dto.deviceIds.map((deviceId) => ({
+          create: deviceIds.map((deviceId) => ({
             deviceId,
           })),
         },
@@ -261,6 +299,110 @@ export class PlaylistService {
         },
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async updateSchedule(
+    scheduleId: string,
+    dto: CreateScheduleDto,
+    userId: string,
+    role: string,
+  ) {
+    const schedule = await this.prisma.schedule.findUnique({
+      where: { id: scheduleId },
+      include: { devices: true },
+    });
+
+    if (!schedule) {
+      throw new NotFoundException('Không tìm thấy lịch trình');
+    }
+
+    if (role !== 'admin' && schedule.userId !== userId) {
+      throw new ForbiddenException(
+        'Bạn không có quyền chỉnh sửa lịch trình này',
+      );
+    }
+
+    let deviceIds: string[] = [];
+
+    if (dto.playlistId) {
+      const playlist = await this.prisma.playlist.findUnique({
+        where: { id: dto.playlistId },
+      });
+      if (!playlist) {
+        throw new NotFoundException(
+          'Không tìm thấy danh sách phát để lập lịch',
+        );
+      }
+      deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout);
+    } else if (dto.templateId) {
+      const template = await this.prisma.template.findUnique({
+        where: { id: dto.templateId },
+      });
+      if (!template) {
+        throw new NotFoundException('Không tìm thấy bố cục để lập lịch');
+      }
+      const userDevices = await this.prisma.device.findMany({
+        where: { userId },
+      });
+      deviceIds = userDevices.map((d) => d.id);
+    } else {
+      throw new BadRequestException(
+        'Vui lòng chọn Playlist hoặc Bố cục hiển thị',
+      );
+    }
+
+    const startDate = new Date(dto.startDate);
+    const endDate = new Date(dto.endDate);
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Xóa các liên kết thiết bị cũ
+      await tx.deviceSchedule.deleteMany({
+        where: { scheduleId },
+      });
+
+      // 2. Cập nhật lịch trình và tạo các liên kết thiết bị mới tự động
+      const updatedSchedule = await tx.schedule.update({
+        where: { id: scheduleId },
+        data: {
+          scheduleName: dto.scheduleName,
+          playlistId: dto.playlistId ?? null,
+          templateId: dto.templateId ?? null,
+          startDate,
+          endDate,
+          startTime: dto.startTime || '00:00:00',
+          endTime: dto.endTime || '23:59:59',
+          dayOfWeek: dto.dayOfWeek || [1, 2, 3, 4, 5, 6, 0],
+          devices: {
+            create: deviceIds.map((deviceId) => ({
+              deviceId,
+            })),
+          },
+        },
+        include: {
+          devices: true,
+        },
+      });
+
+      return updatedSchedule;
+    });
+  }
+
+  async deleteSchedule(scheduleId: string, userId: string, role: string) {
+    const schedule = await this.prisma.schedule.findUnique({
+      where: { id: scheduleId },
+    });
+
+    if (!schedule) {
+      throw new NotFoundException('Không tìm thấy lịch trình');
+    }
+
+    if (role !== 'admin' && schedule.userId !== userId) {
+      throw new ForbiddenException('Bạn không có quyền xóa lịch trình này');
+    }
+
+    return this.prisma.schedule.delete({
+      where: { id: scheduleId },
     });
   }
 

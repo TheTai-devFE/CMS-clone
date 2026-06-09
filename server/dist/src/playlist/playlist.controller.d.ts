@@ -241,5 +241,40 @@ export declare class PlaylistController {
         dayOfWeek: number[];
         priority: number;
     })[]>;
+    updateSchedule(id: string, dto: CreateScheduleDto, user: AuthUser): Promise<{
+        devices: {
+            deviceId: string;
+            scheduleId: string;
+        }[];
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        scheduleName: string;
+        playlistId: string | null;
+        templateId: string | null;
+        startDate: Date;
+        endDate: Date;
+        startTime: string;
+        endTime: string;
+        dayOfWeek: number[];
+        priority: number;
+    }>;
+    deleteSchedule(id: string, user: AuthUser): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        scheduleName: string;
+        playlistId: string | null;
+        templateId: string | null;
+        startDate: Date;
+        endDate: Date;
+        startTime: string;
+        endTime: string;
+        dayOfWeek: number[];
+        priority: number;
+    }>;
 }
 export {};
