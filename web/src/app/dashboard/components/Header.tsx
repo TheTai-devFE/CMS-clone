@@ -212,8 +212,14 @@ export default function Header({
               Quyền hạn: <Badge variant="secondary" className="ml-2 font-semibold bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 border-none text-[9px] px-2 py-0">{currentUser.role === 'admin' ? 'Admin' : 'User'}</Badge>
             </DropdownMenuItem>
             <DashboardMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="p-2 text-xs text-red-500 focus:bg-red-500/10 focus:text-red-600 dark:focus:bg-red-950/30 dark:focus:text-red-400 cursor-pointer">
-              <LogOut className="mr-1.5 h-3.5 w-3.5" /> Đăng xuất
+            <DropdownMenuItem asChild>
+              <Link href="/dashboard/profile" className="flex items-center w-full cursor-pointer text-muted-foreground focus:text-foreground">
+                <CircleUser className="mr-2 h-4 w-4" /> Hồ sơ & PIN bảo mật
+              </Link>
+            </DropdownMenuItem>
+            <DashboardMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:bg-red-50 focus:text-red-600 dark:focus:bg-red-950/50 dark:focus:text-red-400 cursor-pointer">
+              <LogOut className="mr-2 h-4 w-4" /> Đăng xuất
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

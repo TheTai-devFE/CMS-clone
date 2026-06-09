@@ -11,6 +11,7 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
+import { getHardwareId } from '../utils/deviceInfo';
 
 interface RegisterScreenProps {
   isLandscape: boolean;
@@ -22,6 +23,7 @@ interface RegisterScreenProps {
   onBack: () => void;
   deviceId: string | null;
   deviceName: string;
+  onDisconnect: () => void;
 }
 
 export default function RegisterScreen({
@@ -34,8 +36,17 @@ export default function RegisterScreen({
   onBack,
   deviceId,
   deviceName,
+  onDisconnect,
 }: RegisterScreenProps) {
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const [localIp, setLocalIp] = useState(formIp);
+  const [localPort, setLocalPort] = useState(formPort);
+
+  // Sync inputs with form state props
+  useEffect(() => {
+    setLocalIp(formIp);
+    setLocalPort(formPort);
+  }, [formIp, formPort]);
   
   // Pairing Code States
   const [pairingCode, setPairingCode] = useState<string>('');
@@ -44,8 +55,9 @@ export default function RegisterScreen({
   const [pairingStatus, setPairingStatus] = useState<'idle' | 'loading' | 'pending' | 'linked' | 'error' | 'expired'>('idle');
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  const fetchPairingCode = async () => {
-    if (!formIp || !formPort) {
+
+  const fetchPairingCode = async (targetIp = localIp, targetPort = localPort) => {
+    if (!targetIp || !targetPort) {
       setPairingStatus('idle');
       return;
     }
@@ -54,13 +66,16 @@ export default function RegisterScreen({
     setErrorMsg('');
     
     try {
-      const response = await fetch(`http://${formIp}:${formPort}/api/player/pairing-code`, {
+      const hardwareId = await getHardwareId();
+      console.log('Using Hardware ID (macAddress):', hardwareId);
+
+      const response = await fetch(`http://${targetIp}:${targetPort}/api/player/pairing-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          macAddress: '02:00:00:00:00:00', // Mock MAC Address
+          macAddress: hardwareId,
           screenResolution: `${Math.round(Dimensions.get('window').width)}x${Math.round(Dimensions.get('window').height)}`,
           osVersion: Platform.OS + ' ' + Platform.Version,
           appVersion: '1.0.0',
@@ -83,10 +98,18 @@ export default function RegisterScreen({
     }
   };
 
-  // Tự động lấy pairing code khi mount hoặc khi cấu hình server thay đổi
+  // Tự động lấy pairing code một lần khi mount
   useEffect(() => {
-    fetchPairingCode();
-  }, [formIp, formPort]);
+    if (formIp && formPort) {
+      fetchPairingCode(formIp, formPort);
+    }
+  }, []);
+
+  const handleConnect = () => {
+    setFormIp(localIp);
+    setFormPort(localPort);
+    fetchPairingCode(localIp, localPort);
+  };
 
   // Polling check status
   useEffect(() => {
@@ -135,7 +158,7 @@ export default function RegisterScreen({
         return (
           <View style={styles.statusArea}>
             <Text style={styles.errorText}>Mã liên kết đã hết hạn</Text>
-            <TouchableOpacity style={styles.btnRetry} onPress={fetchPairingCode}>
+            <TouchableOpacity style={styles.btnRetry} onPress={() => fetchPairingCode()}>
               <Text style={styles.btnRetryText}>Lấy mã mới</Text>
             </TouchableOpacity>
           </View>
@@ -144,7 +167,7 @@ export default function RegisterScreen({
         return (
           <View style={styles.statusArea}>
             <Text style={styles.errorText}>{errorMsg}</Text>
-            <TouchableOpacity style={styles.btnRetry} onPress={fetchPairingCode}>
+            <TouchableOpacity style={styles.btnRetry} onPress={() => fetchPairingCode()}>
               <Text style={styles.btnRetryText}>Thử lại</Text>
             </TouchableOpacity>
           </View>
@@ -259,6 +282,14 @@ export default function RegisterScreen({
                     Đang lắng nghe tín hiệu từ Web Dashboard...
                   </Text>
                 </View>
+
+                <TouchableOpacity
+                  style={styles.btnDisconnect}
+                  onPress={onDisconnect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.btnDisconnectText}>Hủy liên kết thiết bị này</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               /* FORM LIÊN KẾT THIẾT BỊ (CHƯA LIÊN KẾT) */
@@ -284,8 +315,8 @@ export default function RegisterScreen({
                         style={[styles.textInput, focusedInput === 'ip' && styles.textInputFocused]}
                         onFocus={() => setFocusedInput('ip')}
                         onBlur={() => setFocusedInput(null)}
-                        value={formIp}
-                        onChangeText={setFormIp}
+                        value={localIp}
+                        onChangeText={setLocalIp}
                         placeholder="192.168.2.229"
                         placeholderTextColor="rgba(255, 255, 255, 0.2)"
                       />
@@ -300,14 +331,27 @@ export default function RegisterScreen({
                         style={[styles.textInput, focusedInput === 'port' && styles.textInputFocused]}
                         onFocus={() => setFocusedInput('port')}
                         onBlur={() => setFocusedInput(null)}
-                        value={formPort}
-                        onChangeText={setFormPort}
+                        value={localPort}
+                        onChangeText={setLocalPort}
                         placeholder="3000"
                         placeholderTextColor="rgba(255, 255, 255, 0.2)"
                         keyboardType="numeric"
                       />
                     </View>
                   </View>
+
+                  <TouchableOpacity
+                    style={[styles.btnConnect, pairingStatus === 'loading' && styles.btnDisabled]}
+                    onPress={handleConnect}
+                    disabled={pairingStatus === 'loading'}
+                    activeOpacity={0.8}
+                  >
+                    {pairingStatus === 'loading' ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <Text style={styles.btnConnectText}>Kết nối đến máy chủ</Text>
+                    )}
+                  </TouchableOpacity>
 
                   {/* Pairing Code & Status Area */}
                   <View style={[styles.divider, isLandscape && styles.dividerLandscape]} />
@@ -736,5 +780,43 @@ const styles = StyleSheet.create({
   waitingFooterLandscape: {
     marginTop: 14,
     paddingVertical: 6,
+  },
+  btnConnect: {
+    width: '100%',
+    height: 48,
+    backgroundColor: '#00b894',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    shadowColor: '#00b894',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  btnConnectText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  btnDisabled: {
+    backgroundColor: 'rgba(0, 184, 148, 0.5)',
+  },
+  btnDisconnect: {
+    marginTop: 16,
+    width: '100%',
+    height: 48,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnDisconnectText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

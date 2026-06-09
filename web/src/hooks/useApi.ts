@@ -8,7 +8,8 @@ const fetcher = (url: string) => api.get(url);
 export function useDevices() {
   const { data, error, isLoading, mutate } = useSWR<Device[]>(
     '/api/devices',
-    fetcher
+    fetcher,
+    { refreshInterval: 10000 }
   );
 
   return {

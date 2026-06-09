@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Image, Dimensions, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { getHardwareId, getIpAddress } from '../utils/deviceInfo';
 
 const logoImage = require('../../assets/Logo-CDM-transparent.png');
 
@@ -20,10 +21,34 @@ export default function HomeScreen({
   serverPort 
 }: HomeScreenProps) {
   const isLinked = !!deviceId;
+  const [hardwareId, setHardwareId] = useState<string>('Đang tải...');
+  const [ipAddress, setIpAddress] = useState<string>('Đang tải...');
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDeviceInfo = async () => {
+      const id = await getHardwareId();
+      const ip = await getIpAddress();
+      if (isMounted) {
+        setHardwareId(id);
+        setIpAddress(ip);
+      }
+    };
+    fetchDeviceInfo();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
+
+      {/* Top Left Device Info Overlay */}
+      <View style={[styles.deviceInfoOverlay, isLandscape && styles.deviceInfoOverlayLandscape]}>
+        <Text style={styles.deviceInfoText}>ID: {hardwareId}</Text>
+        <Text style={styles.deviceInfoText}>IP: {ipAddress}</Text>
+      </View>
       
       {/* Ambient Background Decoration */}
       <View style={styles.ambientBlobContainer}>
@@ -31,21 +56,7 @@ export default function HomeScreen({
         <View style={styles.ambientBlobRight} />
       </View>
 
-      {/* Top Bar Logo Row */}
-      <View style={[styles.headerRow, { top: isLandscape ? 12 : 36 }]}>
-        <View style={styles.headerLeft}>
-          <Image source={logoImage} style={styles.headerLogo} resizeMode="contain" />
-          <Text style={styles.headerTitle}>
-            CDM <Text style={styles.headerTitleAccent}>PREMIUM</Text>
-          </Text>
-        </View>
-        <View style={[styles.statusPill, isLinked ? styles.statusPillLinked : styles.statusPillUnlinked]}>
-          <View style={isLinked ? styles.statusDotGreen : styles.statusDotOrange} />
-          <Text style={styles.statusText}>
-            {isLinked ? 'Đang hoạt động' : 'Chưa liên kết'}
-          </Text>
-        </View>
-      </View>
+      {/* Top Bar Logo Row removed for cleaner UI */}
 
       {/* Main Content Area */}
       <View style={[styles.middleContainer, isLandscape && styles.middleContainerLandscape]}>
@@ -301,5 +312,27 @@ const styles = StyleSheet.create({
     height: 400,
     borderRadius: 200,
     backgroundColor: 'rgba(0, 206, 201, 0.06)',
+  },
+  deviceInfoOverlay: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    zIndex: 10,
+  },
+  deviceInfoOverlayLandscape: {
+    top: 16,
+    left: 24,
+  },
+  deviceInfoText: {
+    fontSize: 11,
+    color: '#8a99ad',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    lineHeight: 15,
   },
 });
