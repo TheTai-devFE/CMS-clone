@@ -26,6 +26,7 @@ interface ScheduleModalProps {
   playlists: Playlist[];
   templates: Template[];
   onSuccess: () => void;
+  deviceIds?: string[];
 }
 
 interface ScheduleFormValues {
@@ -47,6 +48,7 @@ export const ScheduleModal = ({
   playlists,
   templates,
   onSuccess,
+  deviceIds,
 }: ScheduleModalProps) => {
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -130,7 +132,7 @@ export const ScheduleModal = ({
         scheduleName: data.scheduleName.trim(),
         playlistId: data.scheduleType === "playlist" ? data.selectedPlaylistId : undefined,
         templateId: data.scheduleType === "template" ? data.selectedTemplateId : undefined,
-        deviceIds: [],
+        deviceIds: deviceIds || [],
         startDate: data.startDate,
         endDate: data.endDate,
         startTime:

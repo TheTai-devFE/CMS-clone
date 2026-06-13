@@ -228,7 +228,9 @@ export class PlaylistService {
   async createSchedule(dto: CreateScheduleDto, userId: string) {
     let deviceIds: string[] = [];
 
-    if (dto.playlistId) {
+    if (dto.deviceIds && dto.deviceIds.length > 0) {
+      deviceIds = dto.deviceIds;
+    } else if (dto.playlistId) {
       const playlist = await this.prisma.playlist.findUnique({
         where: { id: dto.playlistId },
       });
@@ -325,7 +327,9 @@ export class PlaylistService {
 
     let deviceIds: string[] = [];
 
-    if (dto.playlistId) {
+    if (dto.deviceIds && dto.deviceIds.length > 0) {
+      deviceIds = dto.deviceIds;
+    } else if (dto.playlistId) {
       const playlist = await this.prisma.playlist.findUnique({
         where: { id: dto.playlistId },
       });

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { api } from '../../../utils/api';
+import { useDashboard } from '../context/DashboardContext';
 
 interface UserProfileProps {
   currentUser: {
@@ -10,30 +11,57 @@ interface UserProfileProps {
     email: string;
     role: string;
     licenseLimit: number;
+    securityPassword?: string;
   };
   onBack: () => void;
 }
 
 export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
+  const { setError, setSuccessMsg } = useDashboard();
+  
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [pwdError, setPwdError] = useState('');
-  const [pwdSuccess, setPwdSuccess] = useState('');
   const [pwdLoading, setPwdLoading] = useState(false);
+
+  const [securityPin, setSecurityPin] = useState(currentUser.securityPassword || '');
+  const [pinLoading, setPinLoading] = useState(false);
+
+  const handleUpdateSecurityPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+
+    if (securityPin && !/^\d{4}$/.test(securityPin)) {
+      setError('Mã PIN bảo mật phải chứa đúng 4 chữ số');
+      return;
+    }
+
+    setPinLoading(true);
+    try {
+      await api.post('/api/auth/security-password', {
+        securityPassword: securityPin || null,
+      });
+      setSuccessMsg('Cập nhật mã bảo mật thiết bị thành công!');
+    } catch (err: any) {
+      setError(err.message || 'Có lỗi xảy ra khi cập nhật mã PIN');
+    } finally {
+      setPinLoading(false);
+    }
+  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setPwdError('');
-    setPwdSuccess('');
+    setError('');
+    setSuccessMsg('');
 
     if (newPassword.length < 6) {
-      setPwdError('Mật khẩu mới phải có ít nhất 6 ký tự');
+      setError('Mật khẩu mới phải có ít nhất 6 ký tự');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPwdError('Xác nhận mật khẩu mới không khớp');
+      setError('Xác nhận mật khẩu mới không khớp');
       return;
     }
 
@@ -43,12 +71,12 @@ export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
         oldPassword,
         newPassword,
       });
-      setPwdSuccess('Đổi mật khẩu thành công!');
+      setSuccessMsg('Đổi mật khẩu thành công!');
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      setPwdError(err.message || 'Có lỗi xảy ra khi đổi mật khẩu');
+      setError(err.message || 'Có lỗi xảy ra khi đổi mật khẩu');
     } finally {
       setPwdLoading(false);
     }
@@ -153,17 +181,6 @@ export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
           </div>
 
           <div className="profile-card-body">
-            {pwdError && (
-              <div className="alert alert-error" style={{ marginBottom: '16px', padding: '8px 12px' }}>
-                <span>{pwdError}</span>
-              </div>
-            )}
-            {pwdSuccess && (
-              <div className="alert alert-success" style={{ marginBottom: '16px', padding: '8px 12px' }}>
-                <span>{pwdSuccess}</span>
-              </div>
-            )}
-
             <form onSubmit={handleChangePassword} className="password-form">
               <div className="form-group">
                 <label className="form-label">Mật khẩu hiện tại</label>
@@ -212,6 +229,52 @@ export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
                     Đang cập nhật...
                   </>
                 ) : 'Cập nhật mật khẩu'}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Third Column/Row Card: Device Security PIN Configuration */}
+        <div className="profile-card">
+          <div className="profile-card-header accent-cyan" style={{ background: 'linear-gradient(135deg, #00b894, #00cec9)' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            Mật khẩu bảo mật thiết bị (Security PIN)
+          </div>
+
+          <div className="profile-card-body">
+            <form onSubmit={handleUpdateSecurityPin} className="password-form">
+              <div className="form-group">
+                <label className="form-label">Mã PIN bảo mật thiết bị</label>
+                <input
+                  type="text"
+                  pattern="[0-9]*"
+                  inputMode="numeric"
+                  maxLength={4}
+                  className="form-input"
+                  value={securityPin}
+                  onChange={(e) => setSecurityPin(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="Nhập mã PIN 4 chữ số (ví dụ: 8888)"
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--ink-secondary)', marginTop: '6px' }}>
+                  Mã PIN này được dùng để bảo vệ mục Cài đặt (Settings) và Mạng (Network) trên các thiết bị Player mà bạn chỉ định.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                className="btn-primary password-btn"
+                disabled={pinLoading}
+                style={{ backgroundColor: '#00b894' }}
+              >
+                {pinLoading ? (
+                  <>
+                    <span className="spinner spinner-dark"></span>
+                    Đang lưu...
+                  </>
+                ) : 'Lưu mã PIN thiết bị'}
               </button>
             </form>
           </div>
