@@ -16,6 +16,7 @@ import { useMedia, useTemplates } from '@/hooks/useApi';
 import { api } from '@/utils/api';
 import { Template } from '@/types/dashboard';
 import TemplateEditor from './template-editor/TemplateEditor';
+import { useDashboard } from '../context/DashboardContext';
 
 interface TemplateTabProps {
   fetchTemplatesData: () => void;
@@ -24,6 +25,7 @@ interface TemplateTabProps {
 export default function TemplateTab({ fetchTemplatesData }: TemplateTabProps) {
   const { templates, mutate: mutateTemplates } = useTemplates();
   const { mediaList } = useMedia();
+  const { setError, setSuccessMsg } = useDashboard();
 
   // Editor mode state
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -44,13 +46,15 @@ export default function TemplateTab({ fetchTemplatesData }: TemplateTabProps) {
 
     try {
       await api.delete(`/api/templates/${id}`);
+      setSuccessMsg('Xóa Bố cục thành công');
       mutateTemplates();
       fetchTemplatesData();
     } catch (error) {
       const err = error as Error;
-      alert(err.message || 'Lỗi khi xóa Bố cục');
+      setError(err.message || 'Lỗi khi xóa Bố cục');
     }
   };
+
 
   // Icon mapping for zone types
   const getZoneIcon = (type: string) => {

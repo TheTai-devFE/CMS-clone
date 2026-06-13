@@ -6,6 +6,7 @@ import { api } from "@/utils/api";
 import { Playlist, Schedule } from "@/types/dashboard";
 import { ScheduleItem } from "./ScheduleItem";
 import { ScheduleModal } from "./ScheduleModal";
+import { useDashboard } from "../../context/DashboardContext";
 
 interface ScheduleTabProps {
   playlists: Playlist[];
@@ -19,6 +20,7 @@ export default function ScheduleTab({
   fetchData,
 }: ScheduleTabProps) {
   const { templates } = useTemplates();
+  const { setError, setSuccessMsg } = useDashboard();
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -114,12 +116,14 @@ export default function ScheduleTab({
 
     try {
       await api.delete(`/api/schedules/${id}`);
+      setSuccessMsg('Xóa lịch phát thành công');
       fetchData();
     } catch (error) {
       const err = error as Error;
-      alert(err.message || "Lỗi khi xóa lịch trình");
+      setError(err.message || "Lỗi khi xóa lịch trình");
     }
   };
+
 
   return (
     <div className="space-y-6 mx-auto font-sans antialiased text-foreground">

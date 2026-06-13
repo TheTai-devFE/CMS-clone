@@ -9,6 +9,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
+import sharp from 'sharp';
 import {
   S3Client,
   PutObjectCommand,
@@ -73,7 +74,50 @@ export class MediaService {
       throw new BadRequestException('Không có tệp tin được tải lên');
     }
 
-    const tempFilePath = file.path;
+    let tempFilePath = file.path;
+
+    // Tự động tối ưu hóa hình ảnh bằng sharp (loại trừ ảnh GIF động)
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isImage = file.mimetype.startsWith('image/');
+    const isGif = ext === '.gif';
+
+    if (isImage && !isGif) {
+      try {
+        const compressedFileName = `${path.basename(file.filename, ext)}-compressed.webp`;
+        const compressedTempPath = path.join(path.dirname(tempFilePath), compressedFileName);
+
+        // Nén ảnh, tự động resize nếu chiều ngang vượt quá 3840px (4K) và convert sang WebP quality 80
+        await sharp(tempFilePath)
+          .resize({
+            width: 3840,
+            withoutEnlargement: true,
+            fit: 'inside',
+          })
+          .webp({ quality: 80 })
+          .toFile(compressedTempPath);
+
+        // Xóa tệp tạm chưa nén
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+
+        // Cập nhật lại thông tin file
+        tempFilePath = compressedTempPath;
+        file.path = compressedTempPath;
+        file.mimetype = 'image/webp';
+        
+        // Thay thế đuôi mở rộng của originalname thành .webp
+        const originalBaseName = path.basename(file.originalname, ext);
+        file.originalname = `${originalBaseName}.webp`;
+        
+        // Cập nhật lại kích thước file
+        const stats = fs.statSync(compressedTempPath);
+        file.size = stats.size;
+      } catch (err) {
+        console.error('Lỗi khi tối ưu hóa hình ảnh bằng Sharp:', err);
+        // Nếu nén lỗi thì tiếp tục quy trình lưu file gốc, không chặn upload
+      }
+    }
 
     try {
       // 1. Tính toán MD5 Checksum từ file vật lý vừa lưu tạm
@@ -84,8 +128,8 @@ export class MediaService {
         where: { checksum },
       });
 
-      const ext = path.extname(file.originalname).toLowerCase();
-      const finalFileName = `${checksum}${ext}`;
+      const updatedExt = path.extname(file.originalname).toLowerCase();
+      const finalFileName = `${checksum}${updatedExt}`;
       const finalFilePath = path.join(this.uploadDir, finalFileName);
 
       let fileUrl = '';
@@ -154,6 +198,43 @@ export class MediaService {
       }
       throw error;
     }
+  }
+
+  async saveWebUrl(name: string, url: string, userId: string) {
+    if (!name || !url) {
+      throw new BadRequestException('Tên hiển thị và Web URL không được để trống');
+    }
+
+    // Tạo checksum md5 từ URL để tránh trùng lặp
+    const checksum = crypto.createHash('md5').update(url).digest('hex');
+
+    // Kiểm tra xem đã tồn tại bản ghi URL này chưa cho User hiện tại
+    const existingMedia = await this.prisma.media.findFirst({
+      where: { checksum, userId },
+    });
+
+    if (existingMedia) {
+      return {
+        ...existingMedia,
+        fileSize: existingMedia.fileSize.toString(),
+      };
+    }
+
+    const media = await this.prisma.media.create({
+      data: {
+        userId,
+        fileName: name,
+        fileUrl: url,
+        fileSize: BigInt(0),
+        mimeType: 'url',
+        checksum,
+      },
+    });
+
+    return {
+      ...media,
+      fileSize: media.fileSize.toString(),
+    };
   }
 
   async getUserMedia(userId: string, role: string) {

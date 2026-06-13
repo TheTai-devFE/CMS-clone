@@ -8,6 +8,7 @@ import { api } from '@/utils/api';
 import { Playlist } from '@/types/dashboard';
 import PlaylistEditor from './playlist-editor/PlaylistEditor';
 import PlaylistPreviewModal from './PlaylistPreviewModal';
+import { useDashboard } from '../context/DashboardContext';
 
 interface PlaylistTabProps {
   playlists: Playlist[];
@@ -16,6 +17,7 @@ interface PlaylistTabProps {
 
 export default function PlaylistTab({ playlists, fetchPlaylistsData }: PlaylistTabProps) {
   const { mediaList } = useMedia();
+  const { setError, setSuccessMsg } = useDashboard();
 
   // Editor modal/view states
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -40,12 +42,14 @@ export default function PlaylistTab({ playlists, fetchPlaylistsData }: PlaylistT
 
     try {
       await api.delete(`/api/playlists/${id}`);
+      setSuccessMsg('Xóa Playlist thành công');
       fetchPlaylistsData();
     } catch (error) {
       const err = error as Error;
-      alert(err.message || 'Lỗi khi xóa Playlist');
+      setError(err.message || 'Lỗi khi xóa Playlist');
     }
   };
+
 
   const getPlaylistResLabel = (playlist: Playlist) => {
     interface SyncLayoutConfig {
