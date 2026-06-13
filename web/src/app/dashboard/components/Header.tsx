@@ -91,7 +91,7 @@ export default function Header({
             onClick={() => setIsMobileMenuOpen(false)}
             className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
               isActive('/dashboard') && pathname === '/dashboard'
-                ? 'bg-emerald-500/10 text-emerald-700 font-semibold'
+                ? 'bg-primary/10 text-primary font-semibold'
                 : 'text-muted-foreground hover:bg-muted/50'
             }`}
           >
@@ -102,7 +102,7 @@ export default function Header({
             href="/dashboard/content"
             onClick={() => setIsMobileMenuOpen(false)}
             className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
-              isActive('/dashboard/content') ? 'bg-emerald-500/10 text-emerald-700 font-semibold' : 'text-muted-foreground hover:bg-muted/50'
+              isActive('/dashboard/content') ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted/50'
             }`}
           >
             <ImageIcon className="h-4 w-4 shrink-0" />
@@ -112,7 +112,7 @@ export default function Header({
             href="/dashboard/player"
             onClick={() => setIsMobileMenuOpen(false)}
             className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
-              isActive('/dashboard/player') ? 'bg-emerald-500/10 text-emerald-700 font-semibold' : 'text-muted-foreground hover:bg-muted/50'
+              isActive('/dashboard/player') ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted/50'
             }`}
           >
             <Tv className="h-4 w-4 shrink-0" />
@@ -122,7 +122,7 @@ export default function Header({
             href="/dashboard/schedule"
             onClick={() => setIsMobileMenuOpen(false)}
             className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
-              isActive('/dashboard/schedule') ? 'bg-emerald-500/10 text-emerald-700 font-semibold' : 'text-muted-foreground hover:bg-muted/50'
+              isActive('/dashboard/schedule') ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted/50'
             }`}
           >
             <Calendar className="h-4 w-4 shrink-0" />
@@ -133,7 +133,7 @@ export default function Header({
               href="/dashboard/admin"
               onClick={() => setIsMobileMenuOpen(false)}
               className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
-                isActive('/dashboard/admin') ? 'bg-emerald-500/10 text-emerald-700 font-semibold' : 'text-muted-foreground hover:bg-muted/50'
+                isActive('/dashboard/admin') ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted/50'
               }`}
             >
               <Users className="h-4 w-4 shrink-0" />
@@ -144,7 +144,7 @@ export default function Header({
             href="/dashboard/eventlog"
             onClick={() => setIsMobileMenuOpen(false)}
             className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
-              isActive('/dashboard/eventlog') ? 'bg-emerald-500/10 text-emerald-700 font-semibold' : 'text-muted-foreground hover:bg-muted/50'
+              isActive('/dashboard/eventlog') ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted/50'
             }`}
           >
             <FileText className="h-4 w-4 shrink-0" />
@@ -154,7 +154,7 @@ export default function Header({
             href="/dashboard/resource"
             onClick={() => setIsMobileMenuOpen(false)}
             className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
-              isActive('/dashboard/resource') ? 'bg-emerald-500/10 text-emerald-700 font-semibold' : 'text-muted-foreground hover:bg-muted/50'
+              isActive('/dashboard/resource') ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted/50'
             }`}
           >
             <Database className="h-4 w-4 shrink-0" />
@@ -172,7 +172,7 @@ export default function Header({
           <Input
             type="search"
             placeholder="Tìm kiếm..."
-            className="pl-8 h-7 text-xs bg-muted/40 hover:bg-muted/65 border-none focus-visible:ring-1 focus-visible:ring-emerald-500/50 rounded-lg transition-all"
+            className="pl-8 h-7 text-xs bg-muted/40 hover:bg-muted/65 border-none focus-visible:ring-1 focus-visible:ring-primary/50 rounded-lg transition-all"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -209,7 +209,7 @@ export default function Header({
             </DropdownMenuLabel>
             <DashboardMenuSeparator />
             <DropdownMenuItem className="p-2 text-xs focus:bg-muted/60 text-muted-foreground focus:text-foreground">
-              Quyền hạn: <Badge variant="secondary" className="ml-2 font-semibold bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 border-none text-[9px] px-2 py-0">{currentUser.role === 'admin' ? 'Admin' : 'User'}</Badge>
+              Quyền hạn: <Badge variant="secondary" className="ml-2 font-semibold bg-primary/10 text-primary hover:bg-primary/20 border-none text-[9px] px-2 py-0">{currentUser.role === 'admin' ? 'Admin' : 'User'}</Badge>
             </DropdownMenuItem>
             <DashboardMenuSeparator />
             <DropdownMenuItem asChild>

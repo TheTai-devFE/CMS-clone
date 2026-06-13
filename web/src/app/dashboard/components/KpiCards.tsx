@@ -1,7 +1,7 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tv, Database, Users, CreditCard } from 'lucide-react';
+'use client';
 
+import React from 'react';
+import { Tv, Database, Users, CreditCard, ArrowRight } from 'lucide-react';
 import { User, DashboardTab } from '@/types/dashboard';
 
 interface KpiCardsProps {
@@ -25,69 +25,129 @@ export default function KpiCards({
   setActiveTab,
   formatBytes
 }: KpiCardsProps) {
+  const offlineCount = devicesCount - onlineDevicesCount;
+  const onlinePercentage = devicesCount > 0 ? Math.round((onlineDevicesCount / devicesCount) * 100) : 0;
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {/* Card 1: Devices */}
-      <Card className="bg-card border-border shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-semibold tracking-tight text-muted-foreground">Màn hình quảng cáo</CardTitle>
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 select-none">
+      {/* Ô 1: Màn hình quảng cáo (Asymmetric - Chiếm 2 cột trên màn hình lớn) */}
+      <div className="lg:col-span-2 bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between shadow-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold tracking-tight text-muted-foreground uppercase">
+            Màn hình quảng cáo (Players)
+          </span>
           <Tv className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-foreground">{devicesCount}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            <span className="text-emerald-500 font-semibold">{onlineDevicesCount} trực tuyến</span> / {devicesCount - onlineDevicesCount} ngoại tuyến
-          </p>
-        </CardContent>
-      </Card>
+        </div>
+        
+        <div className="my-3 flex items-baseline gap-2.5">
+          <span className="text-3xl font-bold tracking-tight text-foreground font-sans">
+            {devicesCount}
+          </span>
+          <span className="text-xs text-muted-foreground">thiết bị liên kết</span>
+        </div>
 
-      {/* Card 2: Media */}
-      <Card className="bg-card border-border shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-semibold tracking-tight text-muted-foreground">Tài nguyên Media</CardTitle>
-          <Database className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-foreground">{mediaCount} files</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Tổng dung lượng: {formatBytes(totalMediaSize)}
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Card 3: Pending Devices */}
-      <Card className="bg-card border-border shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-semibold tracking-tight text-muted-foreground">Thiết bị chờ duyệt</CardTitle>
-          <Users className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-foreground">{pendingCount}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {pendingCount > 0 && currentUser.role === 'admin' ? (
-              <span className="text-amber-500 font-semibold cursor-pointer" onClick={() => setActiveTab('admin')}>Cần duyệt ngay &rarr;</span>
-            ) : (
-              "Hệ thống ổn định"
-            )}
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Card 4: License Limit */}
-      <Card className="bg-card border-border shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-semibold tracking-tight text-muted-foreground">Hạn mức License</CardTitle>
-          <CreditCard className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-foreground">
-            {currentUser.role === 'admin' ? "Vô hạn" : `${currentUser.licenseLimit} máy`}
+        {/* Visual progress track online/offline */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] font-semibold">
+            <span className="text-emerald-500">{onlineDevicesCount} Trực tuyến</span>
+            <span className="text-muted-foreground">{offlineCount} Ngoại tuyến</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Đã cấp phép gán: {devicesCount} màn hình
-          </p>
-        </CardContent>
-      </Card>
+          <div className="h-1.5 w-full bg-muted/40 rounded-full overflow-hidden flex">
+            <div 
+              className="bg-emerald-500 h-full transition-all duration-500" 
+              style={{ width: `${onlinePercentage}%` }}
+            />
+            <div 
+              className="bg-zinc-400 dark:bg-zinc-600 h-full flex-1" 
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Ô 2: Tài nguyên Media (Chiếm 1 cột) */}
+      <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between shadow-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold tracking-tight text-muted-foreground uppercase">
+            Thư viện Media
+          </span>
+          <Database className="h-4 w-4 text-muted-foreground" />
+        </div>
+
+        <div className="my-3">
+          <span className="text-2xl font-bold tracking-tight text-foreground font-sans block">
+            {mediaCount} files
+          </span>
+          <span className="text-xs text-muted-foreground mt-0.5 block">
+            Dung lượng lưu trữ
+          </span>
+        </div>
+
+        <div className="text-[11px] font-bold text-foreground bg-muted/20 px-2 py-1 rounded-md border border-border/40 w-fit font-mono">
+          {formatBytes(totalMediaSize)}
+        </div>
+      </div>
+
+      {/* Ô 3: Thiết bị chờ duyệt / Hoạt động (Chiếm 1 cột) */}
+      <div className={`border rounded-xl p-4 flex flex-col justify-between shadow-xs transition-all duration-200 ${
+        pendingCount > 0 
+          ? 'bg-amber-500/5 border-amber-500/20' 
+          : 'bg-card border-border/60'
+      }`}>
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold tracking-tight text-muted-foreground uppercase">
+            Chờ phê duyệt
+          </span>
+          <Users className={`h-4 w-4 ${pendingCount > 0 ? 'text-amber-500' : 'text-muted-foreground'}`} />
+        </div>
+
+        <div className="my-3">
+          <span className={`text-2xl font-bold tracking-tight font-sans block ${
+            pendingCount > 0 ? 'text-amber-500' : 'text-foreground'
+          }`}>
+            {pendingCount}
+          </span>
+          <span className="text-xs text-muted-foreground mt-0.5 block">
+            thiết bị mới yêu cầu gán
+          </span>
+        </div>
+
+        {pendingCount > 0 && currentUser.role === 'admin' ? (
+          <button 
+            onClick={() => setActiveTab('admin')}
+            className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer w-fit"
+          >
+            Duyệt yêu cầu ngay
+            <ArrowRight className="h-3 w-3" />
+          </button>
+        ) : (
+          <div className="text-[11px] font-bold text-emerald-500 bg-emerald-500/5 border border-emerald-500/10 px-2 py-1 rounded-md w-fit">
+            Hệ thống ổn định
+          </div>
+        )}
+      </div>
+
+      {/* Ô 4: Hạn mức License (Chiếm 1 cột) */}
+      <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between shadow-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold tracking-tight text-muted-foreground uppercase">
+            Hạn mức License
+          </span>
+          <CreditCard className="h-4 w-4 text-muted-foreground" />
+        </div>
+
+        <div className="my-3">
+          <span className="text-2xl font-bold tracking-tight text-foreground font-sans block">
+            {currentUser.role === 'admin' ? 'Không giới hạn' : `${currentUser.licenseLimit} máy`}
+          </span>
+          <span className="text-xs text-muted-foreground mt-0.5 block">
+            Màn hình được cấp phép
+          </span>
+        </div>
+
+        <div className="text-[11px] text-muted-foreground font-semibold">
+          Đã sử dụng: <span className="text-foreground font-bold font-mono">{devicesCount}</span> slot
+        </div>
+      </div>
     </div>
   );
 }

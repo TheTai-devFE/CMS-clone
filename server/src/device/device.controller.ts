@@ -87,7 +87,9 @@ export class DeviceController {
       const userDevices = await this.deviceService.getUserDevices(user.id);
       const isOwner = userDevices.some((d) => d.id === id);
       if (!isOwner) {
-        throw new NotFoundException('Không tìm thấy thiết bị hoặc bạn không có quyền chỉnh sửa');
+        throw new NotFoundException(
+          'Không tìm thấy thiết bị hoặc bạn không có quyền chỉnh sửa',
+        );
       }
     }
     return this.deviceService.updateDevice(id, dto);

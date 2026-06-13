@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -46,6 +47,14 @@ export class MediaController {
     @CurrentUser() user: any,
   ) {
     return this.mediaService.saveUploadedFile(file, user.id);
+  }
+
+  @Post('url')
+  async createWebUrl(
+    @Body() body: { name: string; url: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.mediaService.saveWebUrl(body.name, body.url, user.id);
   }
 
   @Get()
