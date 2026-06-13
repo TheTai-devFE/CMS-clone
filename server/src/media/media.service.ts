@@ -84,7 +84,10 @@ export class MediaService {
     if (isImage && !isGif) {
       try {
         const compressedFileName = `${path.basename(file.filename, ext)}-compressed.webp`;
-        const compressedTempPath = path.join(path.dirname(tempFilePath), compressedFileName);
+        const compressedTempPath = path.join(
+          path.dirname(tempFilePath),
+          compressedFileName,
+        );
 
         // Nén ảnh, tự động resize nếu chiều ngang vượt quá 3840px (4K) và convert sang WebP quality 80
         await sharp(tempFilePath)
@@ -105,11 +108,11 @@ export class MediaService {
         tempFilePath = compressedTempPath;
         file.path = compressedTempPath;
         file.mimetype = 'image/webp';
-        
+
         // Thay thế đuôi mở rộng của originalname thành .webp
         const originalBaseName = path.basename(file.originalname, ext);
         file.originalname = `${originalBaseName}.webp`;
-        
+
         // Cập nhật lại kích thước file
         const stats = fs.statSync(compressedTempPath);
         file.size = stats.size;
@@ -202,7 +205,9 @@ export class MediaService {
 
   async saveWebUrl(name: string, url: string, userId: string) {
     if (!name || !url) {
-      throw new BadRequestException('Tên hiển thị và Web URL không được để trống');
+      throw new BadRequestException(
+        'Tên hiển thị và Web URL không được để trống',
+      );
     }
 
     // Tạo checksum md5 từ URL để tránh trùng lặp

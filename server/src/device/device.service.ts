@@ -214,8 +214,10 @@ export class DeviceService {
     const redisKey = `device:status:${dto.deviceId}`;
     const isAlreadyOnline = await this.redis.exists(redisKey);
 
-    const lastUpdate = device.lastHeartbeat ? new Date(device.lastHeartbeat).getTime() : 0;
-    const isTimeForDbUpdate = (now.getTime() - lastUpdate) > 5 * 60 * 1000; // 5 minutes interval
+    const lastUpdate = device.lastHeartbeat
+      ? new Date(device.lastHeartbeat).getTime()
+      : 0;
+    const isTimeForDbUpdate = now.getTime() - lastUpdate > 5 * 60 * 1000; // 5 minutes interval
     const isIpChanged = cleanIp !== device.ipAddress;
 
     // 1. Chỉ cập nhật PostgreSQL khi chuyển từ Offline sang Online, đổi IP, hoặc đã quá 5 phút
@@ -236,10 +238,12 @@ export class DeviceService {
     // 3. Đã bỏ ghi log lịch sử heartbeat liên tục vào DB để tránh phình dữ liệu và tối ưu hiệu suất
 
     // Lấy thông tin user sở hữu thiết bị để đọc securityPassword của user
-    const user = device.userId ? await this.prisma.user.findUnique({
-      where: { id: device.userId },
-      select: { securityPassword: true }
-    }) : null;
+    const user = device.userId
+      ? await this.prisma.user.findUnique({
+          where: { id: device.userId },
+          select: { securityPassword: true },
+        })
+      : null;
 
     return {
       deviceId: device.id,
@@ -247,7 +251,8 @@ export class DeviceService {
       approvalStatus: device.approvalStatus,
       status: 'online',
       useSecurityPassword: device.useSecurityPassword,
-      securityPassword: (device.useSecurityPassword && user) ? user.securityPassword : null,
+      securityPassword:
+        device.useSecurityPassword && user ? user.securityPassword : null,
       sleepScheduleEnabled: device.sleepScheduleEnabled,
       sleepStartTime: device.sleepStartTime,
       sleepEndTime: device.sleepEndTime,

@@ -16,14 +16,8 @@ const getActiveTab = (pathname: string): DashboardTab => {
   return 'home';
 };
 
-// Shadcn UI Components
-import { Button } from "@/components/ui/button";
-
 // Lucide Icons
 import {
-  X,
-  AlertCircle,
-  CheckCircle2,
   RefreshCw
 } from 'lucide-react';
 
@@ -33,10 +27,6 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     isDarkMode,
     toggleTheme,
     loading,
-    error,
-    setError,
-    successMsg,
-    setSuccessMsg,
     searchQuery,
     setSearchQuery,
     handleLogout
