@@ -1,14 +1,13 @@
-'use client';
+"use client";
 
-import React, { useRef, useState } from 'react';
-import { useDashboard } from '../context/DashboardContext';
-import { api } from '@/utils/api';
+import React, { useRef, useState } from "react";
+import { useDashboard } from "../context/DashboardContext";
+import { api } from "@/utils/api";
 import { Button } from "@/components/ui/button";
-import ContentTab from '../components/ContentTab';
-import PlaylistTab from '../components/PlaylistTab';
-import VideoPreviewModal from '../components/VideoPreviewModal';
-import CreateWebUrlModal from '../components/CreateWebUrlModal';
-import { useMedia, usePlaylists } from '@/hooks/useApi';
+import ContentTab from "../components/ContentTab";
+import VideoPreviewModal from "../components/VideoPreviewModal";
+import CreateWebUrlModal from "../components/CreateWebUrlModal";
+import { useMedia } from "@/hooks/useApi";
 
 export default function ContentPageClient() {
   const {
@@ -18,20 +17,18 @@ export default function ContentPageClient() {
     setError,
     setSuccessMsg,
     formatBytes,
-    API_BASE_URL
+    API_BASE_URL,
   } = useDashboard();
 
   // Use SWR hook for caching and automatic revalidation
   const { mediaList, mutate } = useMedia();
-  const { playlists, mutate: mutatePlaylists } = usePlaylists();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<'media' | 'playlists'>('media');
   const [isWebUrlModalOpen, setIsWebUrlModalOpen] = useState(false);
 
   // Filter media based on search query
-  const filteredMedia = mediaList.filter(m => 
-    m.fileName.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredMedia = mediaList.filter((m) =>
+    m.fileName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleUploadClick = () => {
@@ -48,120 +45,101 @@ export default function ContentPageClient() {
     const invalidFiles = fileList.filter((file) => {
       const type = file.type;
       const name = file.name.toLowerCase();
-      const isImageOrVideo = type.startsWith('image/') || type === 'video/mp4';
-      const isPdf = type === 'application/pdf' || name.endsWith('.pdf');
-      const isSlides = type.includes('presentation') || type.includes('powerpoint') || name.endsWith('.pptx') || name.endsWith('.ppt');
+      const isImageOrVideo = type.startsWith("image/") || type === "video/mp4";
+      const isPdf = type === "application/pdf" || name.endsWith(".pdf");
+      const isSlides =
+        type.includes("presentation") ||
+        type.includes("powerpoint") ||
+        name.endsWith(".pptx") ||
+        name.endsWith(".ppt");
       return !(isImageOrVideo || isPdf || isSlides);
     });
 
     if (invalidFiles.length > 0) {
       setError(
-        `Chỉ cho phép tải lên ảnh, video (.mp4), PDF (.pdf) hoặc Slide thuyết trình (.pptx, .ppt). Phát hiện ${invalidFiles.length} tệp không hợp lệ.`
+        `Chỉ cho phép tải lên ảnh, video (.mp4), PDF (.pdf) hoặc Slide thuyết trình (.pptx, .ppt). Phát hiện ${invalidFiles.length} tệp không hợp lệ.`,
       );
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     setUploading(true);
-    setError('');
-    setSuccessMsg('Đang tải lên các tệp...');
+    setError("");
+    setSuccessMsg("Đang tải lên các tệp...");
 
     try {
       // Upload all files in parallel
       const uploadResults = await Promise.allSettled(
         fileList.map(async (file) => {
           const formData = new FormData();
-          formData.append('file', file);
-          await api.post('/api/media/upload', formData, { useMultipart: true });
+          formData.append("file", file);
+          await api.post("/api/media/upload", formData, { useMultipart: true });
           return file.name;
-        })
+        }),
       );
 
       const succeeded = uploadResults
-        .filter((r) => r.status === 'fulfilled')
+        .filter((r) => r.status === "fulfilled")
         .map((r) => (r as PromiseFulfilledResult<string>).value);
       const failed = uploadResults
-        .filter((r) => r.status === 'rejected')
+        .filter((r) => r.status === "rejected")
         .map((r) => (r as PromiseRejectedResult).reason);
 
       if (failed.length === 0) {
         setSuccessMsg(`Tải lên thành công ${succeeded.length} tệp.`);
       } else {
         const errorDetails = failed
-          .map((err) => (err instanceof Error ? err.message : 'Lỗi không xác định'))
-          .join(', ');
-        setError(`Tải lên hoàn thành: ${succeeded.length} thành công, ${failed.length} thất bại. Chi tiết lỗi: ${errorDetails}`);
+          .map((err) =>
+            err instanceof Error ? err.message : "Lỗi không xác định",
+          )
+          .join(", ");
+        setError(
+          `Tải lên hoàn thành: ${succeeded.length} thành công, ${failed.length} thất bại. Chi tiết lỗi: ${errorDetails}`,
+        );
         if (succeeded.length > 0) {
-          setSuccessMsg(`Đã tải lên thành công: ${succeeded.join(', ')}`);
+          setSuccessMsg(`Đã tải lên thành công: ${succeeded.join(", ")}`);
         }
       }
 
       // Mutate SWR cache to reload media library
       mutate();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Không thể upload file');
+      setError(err instanceof Error ? err.message : "Không thể upload file");
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   const handleDeleteMedia = async (id: string, name: string) => {
     if (!confirm(`Ban co chac chan muon xoa file: ${name}?`)) return;
 
-    setError('');
-    setSuccessMsg('');
+    setError("");
+    setSuccessMsg("");
     try {
       await api.delete(`/api/media/${id}`);
-      setSuccessMsg('Da xoa tep tin thanh cong');
+      setSuccessMsg("Da xoa tep tin thanh cong");
       // Mutate SWR cache to reload media library
       mutate();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Khong the xoa tep');
+      setError(err instanceof Error ? err.message : "Khong the xoa tep");
     }
   };
 
   return (
     <div className="space-y-6 w-full">
-      {/* Sub-tab navigation header */}
-      <div className="flex border-b border-border bg-card/30 p-1.5 rounded-lg w-fit gap-1">
-        <Button
-          type="button"
-          variant={activeSubTab === 'media' ? 'default' : 'ghost'}
-          onClick={() => setActiveSubTab('media')}
-          className="text-xs h-8 font-semibold shadow-none"
-        >
-          Thư viện phương tiện
-        </Button>
-        <Button
-          type="button"
-          variant={activeSubTab === 'playlists' ? 'default' : 'ghost'}
-          onClick={() => setActiveSubTab('playlists')}
-          className="text-xs h-8 font-semibold shadow-none"
-        >
-          Danh sách phát (Playlists)
-        </Button>
-      </div>
-
-      {activeSubTab === 'media' ? (
-        <ContentTab
-          mediaList={filteredMedia}
-          uploading={uploading}
-          handleUploadClick={handleUploadClick}
-          handleFileChange={handleFileChange}
-          handleDeleteMedia={handleDeleteMedia}
-          setPreviewVideoUrl={setPreviewVideoUrl}
-          fileInputRef={fileInputRef}
-          API_BASE_URL={API_BASE_URL}
-          formatBytes={formatBytes}
-          onOpenWebUrlModal={() => setIsWebUrlModalOpen(true)}
-        />
-      ) : (
-        <PlaylistTab
-          playlists={playlists || []}
-          fetchPlaylistsData={mutatePlaylists}
-        />
-      )}
+      <ContentTab
+        mediaList={filteredMedia}
+        uploading={uploading}
+        handleUploadClick={handleUploadClick}
+        handleFileChange={handleFileChange}
+        handleDeleteMedia={handleDeleteMedia}
+        setPreviewVideoUrl={setPreviewVideoUrl}
+        fileInputRef={fileInputRef}
+        API_BASE_URL={API_BASE_URL}
+        formatBytes={formatBytes}
+        onOpenWebUrlModal={() => setIsWebUrlModalOpen(true)}
+      />
 
       <VideoPreviewModal
         previewVideoUrl={previewVideoUrl}

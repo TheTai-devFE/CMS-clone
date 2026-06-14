@@ -8,6 +8,11 @@ interface AdPlayerScreenProps {
   isLandscape: boolean;
   onRelaunchRequest?: () => void;
   isSleeping?: boolean;
+  playlist?: MediaItem[];
+  deviceId?: string | null;
+  isSyncGroup?: boolean;
+  syncLayout?: any;
+  clockOffset?: number;
 }
 
 export type MediaItem = 
@@ -16,12 +21,41 @@ export type MediaItem =
 
 export const PLAYLIST: MediaItem[] = [];
 
-export default function AdPlayerScreen({ isLandscape, isSleeping }: AdPlayerScreenProps) {
+export default function AdPlayerScreen({
+  isLandscape,
+  isSleeping,
+  playlist = [],
+  deviceId = null,
+  isSyncGroup = false,
+  syncLayout = null,
+  clockOffset = 0,
+}: AdPlayerScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
   const [breakpointEnabled, setBreakpointEnabled] = useState(false);
-  
-  const currentItem = PLAYLIST.length > 0 ? PLAYLIST[currentIndex] : null;
+
+  // 1. Filtered playlist
+  const filteredPlaylist = React.useMemo(() => {
+    if (!isSyncGroup || !syncLayout || !deviceId) {
+      return playlist;
+    }
+    
+    const mapping = syncLayout.deviceMapping;
+    if (!mapping || typeof mapping !== 'object') {
+      return playlist;
+    }
+
+    return playlist.filter((item: any) => {
+      const targetDevices = mapping[item.sortOrder?.toString()];
+      return Array.isArray(targetDevices) && targetDevices.includes(deviceId);
+    });
+  }, [playlist, isSyncGroup, syncLayout, deviceId]);
+
+  const totalDuration = React.useMemo(() => {
+    return filteredPlaylist.reduce((acc, item) => acc + item.duration, 0);
+  }, [filteredPlaylist]);
+
+  const currentItem = filteredPlaylist.length > 0 ? filteredPlaylist[currentIndex] : null;
 
   const imageSource = React.useMemo(() => {
     if (currentItem && currentItem.type === 'image') {
@@ -30,14 +64,27 @@ export default function AdPlayerScreen({ isLandscape, isSleeping }: AdPlayerScre
     return null;
   }, [currentItem]);
 
-  const slideTimer = useRef<any>(null);
+  // Initialize Video Player for the initial video source found in the playlist
+  const initialVideoUrl = React.useMemo(() => {
+    return filteredPlaylist.find(item => item.type === 'video')?.url || '';
+  }, [filteredPlaylist]);
 
-  // Initialize Video Player for the video source
-  const videoUrl = PLAYLIST.find(item => item.type === 'video')?.url || '';
-  const player = useVideoPlayer(videoUrl, (playerInstance) => {
+  const player = useVideoPlayer(initialVideoUrl, (playerInstance) => {
     playerInstance.loop = false;
     playerInstance.muted = true;
   });
+
+  // Dynamic Video source replacement
+  useEffect(() => {
+    if (currentItem && currentItem.type === 'video') {
+      try {
+        console.log(`[AdPlayer] Cập nhật source video: ${currentItem.url}`);
+        player.replace(currentItem.url);
+      } catch (err) {
+        console.error('Lỗi khi thay thế nguồn video:', err);
+      }
+    }
+  }, [currentItem?.url]);
 
   // Load breakpoint settings
   useEffect(() => {
@@ -59,8 +106,9 @@ export default function AdPlayerScreen({ isLandscape, isSleeping }: AdPlayerScre
     }
   }, [isSleeping, player]);
 
-  // Save playback progress periodically
+  // Save playback progress periodically (Normal mode only)
   useEffect(() => {
+    if (isSyncGroup) return; // Disable in sync group mode
     let interval: any = null;
     
     const saveProgress = async () => {
@@ -74,12 +122,13 @@ export default function AdPlayerScreen({ isLandscape, isSleeping }: AdPlayerScre
       }
     };
 
-    interval = setInterval(saveProgress, 2000); // Save every 2 seconds
+    interval = setInterval(saveProgress, 2000);
     return () => clearInterval(interval);
-  }, [currentItem, player, breakpointEnabled]);
+  }, [isSyncGroup, currentItem, player, breakpointEnabled]);
 
-  // Restore playback progress
+  // Restore playback progress (Normal mode only)
   useEffect(() => {
+    if (isSyncGroup) return; // Disable in sync group mode
     const restoreProgress = async () => {
       if (breakpointEnabled && currentItem && currentItem.type === 'video') {
         try {
@@ -92,7 +141,6 @@ export default function AdPlayerScreen({ isLandscape, isSleeping }: AdPlayerScre
               player.currentTime = savedPos;
               console.log('Khôi phục tiến độ phát video tại:', savedPos);
             }
-            // Clear keys to prevent looping back to same point
             await AsyncStorage.removeItem('breakpoint_video_url');
             await AsyncStorage.removeItem('breakpoint_playback_position');
           }
@@ -103,39 +151,121 @@ export default function AdPlayerScreen({ isLandscape, isSleeping }: AdPlayerScre
     };
     
     restoreProgress();
-  }, [currentIndex, currentItem, breakpointEnabled, player]);
+  }, [isSyncGroup, currentIndex, currentItem, breakpointEnabled, player]);
+
+  // --- Playback logic for Synchronized Group Mode ---
+
+  // NTP sync tick
+  useEffect(() => {
+    if (!isSyncGroup || filteredPlaylist.length === 0 || totalDuration === 0) return;
+
+    const getActiveItemAndOffset = () => {
+      const synchronizedTime = Date.now() + clockOffset;
+      const playbackTime = synchronizedTime % totalDuration;
+
+      let accumulatedTime = 0;
+      for (let i = 0; i < filteredPlaylist.length; i++) {
+        const item = filteredPlaylist[i];
+        if (playbackTime >= accumulatedTime && playbackTime < accumulatedTime + item.duration) {
+          return {
+            item,
+            index: i,
+            offsetMs: playbackTime - accumulatedTime
+          };
+        }
+        accumulatedTime += item.duration;
+      }
+      return { item: filteredPlaylist[0], index: 0, offsetMs: 0 };
+    };
+
+    const tick = () => {
+      const { index } = getActiveItemAndOffset();
+      if (index !== currentIndex) {
+        setCurrentIndex(index);
+        setImageLoading(true);
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 200);
+    return () => clearInterval(interval);
+  }, [isSyncGroup, filteredPlaylist, totalDuration, clockOffset, currentIndex]);
+
+  // Video Seek & Drift Correction for Sync Group Mode
+  useEffect(() => {
+    if (!isSyncGroup || !currentItem || currentItem.type !== 'video' || isSleeping || totalDuration === 0) return;
+
+    const getActiveItemAndOffset = () => {
+      const synchronizedTime = Date.now() + clockOffset;
+      const playbackTime = synchronizedTime % totalDuration;
+
+      let accumulatedTime = 0;
+      for (let i = 0; i < filteredPlaylist.length; i++) {
+        const item = filteredPlaylist[i];
+        if (playbackTime >= accumulatedTime && playbackTime < accumulatedTime + item.duration) {
+          return {
+            item,
+            index: i,
+            offsetMs: playbackTime - accumulatedTime
+          };
+        }
+        accumulatedTime += item.duration;
+      }
+      return { item: filteredPlaylist[0], index: 0, offsetMs: 0 };
+    };
+
+    const { offsetMs } = getActiveItemAndOffset();
+    const initialPosition = offsetMs / 1000;
+    player.currentTime = initialPosition;
+    player.play();
+
+    const checkDrift = () => {
+      if (!player.playing) return;
+      const { item, offsetMs: expectedOffsetMs } = getActiveItemAndOffset();
+      if (item && item.url === currentItem.url) {
+        const expectedPosition = expectedOffsetMs / 1000;
+        const currentPosition = player.currentTime;
+        const drift = Math.abs(currentPosition - expectedPosition);
+        if (drift > 0.5) {
+          console.log(`[Playback Engine] Lệch đồng bộ video: ${drift}s. Đang seek về: ${expectedPosition}s`);
+          player.currentTime = expectedPosition;
+        }
+      }
+    };
+
+    const driftInterval = setInterval(checkDrift, 1500);
+    return () => clearInterval(driftInterval);
+  }, [isSyncGroup, currentIndex, currentItem?.url, isSleeping, clockOffset, totalDuration]);
+
+
+  // --- Playback logic for Normal Mode (driven by timers & events) ---
+
+  const slideTimer = useRef<any>(null);
 
   const handleNext = () => {
-    if (PLAYLIST.length === 0) return;
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % PLAYLIST.length);
+    if (filteredPlaylist.length === 0) return;
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % filteredPlaylist.length);
     setImageLoading(true);
   };
 
-  // Handle slide switching logic
   useEffect(() => {
+    if (isSyncGroup) return; // Ignore in sync group mode
     if (!currentItem) return;
-    // Clear any existing timer
+
     if (slideTimer.current) {
       clearTimeout(slideTimer.current);
     }
 
     if (currentItem.type === 'image') {
-      // Pause video when showing image
       player.pause();
-      
-      // Set timer to change slide
       slideTimer.current = setTimeout(() => {
         handleNext();
       }, currentItem.duration);
     } else if (currentItem.type === 'video') {
-      // Play video
-      // If we are currently sleeping, do not start playing video
       if (!isSleeping) {
         player.currentTime = 0;
         player.play();
       }
-
-      // Set fallback timer in case video end event doesn't fire
       slideTimer.current = setTimeout(() => {
         handleNext();
       }, currentItem.duration);
@@ -146,11 +276,11 @@ export default function AdPlayerScreen({ isLandscape, isSleeping }: AdPlayerScre
         clearTimeout(slideTimer.current);
       }
     };
-  }, [currentIndex, currentItem, isSleeping]);
+  }, [isSyncGroup, currentIndex, currentItem, isSleeping]);
 
-  // Listen to video completion event using expo-video listener
   useEffect(() => {
-    if (!currentItem) return;
+    if (isSyncGroup || !currentItem) return;
+
     const subscription = player.addListener('playToEnd', () => {
       if (currentItem.type === 'video') {
         handleNext();
@@ -160,9 +290,9 @@ export default function AdPlayerScreen({ isLandscape, isSleeping }: AdPlayerScre
     return () => {
       subscription.remove();
     };
-  }, [player, currentIndex, currentItem]);
+  }, [isSyncGroup, player, currentIndex, currentItem]);
 
-  if (!currentItem || PLAYLIST.length === 0) {
+  if (!currentItem || filteredPlaylist.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <View style={styles.emptyIconCircle}>

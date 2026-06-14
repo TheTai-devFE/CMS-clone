@@ -1,6 +1,4 @@
 export const dynamic = 'force-dynamic';
-
-import React from 'react';
 import PlayerPageClient from './PlayerPageClient';
 import { Metadata } from 'next';
 
