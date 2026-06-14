@@ -1,298 +1,282 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Image, ActivityIndicator } from 'react-native';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors } from '../theme/colors';
+import { useVideoPlayer, VideoView } from "expo-video";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableWithoutFeedback,
+  View,
+} from "react-native";
+import { colors } from "../theme/colors";
+import { PlayerPlaylistItem } from "../utils/syncManager";
 
 interface AdPlayerScreenProps {
   isLandscape: boolean;
   onRelaunchRequest?: () => void;
   isSleeping?: boolean;
-  playlist?: MediaItem[];
-  deviceId?: string | null;
-  isSyncGroup?: boolean;
-  syncLayout?: any;
-  clockOffset?: number;
+  playlist: PlayerPlaylistItem[];
 }
 
-export type MediaItem = 
-  | { type: 'image'; url: string; duration: number }
-  | { type: 'video'; url: string; duration: number }; // fallback duration in ms
-
-export const PLAYLIST: MediaItem[] = [];
-
-export default function AdPlayerScreen({
+/**
+ * AdPlayerScreen — Ref-based playback architecture
+ *
+ * Design principle: ZERO state-driven effects for playback logic.
+ * Only `currentIndex` exists as React state (for rendering the correct media).
+ * All transitions, timers, and player commands go through refs + imperative calls.
+ * This prevents the infinite loop caused by:
+ *   - expo-video's internal setState triggering re-renders
+ *   - Image onLoadStart/onLoadEnd setState cascades
+ *   - Object-reference churn in useEffect dependency arrays
+ */
+function AdPlayerScreen({
   isLandscape,
   isSleeping,
-  playlist = [],
-  deviceId = null,
-  isSyncGroup = false,
-  syncLayout = null,
-  clockOffset = 0,
+  playlist,
 }: AdPlayerScreenProps) {
+  // === SINGLE render state — only updated when slide index changes ===
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [imageLoading, setImageLoading] = useState(true);
-  const [breakpointEnabled, setBreakpointEnabled] = useState(false);
 
-  // 1. Filtered playlist
-  const filteredPlaylist = React.useMemo(() => {
-    if (!isSyncGroup || !syncLayout || !deviceId) {
-      return playlist;
-    }
-    
-    const mapping = syncLayout.deviceMapping;
-    if (!mapping || typeof mapping !== 'object') {
-      return playlist;
-    }
+  // === Refs — mutable state that does NOT trigger re-renders ===
+  const currentIndexRef = useRef(0);
+  const playlistRef = useRef(playlist);
+  const isSleepingRef = useRef(isSleeping);
+  const slideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTransitioningRef = useRef(false);
+  const currentLoadedUrlRef = useRef("");
+  const hasInitializedRef = useRef(false);
 
-    return playlist.filter((item: any) => {
-      const targetDevices = mapping[item.sortOrder?.toString()];
-      return Array.isArray(targetDevices) && targetDevices.includes(deviceId);
-    });
-  }, [playlist, isSyncGroup, syncLayout, deviceId]);
+  // Keep refs in sync with latest props (cheap assignment, no re-render)
+  playlistRef.current = playlist;
+  isSleepingRef.current = isSleeping;
 
-  const totalDuration = React.useMemo(() => {
-    return filteredPlaylist.reduce((acc, item) => acc + item.duration, 0);
-  }, [filteredPlaylist]);
-
-  const currentItem = filteredPlaylist.length > 0 ? filteredPlaylist[currentIndex] : null;
-
-  const imageSource = React.useMemo(() => {
-    if (currentItem && currentItem.type === 'image') {
-      return { uri: currentItem.url };
-    }
-    return null;
-  }, [currentItem]);
-
-  // Initialize Video Player for the initial video source found in the playlist
-  const initialVideoUrl = React.useMemo(() => {
-    return filteredPlaylist.find(item => item.type === 'video')?.url || '';
-  }, [filteredPlaylist]);
-
-  const player = useVideoPlayer(initialVideoUrl, (playerInstance) => {
-    playerInstance.loop = false;
-    playerInstance.muted = true;
+  // === Video player — stable instance from expo-video ===
+  const player = useVideoPlayer(null as any, (p) => {
+    p.loop = false;
+    // Always unmute because we enforce user interaction on Web via overlay
+    p.muted = false;
   });
+  const playerRef = useRef(player);
+  playerRef.current = player;
 
-  // Dynamic Video source replacement
-  useEffect(() => {
-    if (currentItem && currentItem.type === 'video') {
-      try {
-        console.log(`[AdPlayer] Cập nhật source video: ${currentItem.url}`);
-        player.replace(currentItem.url);
-      } catch (err) {
-        console.error('Lỗi khi thay thế nguồn video:', err);
+  // Safe helper to play video and catch browser autoplay blocking rejections
+  const safePlay = useCallback((p: any) => {
+    try {
+      p.currentTime = 0;
+      const playPromise = p.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch((err: any) => {
+          console.warn("[Playback] Autoplay block caught:", err.message);
+        });
       }
+    } catch (err) {
+      console.warn("[Playback] safePlay error:", err);
     }
-  }, [currentItem?.url]);
-
-  // Load breakpoint settings
-  useEffect(() => {
-    const loadEnabled = async () => {
-      try {
-        const stored = await AsyncStorage.getItem('breakpointContinuationEnabled') === 'true';
-        setBreakpointEnabled(stored);
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    loadEnabled();
   }, []);
 
-  // Handle sleep pause
-  useEffect(() => {
-    if (isSleeping) {
-      player.pause();
+  // === Utility: clear the slide timer ===
+  const clearSlideTimer = useCallback(() => {
+    if (slideTimerRef.current) {
+      clearTimeout(slideTimerRef.current);
+      slideTimerRef.current = null;
     }
-  }, [isSleeping, player]);
+  }, []);
 
-  // Save playback progress periodically (Normal mode only)
-  useEffect(() => {
-    if (isSyncGroup) return; // Disable in sync group mode
-    let interval: any = null;
-    
-    const saveProgress = async () => {
-      if (breakpointEnabled && currentItem && currentItem.type === 'video' && player.playing) {
-        try {
-          await AsyncStorage.setItem('breakpoint_video_url', currentItem.url);
-          await AsyncStorage.setItem('breakpoint_playback_position', player.currentTime.toString());
-        } catch (err) {
-          console.error('Lỗi khi lưu tiến độ video:', err);
-        }
-      }
-    };
+  // === Core: advance to next item (forward declaration via ref) ===
+  const goToNextRef = useRef<() => void>(() => {});
 
-    interval = setInterval(saveProgress, 2000);
-    return () => clearInterval(interval);
-  }, [isSyncGroup, currentItem, player, breakpointEnabled]);
+  // === Core: load media at a given index (purely imperative) ===
+  const loadItem = useCallback(
+    (index: number) => {
+      const pl = playlistRef.current;
+      const p = playerRef.current;
+      if (pl.length === 0 || index < 0 || index >= pl.length) return;
 
-  // Restore playback progress (Normal mode only)
-  useEffect(() => {
-    if (isSyncGroup) return; // Disable in sync group mode
-    const restoreProgress = async () => {
-      if (breakpointEnabled && currentItem && currentItem.type === 'video') {
-        try {
-          const savedUrl = await AsyncStorage.getItem('breakpoint_video_url');
-          const savedPosStr = await AsyncStorage.getItem('breakpoint_playback_position');
-          
-          if (savedUrl === currentItem.url && savedPosStr) {
-            const savedPos = parseFloat(savedPosStr);
-            if (savedPos > 0 && player.duration - savedPos > 2) {
-              player.currentTime = savedPos;
-              console.log('Khôi phục tiến độ phát video tại:', savedPos);
-            }
-            await AsyncStorage.removeItem('breakpoint_video_url');
-            await AsyncStorage.removeItem('breakpoint_playback_position');
+      const item = pl[index];
+      clearSlideTimer();
+
+      if (item.type === "video") {
+        // Only call replace() when URL genuinely changed — prevents spurious playToEnd
+        if (currentLoadedUrlRef.current !== item.url) {
+          console.log(`[Playback] Loading video: ${item.url}`);
+          currentLoadedUrlRef.current = item.url;
+          try {
+            p.replace(item.url);
+          } catch (err) {
+            console.warn("[Playback] player.replace() error:", err);
           }
-        } catch (err) {
-          console.error('Lỗi khi khôi phục tiến độ video:', err);
         }
-      }
-    };
-    
-    restoreProgress();
-  }, [isSyncGroup, currentIndex, currentItem, breakpointEnabled, player]);
-
-  // --- Playback logic for Synchronized Group Mode ---
-
-  // NTP sync tick
-  useEffect(() => {
-    if (!isSyncGroup || filteredPlaylist.length === 0 || totalDuration === 0) return;
-
-    const getActiveItemAndOffset = () => {
-      const synchronizedTime = Date.now() + clockOffset;
-      const playbackTime = synchronizedTime % totalDuration;
-
-      let accumulatedTime = 0;
-      for (let i = 0; i < filteredPlaylist.length; i++) {
-        const item = filteredPlaylist[i];
-        if (playbackTime >= accumulatedTime && playbackTime < accumulatedTime + item.duration) {
-          return {
-            item,
-            index: i,
-            offsetMs: playbackTime - accumulatedTime
-          };
+        if (!isSleepingRef.current) {
+          safePlay(p);
         }
-        accumulatedTime += item.duration;
-      }
-      return { item: filteredPlaylist[0], index: 0, offsetMs: 0 };
-    };
-
-    const tick = () => {
-      const { index } = getActiveItemAndOffset();
-      if (index !== currentIndex) {
-        setCurrentIndex(index);
-        setImageLoading(true);
-      }
-    };
-
-    tick();
-    const interval = setInterval(tick, 200);
-    return () => clearInterval(interval);
-  }, [isSyncGroup, filteredPlaylist, totalDuration, clockOffset, currentIndex]);
-
-  // Video Seek & Drift Correction for Sync Group Mode
-  useEffect(() => {
-    if (!isSyncGroup || !currentItem || currentItem.type !== 'video' || isSleeping || totalDuration === 0) return;
-
-    const getActiveItemAndOffset = () => {
-      const synchronizedTime = Date.now() + clockOffset;
-      const playbackTime = synchronizedTime % totalDuration;
-
-      let accumulatedTime = 0;
-      for (let i = 0; i < filteredPlaylist.length; i++) {
-        const item = filteredPlaylist[i];
-        if (playbackTime >= accumulatedTime && playbackTime < accumulatedTime + item.duration) {
-          return {
-            item,
-            index: i,
-            offsetMs: playbackTime - accumulatedTime
-          };
+      } else if (item.type === "image") {
+        try {
+          p.pause();
+        } catch (_) {
+          /* noop */
         }
-        accumulatedTime += item.duration;
+        currentLoadedUrlRef.current = "";
       }
-      return { item: filteredPlaylist[0], index: 0, offsetMs: 0 };
-    };
 
-    const { offsetMs } = getActiveItemAndOffset();
-    const initialPosition = offsetMs / 1000;
-    player.currentTime = initialPosition;
-    player.play();
+      // Duration-based timer to advance to next slide
+      const duration = item.duration || 10000;
+      slideTimerRef.current = setTimeout(() => {
+        goToNextRef.current();
+      }, duration);
+    },
+    [clearSlideTimer],
+  );
 
-    const checkDrift = () => {
-      if (!player.playing) return;
-      const { item, offsetMs: expectedOffsetMs } = getActiveItemAndOffset();
-      if (item && item.url === currentItem.url) {
-        const expectedPosition = expectedOffsetMs / 1000;
-        const currentPosition = player.currentTime;
-        const drift = Math.abs(currentPosition - expectedPosition);
-        if (drift > 0.5) {
-          console.log(`[Playback Engine] Lệch đồng bộ video: ${drift}s. Đang seek về: ${expectedPosition}s`);
-          player.currentTime = expectedPosition;
-        }
+  // === Core: transition to next slide ===
+  const goToNext = useCallback(() => {
+    const pl = playlistRef.current;
+    if (pl.length === 0) return;
+
+    // Transition gate — prevent re-entry
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+
+    const prevIdx = currentIndexRef.current;
+    const nextIdx = (prevIdx + 1) % pl.length;
+
+    if (nextIdx === prevIdx) {
+      // Single-item playlist — replay without state change
+      const item = pl[0];
+      clearSlideTimer();
+      if (item.type === "video") {
+        safePlay(playerRef.current);
       }
-    };
-
-    const driftInterval = setInterval(checkDrift, 1500);
-    return () => clearInterval(driftInterval);
-  }, [isSyncGroup, currentIndex, currentItem?.url, isSleeping, clockOffset, totalDuration]);
-
-
-  // --- Playback logic for Normal Mode (driven by timers & events) ---
-
-  const slideTimer = useRef<any>(null);
-
-  const handleNext = () => {
-    if (filteredPlaylist.length === 0) return;
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % filteredPlaylist.length);
-    setImageLoading(true);
-  };
-
-  useEffect(() => {
-    if (isSyncGroup) return; // Ignore in sync group mode
-    if (!currentItem) return;
-
-    if (slideTimer.current) {
-      clearTimeout(slideTimer.current);
+      // Restart timer
+      slideTimerRef.current = setTimeout(() => {
+        isTransitioningRef.current = false;
+        goToNextRef.current();
+      }, item.duration || 10000);
+      isTransitioningRef.current = false;
+      return;
     }
 
-    if (currentItem.type === 'image') {
-      player.pause();
-      slideTimer.current = setTimeout(() => {
-        handleNext();
-      }, currentItem.duration);
-    } else if (currentItem.type === 'video') {
-      if (!isSleeping) {
-        player.currentTime = 0;
-        player.play();
-      }
-      slideTimer.current = setTimeout(() => {
-        handleNext();
-      }, currentItem.duration);
-    }
+    // Multi-item playlist — update index and load new item
+    currentIndexRef.current = nextIdx;
+    setCurrentIndex(nextIdx); // Single state update → re-render with new slide
+    loadItem(nextIdx);
 
-    return () => {
-      if (slideTimer.current) {
-        clearTimeout(slideTimer.current);
-      }
-    };
-  }, [isSyncGroup, currentIndex, currentItem, isSleeping]);
+    // Release gate after settling
+    setTimeout(() => {
+      isTransitioningRef.current = false;
+    }, 500);
+  }, [loadItem, clearSlideTimer]);
 
+  // Wire up the ref so loadItem's timer can call goToNext
+  goToNextRef.current = goToNext;
+
+  // === Effect: initial load when playlist first becomes available ===
   useEffect(() => {
-    if (isSyncGroup || !currentItem) return;
+    if (playlist.length > 0 && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      currentIndexRef.current = 0;
+      setCurrentIndex(0);
+      // Tiny delay to let mount settle before loading media
+      const t = setTimeout(() => loadItem(0), 150);
+      return () => clearTimeout(t);
+    }
+    // Reset initialization when playlist goes empty
+    if (playlist.length === 0) {
+      hasInitializedRef.current = false;
+      clearSlideTimer();
+    }
+  }, [playlist.length, loadItem, clearSlideTimer]);
 
-    const subscription = player.addListener('playToEnd', () => {
-      if (currentItem.type === 'video') {
-        handleNext();
+  // === Effect: detect playlist content change (not just length) ===
+  const playlistHashRef = useRef("");
+  useEffect(() => {
+    const hash = playlist.map((item) => item.url).join("|");
+    if (hash !== playlistHashRef.current && playlistHashRef.current !== "") {
+      // Playlist content changed — reload from beginning
+      playlistHashRef.current = hash;
+      currentIndexRef.current = 0;
+      setCurrentIndex(0);
+      if (playlist.length > 0) {
+        currentLoadedUrlRef.current = ""; // Force reload
+        const t = setTimeout(() => loadItem(0), 150);
+        return () => clearTimeout(t);
+      }
+    } else {
+      playlistHashRef.current = hash;
+    }
+  }, [playlist, loadItem]);
+
+  // === Effect: video playToEnd listener (empty deps — player instance is stable) ===
+  useEffect(() => {
+    const p = playerRef.current;
+    const subscription = p.addListener("playToEnd", () => {
+      // Only advance if video actually played (filter spurious events from replace())
+      if (p.currentTime > 0.5) {
+        console.log("[Playback] Video ended naturally, advancing");
+        clearSlideTimer(); // Cancel fallback timer
+        goToNextRef.current();
       }
     });
 
     return () => {
       subscription.remove();
     };
-  }, [isSyncGroup, player, currentIndex, currentItem]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally empty — player is stable, goToNextRef is a ref
 
-  if (!currentItem || filteredPlaylist.length === 0) {
+  // === Effect: sleep state changes ===
+  useEffect(() => {
+    const p = playerRef.current;
+    if (isSleeping) {
+      try {
+        p.pause();
+      } catch (_) {
+        /* noop */
+      }
+      clearSlideTimer();
+    } else {
+      // Resume playback for current item
+      const pl = playlistRef.current;
+      const idx = currentIndexRef.current;
+      if (pl.length > 0 && idx < pl.length) {
+        const item = pl[idx];
+        if (item.type === "video") {
+          safePlay(p);
+        }
+        // Restart duration timer
+        clearSlideTimer();
+        slideTimerRef.current = setTimeout(() => {
+          goToNextRef.current();
+        }, item.duration || 10000);
+      }
+    }
+  }, [isSleeping, clearSlideTimer]);
+
+  // === Cleanup on unmount ===
+  useEffect(() => {
+    return () => {
+      clearSlideTimer();
+    };
+  }, [clearSlideTimer]);
+
+  // === Ensure index stays in bounds when playlist shrinks ===
+  useEffect(() => {
+    if (playlist.length > 0 && currentIndex >= playlist.length) {
+      const safeIdx = 0;
+      currentIndexRef.current = safeIdx;
+      setCurrentIndex(safeIdx);
+    }
+  }, [playlist.length, currentIndex]);
+
+  // === Derive current item for rendering (computation only, no state) ===
+  const safeIdx =
+    playlist.length > 0 ? Math.min(currentIndex, playlist.length - 1) : -1;
+  const currentItem = safeIdx >= 0 ? playlist[safeIdx] : null;
+
+  // ===== RENDER =====
+
+
+
+  if (!currentItem || playlist.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <View style={styles.emptyIconCircle}>
@@ -300,90 +284,95 @@ export default function AdPlayerScreen({
         </View>
         <Text style={styles.emptyTitle}>Chưa có nội dung trình chiếu</Text>
         <Text style={styles.emptySubtitle}>
-          Thiết bị hiện đang ở chế độ chờ. Vui lòng liên kết thiết bị với CMS và gán lịch phát để cập nhật nội dung.
+          Thiết bị hiện đang ở chế độ chờ. Vui lòng liên kết thiết bị với CMS và
+          gán lịch phát để cập nhật nội dung.
         </Text>
-        <Text style={styles.emptyHint}>Chạm vào màn hình để mở bảng cấu hình</Text>
+        <Text style={styles.emptyHint}>
+          Chạm vào màn hình để mở bảng cấu hình
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Image container */}
-      <View style={[styles.mediaContainer, { display: currentItem.type === 'image' ? 'flex' : 'none' }]}>
-        {currentItem.type === 'image' && imageSource && (
+      {/* Image layer — only mounted when current item is image */}
+      {currentItem.type === "image" && (
+        <View style={styles.mediaContainer}>
           <Image
-            source={imageSource}
+            source={{ uri: currentItem.url }}
             style={styles.media}
             resizeMode="cover"
-            onLoadStart={() => setImageLoading(true)}
-            onLoadEnd={() => setImageLoading(false)}
+            // No onLoadStart/onLoadEnd — these cause setState loops on Web
           />
-        )}
-        {currentItem.type === 'image' && imageLoading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={colors.secondary} />
-          </View>
-        )}
-      </View>
+        </View>
+      )}
 
-      {/* Video container - Keep mounted to prevent expo-video player release issues */}
-      <View style={[styles.mediaContainer, { display: currentItem.type === 'video' ? 'flex' : 'none' }]}>
-        <VideoView
-          player={player}
-          style={styles.media}
-          nativeControls={false}
-          contentFit="cover"
-        />
-      </View>
-
-      {/* Floating Kiosk Status Tag (Top Right) */}
-      <View style={[styles.kioskBadge, { top: isLandscape ? 12 : 36 }]}>
-        <View style={styles.badgeDot} />
-        <Text style={styles.badgeText}>KIOSK PLAYBACK</Text>
-      </View>
-
-      {/* Touch Screen Overlay Indicator (Subtle bottom text) */}
-      <View style={styles.overlayContainer}>
-        <Text style={styles.overlayText}>Chạm màn hình để mở Bảng cấu hình</Text>
-      </View>
+      {/* Video layer — only mounted when current item is video */}
+      {currentItem.type === "video" && (
+        <View style={styles.mediaContainer}>
+          <VideoView
+            player={player}
+            style={styles.media}
+            nativeControls={false}
+            contentFit="cover"
+          />
+        </View>
+      )}
     </View>
   );
 }
 
+// === React.memo with deep comparison on playlist URLs ===
+function arePropsEqual(
+  prev: AdPlayerScreenProps,
+  next: AdPlayerScreenProps,
+): boolean {
+  if (prev.isLandscape !== next.isLandscape) return false;
+  if (prev.isSleeping !== next.isSleeping) return false;
+  if (prev.playlist.length !== next.playlist.length) return false;
+  for (let i = 0; i < prev.playlist.length; i++) {
+    if (prev.playlist[i]?.url !== next.playlist[i]?.url) return false;
+    if (prev.playlist[i]?.type !== next.playlist[i]?.type) return false;
+  }
+  return true;
+}
+
+export default React.memo(AdPlayerScreen, arePropsEqual);
+
 const styles = StyleSheet.create({
   emptyContainer: {
     flex: 1,
-    backgroundColor: '#0a0f1d', // Ultra dark background matching premium signage style
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#0a0f1d",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 24,
   },
   emptyIconCircle: {
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 24,
   },
   emptyIconText: {
     fontSize: 40,
   },
   emptyTitle: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 12,
     letterSpacing: -0.5,
   },
   emptySubtitle: {
-    color: 'rgba(255, 255, 255, 0.45)',
+    color: "rgba(255, 255, 255, 0.45)",
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     maxWidth: 420,
     lineHeight: 22,
     marginBottom: 32,
@@ -391,90 +380,66 @@ const styles = StyleSheet.create({
   emptyHint: {
     color: colors.success,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.8,
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    backgroundColor: "rgba(16, 185, 129, 0.08)",
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.15)',
-    textTransform: 'uppercase',
+    borderColor: "rgba(16, 185, 129, 0.15)",
+    textTransform: "uppercase",
   },
   container: {
     flex: 1,
-    backgroundColor: '#000000',
-    position: 'relative',
+    backgroundColor: "#000000",
+    position: "relative",
   },
   mediaContainer: {
     flex: 1,
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
   },
   media: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
-  loadingOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  interactionOverlay: {
+    flex: 1,
+    backgroundColor: "#0a0f1d",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
   },
-  kioskBadge: {
-    position: 'absolute',
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 100,
+  interactionIconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "rgba(59, 130, 246, 0.08)",
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    zIndex: 10,
+    borderColor: "rgba(59, 130, 246, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
   },
-  badgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.success,
-    marginRight: 6,
-    shadowColor: colors.success,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
+  interactionIconText: {
+    fontSize: 40,
   },
-  badgeText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
+  interactionTitle: {
+    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 12,
+    letterSpacing: -0.5,
   },
-  overlayContainer: {
-    position: 'absolute',
-    bottom: 96,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  overlayText: {
-    color: 'rgba(255, 255, 255, 0.45)',
-    fontSize: 12,
-    fontWeight: '600',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 100,
-    letterSpacing: 0.5,
+  interactionSubtitle: {
+    color: "rgba(255, 255, 255, 0.45)",
+    fontSize: 14,
+    textAlign: "center",
+    maxWidth: 420,
+    lineHeight: 22,
   },
 });

@@ -235,6 +235,27 @@ export class DeviceService {
     // 2. Ghi nhận trạng thái online trên Redis Cache với TTL 150 giây (2.5 lần chu kỳ 60s)
     await this.redis.set(redisKey, 'online', 150);
 
+    // Cập nhật trạng thái sync vào Redis nếu có gửi lên
+    if (dto.syncStatus !== undefined || dto.syncProgress !== undefined) {
+      const syncKey = `device:sync:${dto.deviceId}`;
+      const existingDataStr = await this.redis.get(syncKey);
+      let existingData = { status: 'idle', progress: 100 };
+      if (existingDataStr) {
+        try {
+          existingData = JSON.parse(existingDataStr);
+        } catch (_) {}
+      }
+
+      const updatedData = {
+        status: dto.syncStatus !== undefined ? dto.syncStatus : existingData.status,
+        progress: dto.syncProgress !== undefined ? dto.syncProgress : existingData.progress,
+        updatedAt: Date.now(),
+      };
+
+      // Lưu trữ trong 1 giờ
+      await this.redis.set(syncKey, JSON.stringify(updatedData), 3600);
+    }
+
     // 3. Đã bỏ ghi log lịch sử heartbeat liên tục vào DB để tránh phình dữ liệu và tối ưu hiệu suất
 
     // Lấy thông tin user sở hữu thiết bị để đọc securityPassword của user
@@ -244,6 +265,9 @@ export class DeviceService {
           select: { securityPassword: true },
         })
       : null;
+
+    // Lấy syncHash hiện tại của thiết bị
+    const syncHash = await this.getSyncHashForDevice(dto.deviceId);
 
     return {
       deviceId: device.id,
@@ -256,7 +280,72 @@ export class DeviceService {
       sleepScheduleEnabled: device.sleepScheduleEnabled,
       sleepStartTime: device.sleepStartTime,
       sleepEndTime: device.sleepEndTime,
+      syncHash,
     };
+  }
+
+  // Helper lấy active schedule để băm syncHash nhanh
+  private async getSyncHashForDevice(deviceId: string): Promise<string> {
+    const now = new Date();
+    const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60 * 1000);
+    const todayString = localNow.toISOString().split('T')[0];
+    const today = new Date(`${todayString}T12:00:00.000Z`);
+
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const currentTimeString = `${hours}:${minutes}:${seconds}`;
+    const currentDayOfWeek = now.getDay();
+
+    const activeSchedules = await this.prisma.schedule.findMany({
+      where: {
+        devices: {
+          some: { deviceId },
+        },
+        startDate: { lte: today },
+        endDate: { gte: today },
+        startTime: { lte: currentTimeString },
+        endTime: { gte: currentTimeString },
+        dayOfWeek: { has: currentDayOfWeek },
+      },
+      select: {
+        id: true,
+        updatedAt: true,
+        playlist: {
+          select: {
+            id: true,
+            updatedAt: true,
+          },
+        },
+        template: {
+          select: {
+            id: true,
+            updatedAt: true,
+          },
+        },
+      },
+      orderBy: {
+        priority: 'desc',
+      },
+      take: 1,
+    });
+
+    if (activeSchedules.length === 0) {
+      return 'empty';
+    }
+
+    const activeSchedule = activeSchedules[0];
+    const schedPart = `${activeSchedule.id}-${activeSchedule.updatedAt.getTime()}`;
+    let subPart = '';
+    
+    if (activeSchedule.playlist) {
+      subPart = `pl-${activeSchedule.playlist.id}-${activeSchedule.playlist.updatedAt.getTime()}`;
+    } else if (activeSchedule.template) {
+      subPart = `tmpl-${activeSchedule.template.id}-${activeSchedule.template.updatedAt.getTime()}`;
+    }
+
+    const rawString = `${schedPart}_${subPart}`;
+    return crypto.createHash('md5').update(rawString).digest('hex');
   }
 
   async assignDevice(deviceId: string, userId: string) {
@@ -453,9 +542,25 @@ export class DeviceService {
       devices.map(async (device) => {
         const redisKey = `device:status:${device.id}`;
         const isOnline = await this.redis.exists(redisKey);
+
+        const syncKey = `device:sync:${device.id}`;
+        const syncDataStr = await this.redis.get(syncKey);
+        let syncStatus = 'idle';
+        let syncProgress = 100;
+
+        if (syncDataStr) {
+          try {
+            const syncData = JSON.parse(syncDataStr);
+            syncStatus = syncData.status || 'idle';
+            syncProgress = typeof syncData.progress === 'number' ? syncData.progress : 100;
+          } catch (_) {}
+        }
+
         return {
           ...device,
           status: isOnline ? 'online' : 'offline',
+          syncStatus,
+          syncProgress,
         };
       }),
     );

@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Loader2, Layers } from "lucide-react";
+import { Device, MediaItem, Playlist } from "@/types/dashboard";
 import { api } from "@/utils/api";
-import { Playlist, MediaItem, Device } from "@/types/dashboard";
+import { ChevronLeft, Layers, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
-import PlaylistSidebar, { PlaylistItemData } from "./PlaylistSidebar";
 import PlaylistCanvas from "./PlaylistCanvas";
 import PlaylistProperties from "./PlaylistProperties";
+import PlaylistSidebar, { PlaylistItemData } from "./PlaylistSidebar";
 
 interface PlaylistEditorProps {
   editingPlaylist: Playlist | null;
@@ -589,8 +589,7 @@ export default function PlaylistEditor({
               variant="outline"
               size="sm"
               onClick={handleRestoreDraft}
-              className="h-7 text-[10px] bg-amber-500 hover:bg-amber-600 text-white border-none font-semibold px-3"
-            >
+              className="h-7 text-[10px] bg-amber-500 hover:bg-amber-600 text-white border-none font-semibold px-3">
               Khôi phục
             </Button>
             <Button
@@ -598,8 +597,7 @@ export default function PlaylistEditor({
               variant="ghost"
               size="sm"
               onClick={handleClearDraft}
-              className="h-7 text-[10px] text-muted-foreground hover:text-foreground font-semibold px-3"
-            >
+              className="h-7 text-[10px] text-muted-foreground hover:text-foreground font-semibold px-3">
               Xóa nháp
             </Button>
           </div>

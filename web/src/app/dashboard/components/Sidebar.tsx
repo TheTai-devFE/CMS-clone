@@ -11,8 +11,9 @@ import {
   Database,
   Calendar,
   ListVideo,
+  Layers
 } from "lucide-react";
-
+  
 import { User, DashboardTab } from "@/types/dashboard";
 
 interface SidebarProps {
@@ -62,9 +63,9 @@ export default function Sidebar({ currentUser }: SidebarProps) {
         <Link
           href="/dashboard/content"
           className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-150 text-sm rounded-lg ${
-            isActive("/dashboard/content")
-              ? "bg-primary text-primary-foreground font-semibold shadow-sm shadow-primary/10"
-              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+            isActive('/dashboard/content') && pathname === '/dashboard/content'
+              ? 'bg-primary text-primary-foreground font-semibold shadow-sm shadow-primary/10'
+              : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
           }`}
         >
           <ImageIcon className="size-5 shrink-0" />
@@ -82,7 +83,18 @@ export default function Sidebar({ currentUser }: SidebarProps) {
           <ListVideo className="size-5 shrink-0" />
           <span>Danh sách phát</span>
         </Link>
-
+        <Link
+          href="/dashboard/content/manage"
+          className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-150 text-sm rounded-lg ${
+            isActive('/dashboard/content/manage')
+              ? 'bg-primary text-primary-foreground font-semibold shadow-sm shadow-primary/10'
+              : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+          }`}
+        >
+          <Layers className="size-5 shrink-0" />
+          <span>Quản lý nội dung</span>
+        </Link>
+        
         <Link
           href="/dashboard/player"
           className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-150 text-sm rounded-lg ${

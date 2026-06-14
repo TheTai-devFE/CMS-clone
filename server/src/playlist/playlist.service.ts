@@ -1,12 +1,14 @@
 import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
+    BadRequestException,
+    ForbiddenException,
+    Injectable,
+    NotFoundException,
+    UnauthorizedException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import { AddPlaylistItemsDto } from './dto/add-playlist-items.dto';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
@@ -26,6 +28,7 @@ export class PlaylistService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly redis: RedisService,
   ) {}
 
   async createPlaylist(dto: CreatePlaylistDto, userId: string) {
@@ -243,6 +246,33 @@ export class PlaylistService {
       throw new ForbiddenException('Bạn không có quyền xóa danh sách phát này');
     }
 
+    // Trước khi xóa playlist, tìm tất cả thiết bị liên kết qua Schedule
+    // và reset trạng thái sync của chúng trong Redis để giao diện web không bị kẹt "Đang đồng bộ"
+    const linkedDeviceSchedules = await this.prisma.deviceSchedule.findMany({
+      where: {
+        schedule: {
+          playlistId,
+        },
+      },
+      select: {
+        deviceId: true,
+      },
+    });
+
+    const uniqueDeviceIds = [
+      ...new Set(linkedDeviceSchedules.map((ds) => ds.deviceId)),
+    ];
+
+    // Reset sync status trong Redis cho từng thiết bị liên quan
+    for (const deviceId of uniqueDeviceIds) {
+      const syncKey = `device:sync:${deviceId}`;
+      await this.redis.set(
+        syncKey,
+        JSON.stringify({ status: 'idle', progress: 100, updatedAt: Date.now() }),
+        3600,
+      );
+    }
+
     return this.prisma.playlist.delete({
       where: { id: playlistId },
     });
@@ -296,7 +326,11 @@ export class PlaylistService {
           'Không tìm thấy danh sách phát để lập lịch',
         );
       }
-      deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout);
+      if (dto.deviceIds && dto.deviceIds.length > 0) {
+        deviceIds = dto.deviceIds;
+      } else {
+        deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout);
+      }
     } else if (dto.templateId) {
       const template = await this.prisma.template.findUnique({
         where: { id: dto.templateId },
@@ -313,6 +347,51 @@ export class PlaylistService {
       throw new BadRequestException(
         'Vui lòng chọn Playlist hoặc Bố cục hiển thị',
       );
+    }
+
+    // Nếu là Lịch phát nhanh (Quick Publish), tự động gỡ các thiết bị này khỏi các lịch phát nhanh cũ
+    if (dto.scheduleName.startsWith('Publish Nhanh -') && deviceIds.length > 0) {
+      const oldDeviceSchedules = await this.prisma.deviceSchedule.findMany({
+        where: {
+          deviceId: { in: deviceIds },
+          schedule: {
+            scheduleName: { startsWith: 'Publish Nhanh -' },
+          },
+        },
+        include: {
+          schedule: {
+            include: {
+              devices: true,
+            },
+          },
+        },
+      });
+
+      if (oldDeviceSchedules.length > 0) {
+        const scheduleIdsToUpdate = Array.from(
+          new Set(oldDeviceSchedules.map((ds) => ds.scheduleId)),
+        );
+        
+        // 1. Xóa liên kết của thiết bị này khỏi các lịch phát nhanh cũ
+        await this.prisma.deviceSchedule.deleteMany({
+          where: {
+            deviceId: { in: deviceIds },
+            scheduleId: { in: scheduleIdsToUpdate },
+          },
+        });
+
+        // 2. Xóa các lịch phát nhanh cũ nếu chúng không còn thiết bị nào liên kết (dọn dẹp DB)
+        for (const scheduleId of scheduleIdsToUpdate) {
+          const remainingCount = await this.prisma.deviceSchedule.count({
+            where: { scheduleId },
+          });
+          if (remainingCount === 0) {
+            await this.prisma.schedule.delete({
+              where: { id: scheduleId },
+            }).catch((err) => console.error('Lỗi khi xóa lịch trình cũ trống:', err));
+          }
+        }
+      }
     }
 
     // Định dạng lại ngày để lưu vào PostgreSQL
@@ -395,7 +474,11 @@ export class PlaylistService {
           'Không tìm thấy danh sách phát để lập lịch',
         );
       }
-      deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout);
+      if (dto.deviceIds && dto.deviceIds.length > 0) {
+        deviceIds = dto.deviceIds;
+      } else {
+        deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout);
+      }
     } else if (dto.templateId) {
       const template = await this.prisma.template.findUnique({
         where: { id: dto.templateId },
@@ -462,6 +545,24 @@ export class PlaylistService {
       throw new ForbiddenException('Bạn không có quyền xóa lịch trình này');
     }
 
+    // Tìm các thiết bị liên kết với schedule này
+    const linkedDevices = await this.prisma.deviceSchedule.findMany({
+      where: { scheduleId },
+      select: { deviceId: true },
+    });
+
+    const uniqueDeviceIds = [...new Set(linkedDevices.map((d) => d.deviceId))];
+
+    // Reset sync status trong Redis cho từng thiết bị liên quan
+    for (const deviceId of uniqueDeviceIds) {
+      const syncKey = `device:sync:${deviceId}`;
+      await this.redis.set(
+        syncKey,
+        JSON.stringify({ status: 'idle', progress: 100, updatedAt: Date.now() }),
+        3600,
+      );
+    }
+
     return this.prisma.schedule.delete({
       where: { id: scheduleId },
     });
@@ -491,8 +592,9 @@ export class PlaylistService {
 
     // 2. Lấy thời gian hiện tại của Server
     const now = new Date();
-    // Lấy ngày chuẩn định dạng ISO YYYY-MM-DD
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60 * 1000);
+    const todayString = localNow.toISOString().split('T')[0];
+    const today = new Date(`${todayString}T12:00:00.000Z`);
 
     // Lấy thời gian HH:mm:ss hiện tại
     const hours = String(now.getHours()).padStart(2, '0');
@@ -532,9 +634,10 @@ export class PlaylistService {
           },
         },
       },
-      orderBy: {
-        priority: 'desc', // Lấy lịch phát có ưu tiên cao nhất trước
-      },
+      orderBy: [
+        { priority: 'desc' }, // Lấy lịch phát có ưu tiên cao nhất trước
+        { createdAt: 'desc' }, // Lấy lịch phát mới nhất trước nếu cùng độ ưu tiên
+      ],
     });
 
     if (activeSchedules.length === 0) {

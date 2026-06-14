@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { colors } from '../theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface SettingsScreenProps {
   isLandscape: boolean;
@@ -20,6 +22,7 @@ interface SettingsScreenProps {
   formName: string;
   onBack: () => void;
   onLogout: () => void;
+  onClearProgram: () => Promise<void>;
 }
 
 export default function SettingsScreen({
@@ -29,6 +32,7 @@ export default function SettingsScreen({
   formName,
   onBack,
   onLogout,
+  onClearProgram,
 }: SettingsScreenProps) {
   // Settings States
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('landscape');
@@ -44,6 +48,10 @@ export default function SettingsScreen({
   const [sleepScheduleEnabled, setSleepScheduleEnabled] = useState(false);
   const [sleepStartTime, setSleepStartTime] = useState('22:00');
   const [sleepEndTime, setSleepEndTime] = useState('06:00');
+  
+  // Custom Confirmation States
+  const [showConfirmLogout, setShowConfirmLogout] = useState(false);
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
 
   // Load settings from AsyncStorage on mount
   useEffect(() => {
@@ -138,36 +146,47 @@ export default function SettingsScreen({
     }
   };
 
-  const handleClearCache = () => {
-    Alert.alert(
-      'Xác nhận xóa',
-      'Bạn có chắc chắn muốn xóa toàn bộ bộ nhớ đệm và các tệp tin media đã tải về không?',
-      [
-        { text: 'Hủy bỏ', style: 'cancel' },
-        {
-          text: 'Xóa sạch',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const mediaDir = (FileSystem as any).documentDirectory + 'media/';
-              await (FileSystem as any).deleteAsync(mediaDir, { idempotent: true });
-              await (FileSystem as any).makeDirectoryAsync(mediaDir, { intermediates: true });
-              
-              if ((FileSystem as any).cacheDirectory) {
-                const files = await (FileSystem as any).readDirectoryAsync((FileSystem as any).cacheDirectory);
-                for (const file of files) {
-                  await (FileSystem as any).deleteAsync((FileSystem as any).cacheDirectory + file, { idempotent: true });
-                }
-              }
-              Alert.alert('Thành công', 'Đã dọn dẹp sạch bộ nhớ đệm của ứng dụng!');
-            } catch (err) {
-              console.error('Lỗi khi xóa cache:', err);
-              Alert.alert('Thành công', 'Đã dọn dẹp xong bộ nhớ đệm hệ thống.');
-            }
-          }
+  const performClear = async () => {
+    try {
+      // Kiểm tra xem FileSystem có được hỗ trợ trên môi trường hiện tại không (ví dụ: Web)
+      if (FileSystem.documentDirectory) {
+        const mediaDir = FileSystem.documentDirectory + 'media/';
+        await FileSystem.deleteAsync(mediaDir, { idempotent: true });
+        await FileSystem.makeDirectoryAsync(mediaDir, { intermediates: true });
+      }
+      
+      if (FileSystem.cacheDirectory) {
+        const files = await FileSystem.readDirectoryAsync(FileSystem.cacheDirectory);
+        for (const file of files) {
+          await FileSystem.deleteAsync(FileSystem.cacheDirectory + file, { idempotent: true });
         }
-      ]
-    );
+      }
+      
+      if (onClearProgram) {
+        await onClearProgram();
+      }
+      
+      if (Platform.OS === 'web') {
+        window.alert('Đã dừng chương trình và dọn dẹp bộ nhớ đệm!');
+      } else {
+        Alert.alert('Thành công', 'Đã dừng chương trình và dọn dẹp bộ nhớ đệm!');
+      }
+    } catch (err) {
+      console.error('Lỗi khi dọn dẹp:', err);
+      if (Platform.OS === 'web') {
+        window.alert('Có lỗi xảy ra khi dọn dẹp hệ thống.');
+      } else {
+        Alert.alert('Lỗi', 'Có lỗi xảy ra khi dọn dẹp hệ thống.');
+      }
+    }
+  };
+
+  const handleLogoutWithConfirmation = () => {
+    setShowConfirmLogout(true);
+  };
+
+  const handleClearProgramAndCache = () => {
+    setShowConfirmClear(true);
   };
 
   // Custom Toggle Switch Component
@@ -339,23 +358,23 @@ export default function SettingsScreen({
                 <CustomSwitch value={breakpointEnabled} onValueChange={handleBreakpointChange} />
               </View>
 
-              {/* Item: Clear Cache */}
+              {/* Item: Clear Program & Cache */}
               <View style={[styles.settingsItem, { borderBottomWidth: 0 }]}>
                 <View style={styles.itemLeft}>
                   <View style={styles.iconWrapper}>
                     <Text style={styles.itemIcon}>🗑️</Text>
                   </View>
                   <View>
-                    <Text style={styles.itemTitle}>Dọn dẹp bộ nhớ đệm</Text>
-                    <Text style={styles.itemSub}>Xóa toàn bộ media đã tải</Text>
+                    <Text style={styles.itemTitle}>Xóa chương trình phát</Text>
+                    <Text style={styles.itemSub}>Dọn sạch media & dừng trình chiếu</Text>
                   </View>
                 </View>
                 <TouchableOpacity
                   style={styles.btnClearCache}
-                  onPress={handleClearCache}
+                  onPress={handleClearProgramAndCache}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.btnClearCacheText}>XÓA CACHE</Text>
+                  <Text style={styles.btnClearCacheText}>XÓA CHƯƠNG TRÌNH</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -467,7 +486,7 @@ export default function SettingsScreen({
           <View style={styles.dangerZoneContainer}>
             <TouchableOpacity
               style={styles.btnLogout}
-              onPress={onLogout}
+              onPress={handleLogoutWithConfirmation}
               activeOpacity={0.8}
             >
               <Text style={styles.btnLogoutIcon}>🚪</Text>
@@ -476,6 +495,32 @@ export default function SettingsScreen({
           </View>
         </View>
       </ScrollView>
+
+      <ConfirmationModal
+        visible={showConfirmLogout}
+        title="Xác nhận đăng xuất"
+        description="Bạn có chắc chắn muốn đăng xuất tài khoản thiết bị này không? Hành động này sẽ yêu cầu liên kết lại thiết bị."
+        confirmText="ĐĂNG XUẤT"
+        icon="🚪"
+        onConfirm={() => {
+          setShowConfirmLogout(false);
+          onLogout();
+        }}
+        onCancel={() => setShowConfirmLogout(false)}
+      />
+
+      <ConfirmationModal
+        visible={showConfirmClear}
+        title="Xác nhận xóa"
+        description="Bạn có chắc chắn muốn xóa toàn bộ chương trình đang phát, dọn dẹp bộ nhớ đệm và quay về màn hình chờ không?"
+        confirmText="XÓA SẠCH"
+        icon="🗑️"
+        onConfirm={() => {
+          setShowConfirmClear(false);
+          performClear();
+        }}
+        onCancel={() => setShowConfirmClear(false)}
+      />
     </View>
   );
 }

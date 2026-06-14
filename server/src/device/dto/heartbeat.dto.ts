@@ -30,4 +30,14 @@ export class HeartbeatDto {
   @Min(0)
   @IsOptional()
   freeMemoryMb?: number;
+
+  @IsString()
+  @IsOptional()
+  syncStatus?: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  syncProgress?: number;
 }

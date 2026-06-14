@@ -280,8 +280,7 @@ export default function PlaylistProperties({
                     }
                   }
                 }}
-                className="w-full h-8 rounded-md border border-input px-2 py-1 bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              >
+                className="w-full h-8 rounded-md border border-input px-2 py-1 bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
                 <option value="">-- Chọn thiết bị phát --</option>
                 {deviceList.map((dev) => (
                   <option key={dev.id} value={dev.id}>
@@ -497,8 +496,7 @@ export default function PlaylistProperties({
                         <label
                           htmlFor={`slide-dev-${dev.id}`}
                           className="text-[11px] font-medium text-foreground select-none cursor-pointer truncate"
-                          title={dev.deviceName}
-                        >
+                          title={dev.deviceName}>
                           {dev.deviceName}
                         </label>
                       </div>

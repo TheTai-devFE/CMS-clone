@@ -1,9 +1,5 @@
-import React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,24 +8,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   Activity,
-  Image as ImageIcon,
-  Tv,
-  Users,
-  FileText,
-  Database,
-  Search,
-  Sun,
-  Moon,
+  Calendar,
   CircleUser,
+  Database,
+  FileText,
+  Image as ImageIcon,
+  Layers,
+  ListVideo,
   LogOut,
   Menu,
-  Calendar,
-  ListVideo,
+  Moon,
+  Search,
+  Sun,
+  Tv,
+  Users,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-import { User, DashboardTab } from "@/types/dashboard";
+import { DashboardTab, User } from "@/types/dashboard";
 
 interface HeaderProps {
   activeTab?: DashboardTab;
@@ -71,8 +71,7 @@ export default function Header({
           variant="outline"
           size="icon"
           className="shrink-0 md:hidden h-8 w-8 rounded-lg border-border/60"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        >
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           <Menu className="h-4 w-4" />
           <span className="sr-only">Toggle navigation menu</span>
         </Button>
@@ -99,8 +98,7 @@ export default function Header({
               isActive("/dashboard") && pathname === "/dashboard"
                 ? "bg-primary/10 text-primary font-semibold"
                 : "text-muted-foreground hover:bg-muted/50"
-            }`}
-          >
+            }`}>
             <Activity className="h-4 w-4 shrink-0" />
             <span>Tổng quan</span>
           </Link>
@@ -111,8 +109,7 @@ export default function Header({
               isActive("/dashboard/content")
                 ? "bg-primary/10 text-primary font-semibold"
                 : "text-muted-foreground hover:bg-muted/50"
-            }`}
-          >
+            }`}>
             <ImageIcon className="h-4 w-4 shrink-0" />
             <span>Media Library</span>
           </Link>
@@ -127,6 +124,17 @@ export default function Header({
           >
             <ListVideo className="h-4 w-4 shrink-0" />
             <span>Danh sách phát</span>
+            </Link>
+            <Link
+            href="/dashboard/content/manage"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
+              isActive("/dashboard/content/manage")
+                ? "bg-emerald-500/10 text-emerald-700 font-semibold"
+                : "text-muted-foreground hover:bg-muted/50"
+            }`}>
+            <Layers className="h-4 w-4 shrink-0" />
+            <span>Quản lý nội dung</span>
           </Link>
           <Link
             href="/dashboard/player"
@@ -135,8 +143,7 @@ export default function Header({
               isActive("/dashboard/player")
                 ? "bg-primary/10 text-primary font-semibold"
                 : "text-muted-foreground hover:bg-muted/50"
-            }`}
-          >
+            }`}>
             <Tv className="h-4 w-4 shrink-0" />
             <span>Players</span>
           </Link>
@@ -147,8 +154,7 @@ export default function Header({
               isActive("/dashboard/schedule")
                 ? "bg-primary/10 text-primary font-semibold"
                 : "text-muted-foreground hover:bg-muted/50"
-            }`}
-          >
+            }`}>
             <Calendar className="h-4 w-4 shrink-0" />
             <span>Hẹn giờ phát</span>
           </Link>
@@ -160,8 +166,7 @@ export default function Header({
                 isActive("/dashboard/admin")
                   ? "bg-primary/10 text-primary font-semibold"
                   : "text-muted-foreground hover:bg-muted/50"
-              }`}
-            >
+              }`}>
               <Users className="h-4 w-4 shrink-0" />
               <span>Admin Panel</span>
             </Link>
@@ -173,8 +178,7 @@ export default function Header({
               isActive("/dashboard/eventlog")
                 ? "bg-primary/10 text-primary font-semibold"
                 : "text-muted-foreground hover:bg-muted/50"
-            }`}
-          >
+            }`}>
             <FileText className="h-4 w-4 shrink-0" />
             <span>Event Log</span>
           </Link>
@@ -185,8 +189,7 @@ export default function Header({
               isActive("/dashboard/resource")
                 ? "bg-primary/10 text-primary font-semibold"
                 : "text-muted-foreground hover:bg-muted/50"
-            }`}
-          >
+            }`}>
             <Database className="h-4 w-4 shrink-0" />
             <span>Resources</span>
           </Link>
@@ -212,8 +215,7 @@ export default function Header({
           variant="ghost"
           size="icon"
           onClick={toggleTheme}
-          className="rounded-lg h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/60"
-        >
+          className="rounded-lg h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/60">
           {isDarkMode ? (
             <Sun className="h-4 w-4" />
           ) : (
@@ -227,16 +229,14 @@ export default function Header({
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full h-7 w-7 border border-border/40 bg-muted/20 hover:bg-muted/60"
-            >
+              className="rounded-full h-7 w-7 border border-border/40 bg-muted/20 hover:bg-muted/60">
               <CircleUser className="h-4 w-4 text-muted-foreground" />
               <span className="sr-only">Toggle user menu</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="w-56 bg-card/95 backdrop-blur-xl border-border/50 rounded-xl shadow-lg"
-          >
+            className="w-56 bg-card/95 backdrop-blur-xl border-border/50 rounded-xl shadow-lg">
             <DropdownMenuLabel className="font-normal p-3">
               <div className="flex flex-col space-y-1">
                 <p className="text-xs font-semibold text-foreground">
@@ -252,8 +252,7 @@ export default function Header({
               Quyền hạn:{" "}
               <Badge
                 variant="secondary"
-                className="ml-2 font-semibold bg-primary/10 text-primary hover:bg-primary/20 border-none text-[9px] px-2 py-0"
-              >
+                className="ml-2 font-semibold bg-primary/10 text-primary hover:bg-primary/20 border-none text-[9px] px-2 py-0">
                 {currentUser.role === "admin" ? "Admin" : "User"}
               </Badge>
             </DropdownMenuItem>
@@ -261,16 +260,14 @@ export default function Header({
             <DropdownMenuItem asChild>
               <Link
                 href="/dashboard/profile"
-                className="flex items-center w-full cursor-pointer text-muted-foreground focus:text-foreground"
-              >
+                className="flex items-center w-full cursor-pointer text-muted-foreground focus:text-foreground">
                 <CircleUser className="mr-2 h-4 w-4" /> Hồ sơ & PIN bảo mật
               </Link>
             </DropdownMenuItem>
             <DashboardMenuSeparator />
             <DropdownMenuItem
               onClick={handleLogout}
-              className="text-red-500 focus:bg-red-50 focus:text-red-600 dark:focus:bg-red-950/50 dark:focus:text-red-400 cursor-pointer"
-            >
+              className="text-red-500 focus:bg-red-50 focus:text-red-600 dark:focus:bg-red-950/50 dark:focus:text-red-400 cursor-pointer">
               <LogOut className="mr-2 h-4 w-4" /> Đăng xuất
             </DropdownMenuItem>
           </DropdownMenuContent>

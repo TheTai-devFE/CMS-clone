@@ -35,6 +35,8 @@ export interface Device {
   osVersion?: string;
   appVersion?: string;
   lastHeartbeat?: string;
+  syncStatus?: string;
+  syncProgress?: number;
 }
 
 export interface MediaItem {
@@ -53,6 +55,11 @@ export interface Playlist {
   description?: string;
   isSyncGroup: boolean;
   createdAt: string;
+  syncLayout?: {
+    width?: number;
+    height?: number;
+    aspectRatio?: string;
+  };
 }
 
 export interface Schedule {
@@ -67,6 +74,7 @@ export interface Schedule {
   templateId?: string;
   playlist?: { playlistName: string };
   template?: { name: string };
+  devices?: { deviceId: string; device?: Device }[];
 }
 
 export interface EventLog {
