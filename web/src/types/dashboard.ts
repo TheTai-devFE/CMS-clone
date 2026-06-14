@@ -1,10 +1,18 @@
-export type DashboardTab = 'home' | 'content' | 'content-manage' | 'player' | 'admin' | 'eventlog' | 'resource' | 'schedule';
+export type DashboardTab =
+  | "home"
+  | "content"
+  | "playlist"
+  | "player"
+  | "admin"
+  | "eventlog"
+  | "resource"
+  | "schedule";
 
 export interface User {
   id: string;
   username: string;
   email: string;
-  role: 'admin' | 'user';
+  role: "admin" | "user";
   licenseLimit: number;
   status: string;
   securityPassword?: string;
@@ -14,8 +22,8 @@ export interface Device {
   id: string;
   deviceName: string;
   apiKey: string;
-  status: 'online' | 'offline';
-  approvalStatus: 'pending' | 'approved';
+  status: "online" | "offline";
+  approvalStatus: "pending" | "approved";
   useSecurityPassword?: boolean;
   sleepScheduleEnabled?: boolean;
   sleepStartTime?: string;
@@ -93,7 +101,7 @@ export interface Template {
   name: string;
   width: number;
   height: number;
-  orientation: 'landscape' | 'portrait';
+  orientation: "landscape" | "portrait";
   createdAt: string;
   zones?: Zone[];
 }

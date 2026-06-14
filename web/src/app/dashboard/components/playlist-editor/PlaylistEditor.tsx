@@ -58,6 +58,15 @@ export default function PlaylistEditor({
   const [selectedResValue, setSelectedResValue] = useState("1920*1080");
   const [isSyncGroup, setIsSyncGroup] = useState(false);
 
+  // Video Wall States
+  const [isVideoWallMode, setIsVideoWallMode] = useState(false);
+  const [videoWallRows, setVideoWallRows] = useState(1);
+  const [videoWallCols, setVideoWallCols] = useState(1);
+  const [videoWallSourceMediaId, setVideoWallSourceMediaId] = useState("");
+  const [videoWallMapping, setVideoWallMapping] = useState<
+    Record<string, string>
+  >({});
+
   // Slides State
   const [slides, setSlides] = useState<PlaylistItemData[]>([]);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
@@ -130,6 +139,11 @@ export default function PlaylistEditor({
           scaleMode?: "stretch" | "crop";
           targetDeviceId?: string;
           deviceMapping?: Record<string, string[]>;
+          videoWall?: {
+            rows: number;
+            cols: number;
+            sourceMediaId: string;
+          };
         }
         const syncLayout = (
           editingPlaylist as { syncLayout?: SyncLayoutConfig }
@@ -141,6 +155,35 @@ export default function PlaylistEditor({
         }
         setTargetDeviceId(syncLayout?.targetDeviceId || "");
         setScaleMode(syncLayout?.scaleMode || "stretch");
+
+        if (syncLayout?.videoWall) {
+          setIsVideoWallMode(true);
+          setVideoWallRows(syncLayout.videoWall.rows || 1);
+          setVideoWallCols(syncLayout.videoWall.cols || 1);
+          setVideoWallSourceMediaId(syncLayout.videoWall.sourceMediaId || "");
+
+          const rows = syncLayout.videoWall.rows || 1;
+          const cols = syncLayout.videoWall.cols || 1;
+          const mapping: Record<string, string> = {};
+          const deviceMapping = syncLayout.deviceMapping || {};
+
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const slotIdx = r * cols + c + 1;
+              const mappedDevices = deviceMapping[slotIdx.toString()];
+              if (mappedDevices && mappedDevices.length > 0) {
+                mapping[`${r}-${c}`] = mappedDevices[0];
+              }
+            }
+          }
+          setVideoWallMapping(mapping);
+        } else {
+          setIsVideoWallMode(false);
+          setVideoWallRows(1);
+          setVideoWallCols(1);
+          setVideoWallSourceMediaId("");
+          setVideoWallMapping({});
+        }
 
         try {
           interface BackendPlaylistItem {
@@ -187,6 +230,11 @@ export default function PlaylistEditor({
         setPlaylistDesc("");
         setSelectedResValue("1920*1080");
         setIsSyncGroup(false);
+        setIsVideoWallMode(false);
+        setVideoWallRows(1);
+        setVideoWallCols(1);
+        setVideoWallSourceMediaId("");
+        setVideoWallMapping({});
         const defaultId = `slide-${Date.now()}`;
         setSlides([{ id: defaultId, mediaId: null, duration: 15 }]);
         setActiveSlideId(defaultId);
@@ -369,12 +417,30 @@ export default function PlaylistEditor({
       return;
     }
 
-    const hasEmptySlides = slides.some((s) => !s.mediaId);
-    if (hasEmptySlides) {
-      setErrorMsg(
-        "Vui lòng gán hình ảnh hoặc video cho tất cả các trang trước khi lưu.",
-      );
-      return;
+    if (isVideoWallMode) {
+      if (!videoWallSourceMediaId) {
+        setErrorMsg("Vui lòng chọn Video nguồn cho Video Wall");
+        return;
+      }
+      const totalCells = videoWallRows * videoWallCols;
+      const mappedCellsCount = Object.keys(videoWallMapping).filter((key) => {
+        const [r, c] = key.split("-").map(Number);
+        return r < videoWallRows && c < videoWallCols && videoWallMapping[key];
+      }).length;
+      if (mappedCellsCount < totalCells) {
+        setErrorMsg(
+          `Vui lòng gán thiết bị hiển thị cho tất cả ${totalCells} ô trong lưới Video Wall`,
+        );
+        return;
+      }
+    } else {
+      const hasEmptySlides = slides.some((s) => !s.mediaId);
+      if (hasEmptySlides) {
+        setErrorMsg(
+          "Vui lòng gán hình ảnh hoặc video cho tất cả các trang trước khi lưu.",
+        );
+        return;
+      }
     }
 
     try {
@@ -382,11 +448,23 @@ export default function PlaylistEditor({
       setErrorMsg(null);
 
       const deviceMapping: Record<string, string[]> = {};
-      slides.forEach((slide, idx) => {
-        if (slide.targetDeviceIds && slide.targetDeviceIds.length > 0) {
-          deviceMapping[(idx + 1).toString()] = slide.targetDeviceIds;
+      if (isVideoWallMode) {
+        for (let r = 0; r < videoWallRows; r++) {
+          for (let c = 0; c < videoWallCols; c++) {
+            const slotIdx = r * videoWallCols + c + 1;
+            const devId = videoWallMapping[`${r}-${c}`];
+            if (devId) {
+              deviceMapping[slotIdx.toString()] = [devId];
+            }
+          }
         }
-      });
+      } else {
+        slides.forEach((slide, idx) => {
+          if (slide.targetDeviceIds && slide.targetDeviceIds.length > 0) {
+            deviceMapping[(idx + 1).toString()] = slide.targetDeviceIds;
+          }
+        });
+      }
 
       const playlistPayload = {
         playlistName: playlistName.trim(),
@@ -399,6 +477,13 @@ export default function PlaylistEditor({
           scaleMode,
           targetDeviceId: !isSyncGroup ? targetDeviceId : undefined,
           deviceMapping: isSyncGroup ? deviceMapping : undefined,
+          videoWall: isVideoWallMode
+            ? {
+                rows: videoWallRows,
+                cols: videoWallCols,
+                sourceMediaId: videoWallSourceMediaId,
+              }
+            : undefined,
         },
       };
 
@@ -417,15 +502,17 @@ export default function PlaylistEditor({
         playlistId = created.id;
       }
 
-      // Save playlist items (slides)
-      await api.post(`/api/playlists/${playlistId}/items`, {
-        items: slides.map((slide, idx) => ({
-          mediaId: slide.mediaId,
-          sortOrder: idx + 1,
-          duration: slide.duration,
-          transitionEffect: "none",
-        })),
-      });
+      // Save playlist items (slides) ONLY when NOT in Video Wall mode
+      if (!isVideoWallMode) {
+        await api.post(`/api/playlists/${playlistId}/items`, {
+          items: slides.map((slide, idx) => ({
+            mediaId: slide.mediaId,
+            sortOrder: idx + 1,
+            duration: slide.duration,
+            transitionEffect: "none",
+          })),
+        });
+      }
 
       localStorage.removeItem("cms_playlist_draft");
       onSave();
@@ -450,7 +537,8 @@ export default function PlaylistEditor({
             variant="ghost"
             size="sm"
             onClick={handleCloseEditor}
-            className="rounded-full h-8 w-8 p-0">
+            className="rounded-full h-8 w-8 p-0"
+          >
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -472,7 +560,8 @@ export default function PlaylistEditor({
           <Button
             onClick={handleSavePlaylist}
             disabled={isSaving}
-            className="bg-primary text-primary-foreground font-semibold">
+            className="bg-primary text-primary-foreground font-semibold"
+          >
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...
@@ -523,28 +612,134 @@ export default function PlaylistEditor({
       )}
 
       {/* PPTX Editor Workspace */}
-      <div className="flex gap-4 items-start bg-card border border-border p-3 rounded-2xl shadow-sm">
-        {/* Left: Slide Sidebar */}
-        <PlaylistSidebar
-          slides={slides}
-          activeSlideId={activeSlideId}
-          mediaList={mediaList}
-          onSelectSlide={setActiveSlideId}
-          onAddSlide={handleAddSlide}
-          onDeleteSlide={handleDeleteSlide}
-          onMoveSlide={handleMoveSlide}
-        />
+      <div className="flex gap-4 items-start bg-card border border-border p-3 rounded-2xl shadow-sm w-full">
+        {isVideoWallMode ? (
+          /* Video Wall Grid Simulator Workspace */
+          <div className="flex-1 min-h-[500px] bg-muted/20 border border-border/40 rounded-xl p-6 flex flex-col justify-between space-y-4">
+            <div>
+              <h4 className="text-sm font-bold text-foreground flex items-center gap-2 mb-1">
+                <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                Sơ đồ lắp ráp màn hình (Video Wall Simulator)
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Gán từng Player (màn hình hiển thị) vật lý vào đúng vị trí tương
+                ứng trong lưới để đồng bộ phát hình ảnh đã cắt.
+              </p>
+            </div>
 
-        {/* Center: Slide Canvas Simulator */}
-        <PlaylistCanvas
-          activeSlide={activeSlide}
-          mediaList={mediaList}
-          canvasWidth={canvasWidth}
-          canvasHeight={canvasHeight}
-          scaleFactor={scaleFactor}
-          canvasRef={canvasRef}
-          scaleMode={scaleMode}
-        />
+            {/* Grid Container */}
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div
+                className="grid gap-3 w-full max-w-4xl transition-all duration-300"
+                style={{
+                  gridTemplateRows: `repeat(${videoWallRows}, minmax(0, 1fr))`,
+                  gridTemplateColumns: `repeat(${videoWallCols}, minmax(0, 1fr))`,
+                }}
+              >
+                {Array.from({ length: videoWallRows }).map((_, rIdx) =>
+                  Array.from({ length: videoWallCols }).map((_, cIdx) => {
+                    const cellKey = `${rIdx}-${cIdx}`;
+                    const selectedDevId = videoWallMapping[cellKey] || "";
+                    const cellNumber = rIdx * videoWallCols + cIdx + 1;
+                    const selectedDevice = deviceList.find(
+                      (d) => d.id === selectedDevId,
+                    );
+
+                    return (
+                      <div
+                        key={cellKey}
+                        className={`border rounded-xl p-4 bg-card/60 backdrop-blur-md flex flex-col justify-between gap-3 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/50 relative overflow-hidden group ${
+                          selectedDevId
+                            ? "border-primary/40 bg-primary/5"
+                            : "border-border/80"
+                        }`}
+                      >
+                        {/* Corner Decorative Accent */}
+                        <div className="absolute top-0 right-0 w-12 h-12 bg-primary/5 rounded-bl-full transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform" />
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-foreground/80 flex items-center gap-1.5">
+                            <span className="h-5 w-5 rounded-md bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary transition-colors">
+                              {cellNumber}
+                            </span>
+                            Ô {rIdx + 1}x{cIdx + 1}
+                          </span>
+                          {selectedDevice && (
+                            <span
+                              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                                selectedDevice.status === "online"
+                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                  : "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
+                              }`}
+                            >
+                              {selectedDevice.status === "online"
+                                ? "Online"
+                                : "Offline"}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Device Selector */}
+                        <div className="space-y-1 z-10">
+                          <select
+                            value={selectedDevId}
+                            onChange={(e) => {
+                              const devId = e.target.value;
+                              setVideoWallMapping((prev) => ({
+                                ...prev,
+                                [cellKey]: devId,
+                              }));
+                            }}
+                            className="w-full h-8 rounded-md border border-input px-2 py-1 bg-background text-[11px] font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                          >
+                            <option value="">-- Chọn Player --</option>
+                            {deviceList.map((dev) => (
+                              <option key={dev.id} value={dev.id}>
+                                {dev.deviceName}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  }),
+                )}
+              </div>
+            </div>
+
+            {/* Quick Status / Guide */}
+            <div className="text-[11px] text-muted-foreground bg-muted/40 p-2.5 rounded-lg border border-border/40 leading-relaxed">
+              💡 **Hướng dẫn:** Video wall sẽ cắt video nguồn ra làm **
+              {videoWallRows * videoWallCols}** phần theo lưới trên. Khi phát,
+              mỗi thiết bị ở ô tương ứng sẽ tự động tải phần video của mình về
+              và chạy đồng bộ tuyệt đối với các ô còn lại qua cơ chế NTP Clock.
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Left: Slide Sidebar */}
+            <PlaylistSidebar
+              slides={slides}
+              activeSlideId={activeSlideId}
+              mediaList={mediaList}
+              onSelectSlide={setActiveSlideId}
+              onAddSlide={handleAddSlide}
+              onDeleteSlide={handleDeleteSlide}
+              onMoveSlide={handleMoveSlide}
+            />
+
+            {/* Center: Slide Canvas Simulator */}
+            <PlaylistCanvas
+              activeSlide={activeSlide}
+              mediaList={mediaList}
+              canvasWidth={canvasWidth}
+              canvasHeight={canvasHeight}
+              scaleFactor={scaleFactor}
+              canvasRef={canvasRef}
+              scaleMode={scaleMode}
+            />
+          </>
+        )}
 
         {/* Right: Properties Settings Panel */}
         <PlaylistProperties
@@ -567,6 +762,15 @@ export default function PlaylistEditor({
           onChangeSlideTargetDevices={handleUpdateSlideTargetDevices}
           scaleMode={scaleMode}
           onChangeScaleMode={setScaleMode}
+          // Video Wall Props
+          isVideoWallMode={isVideoWallMode}
+          onChangeVideoWallMode={setIsVideoWallMode}
+          videoWallRows={videoWallRows}
+          onChangeVideoWallRows={setVideoWallRows}
+          videoWallCols={videoWallCols}
+          onChangeVideoWallCols={setVideoWallCols}
+          videoWallSourceMediaId={videoWallSourceMediaId}
+          onChangeVideoWallSourceMedia={setVideoWallSourceMediaId}
         />
       </div>
     </div>

@@ -1,5 +1,4 @@
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import React, { useState } from "react";
 import {
   Card,
   CardContent,
@@ -8,14 +7,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Plus, Eye, Edit, Trash2, ListVideo, Video, Play } from "lucide-react";
 import { useMedia } from "@/hooks/useApi";
-import { Playlist } from "@/types/dashboard";
 import { api } from "@/utils/api";
-import { Eye, Play, Plus, Video } from "lucide-react";
-import { useState } from "react";
-import { useDashboard } from "../context/DashboardContext";
+import { Playlist } from "@/types/dashboard";
 import PlaylistEditor from "./playlist-editor/PlaylistEditor";
 import PlaylistPreviewModal from "./PlaylistPreviewModal";
+import { useDashboard } from "../context/DashboardContext";
 import { QuickPublishModal } from "./QuickPublishModal";
 
 interface PlaylistTabProps {

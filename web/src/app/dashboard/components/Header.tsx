@@ -17,6 +17,7 @@ import {
   FileText,
   Image as ImageIcon,
   Layers,
+  ListVideo,
   LogOut,
   Menu,
   Moon,
@@ -113,6 +114,18 @@ export default function Header({
             <span>Media Library</span>
           </Link>
           <Link
+            href="/dashboard/playlist"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
+              isActive("/dashboard/playlist")
+                ? "bg-primary/10 text-primary font-semibold"
+                : "text-muted-foreground hover:bg-muted/50"
+            }`}
+          >
+            <ListVideo className="h-4 w-4 shrink-0" />
+            <span>Danh sách phát</span>
+            </Link>
+            <Link
             href="/dashboard/content/manage"
             onClick={() => setIsMobileMenuOpen(false)}
             className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${

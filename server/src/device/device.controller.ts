@@ -35,6 +35,11 @@ export class DeviceController {
     return this.deviceService.generatePairingCode(dto);
   }
 
+  @Get('api/player/time')
+  getServerTime() {
+    return { serverTime: Date.now() };
+  }
+
   @Get('api/player/pairing-status/:tempDeviceId')
   async getPairingStatus(@Param('tempDeviceId') tempDeviceId: string) {
     return this.deviceService.getPairingStatus(tempDeviceId);

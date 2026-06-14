@@ -245,18 +245,37 @@ export class MediaService {
     };
   }
 
-  async getUserMedia(userId: string, role: string) {
+  async getUserMedia(
+    userId: string,
+    role: string,
+    page = 1,
+    limit = 20,
+  ) {
     const whereClause = role === 'admin' ? {} : { userId };
-    const mediaList = await this.prisma.media.findMany({
-      where: whereClause,
-      orderBy: { createdAt: 'desc' },
-    });
+    const skip = (page - 1) * limit;
 
-    return mediaList.map((media) => ({
-      ...media,
-      fileSize: media.fileSize.toString(),
-    }));
+    const [total, mediaList] = await Promise.all([
+      this.prisma.media.count({ where: whereClause }),
+      this.prisma.media.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      data: mediaList.map((media) => ({
+        ...media,
+        fileSize: media.fileSize.toString(),
+      })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
+
 
   async deleteMedia(id: string, userId: string, role: string) {
     const media = await this.prisma.media.findUnique({

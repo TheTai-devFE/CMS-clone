@@ -1,10 +1,10 @@
-import { Badge } from "@/components/ui/badge";
+import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Device, MediaItem } from "@/types/dashboard";
-import { getFileUrl } from "@/utils/api";
-import { Check, Clock, Film, Search, Settings } from "lucide-react";
-import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Settings, Clock, Check, Search, Film } from "lucide-react";
+import { MediaItem, Device } from "@/types/dashboard";
 import { PlaylistItemData } from "./PlaylistSidebar";
+import { getFileUrl } from "@/utils/api";
 
 const RESOLUTION_OPTIONS = [
   {
@@ -57,6 +57,16 @@ interface PlaylistPropertiesProps {
   onChangeSlideTargetDevices: (ids: string[]) => void;
   scaleMode: "stretch" | "crop";
   onChangeScaleMode: (mode: "stretch" | "crop") => void;
+
+  // Video Wall Props
+  isVideoWallMode: boolean;
+  onChangeVideoWallMode: (mode: boolean) => void;
+  videoWallRows: number;
+  onChangeVideoWallRows: (rows: number) => void;
+  videoWallCols: number;
+  onChangeVideoWallCols: (cols: number) => void;
+  videoWallSourceMediaId: string;
+  onChangeVideoWallSourceMedia: (mediaId: string) => void;
 }
 
 export default function PlaylistProperties({
@@ -79,6 +89,14 @@ export default function PlaylistProperties({
   onChangeSlideTargetDevices,
   scaleMode,
   onChangeScaleMode,
+  isVideoWallMode,
+  onChangeVideoWallMode,
+  videoWallRows,
+  onChangeVideoWallRows,
+  videoWallCols,
+  onChangeVideoWallCols,
+  videoWallSourceMediaId,
+  onChangeVideoWallSourceMedia,
 }: PlaylistPropertiesProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "image" | "video">(
@@ -176,7 +194,8 @@ export default function PlaylistProperties({
             <select
               value={selectedResValue}
               onChange={(e) => onChangeResolution(e.target.value)}
-              className="w-full h-8 rounded-md border border-input px-2 py-1 bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+              className="w-full h-8 rounded-md border border-input px-2 py-1 bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+            >
               {currentResolutionOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
@@ -193,18 +212,48 @@ export default function PlaylistProperties({
             <div className="flex border border-border bg-muted/30 p-0.5 rounded-md text-xs font-semibold">
               <button
                 type="button"
-                onClick={() => onChangeSyncGroup(false)}
-                className={`flex-1 py-1 rounded text-center transition-all ${!isSyncGroup ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}>
+                onClick={() => {
+                  onChangeSyncGroup(false);
+                  onChangeVideoWallMode(false);
+                }}
+                className={`flex-1 py-1 rounded text-center transition-all ${!isSyncGroup ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+              >
                 Đơn lẻ
               </button>
               <button
                 type="button"
                 onClick={() => onChangeSyncGroup(true)}
-                className={`flex-1 py-1 rounded text-center transition-all ${isSyncGroup ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}>
+                className={`flex-1 py-1 rounded text-center transition-all ${isSyncGroup ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+              >
                 Đồng bộ
               </button>
             </div>
           </div>
+
+          {/* Sync Mode Type Selector */}
+          {isSyncGroup && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                Loại đồng bộ
+              </label>
+              <div className="flex border border-border bg-muted/30 p-0.5 rounded-md text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => onChangeVideoWallMode(false)}
+                  className={`flex-1 py-1 rounded text-center transition-all ${!isVideoWallMode ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                >
+                  Tiêu chuẩn
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChangeVideoWallMode(true)}
+                  className={`flex-1 py-1 rounded text-center transition-all ${isVideoWallMode ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                >
+                  Video Wall
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Single Mode: Device Selector & Auto Resolution */}
           {!isSyncGroup && (
@@ -252,27 +301,138 @@ export default function PlaylistProperties({
               <button
                 type="button"
                 onClick={() => onChangeScaleMode("stretch")}
-                className={`flex-1 py-1 rounded text-center transition-all ${scaleMode === "stretch" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}>
+                className={`flex-1 py-1 rounded text-center transition-all ${scaleMode === "stretch" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+              >
                 Bóp hình (Stretch)
               </button>
               <button
                 type="button"
                 onClick={() => onChangeScaleMode("crop")}
-                className={`flex-1 py-1 rounded text-center transition-all ${scaleMode === "crop" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}>
+                className={`flex-1 py-1 rounded text-center transition-all ${scaleMode === "crop" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+              >
                 Cắt hình (Crop)
               </button>
             </div>
           </div>
         </div>
 
+        {/* 3. VIDEO WALL CONFIG */}
+        {isSyncGroup && isVideoWallMode && (
+          <div className="space-y-3 pt-3 border-t border-border/60">
+            <h4 className="text-xs font-bold text-foreground/80 border-b border-border/40 pb-1 uppercase tracking-wider flex items-center justify-between">
+              <span>Cấu hình Video Wall</span>
+              <Badge
+                variant="secondary"
+                className="text-[9px] font-bold bg-primary/10 text-primary border-none"
+              >
+                Tự động cắt
+              </Badge>
+            </h4>
+
+            {/* Rows & Cols Inputs */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                  Số hàng
+                </label>
+                <Input
+                  type="number"
+                  value={videoWallRows}
+                  onChange={(e) =>
+                    onChangeVideoWallRows(
+                      Math.min(10, Math.max(1, parseInt(e.target.value) || 1)),
+                    )
+                  }
+                  className="h-8 text-xs font-semibold"
+                  min="1"
+                  max="10"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                  Số cột
+                </label>
+                <Input
+                  type="number"
+                  value={videoWallCols}
+                  onChange={(e) =>
+                    onChangeVideoWallCols(
+                      Math.min(10, Math.max(1, parseInt(e.target.value) || 1)),
+                    )
+                  }
+                  className="h-8 text-xs font-semibold"
+                  min="1"
+                  max="10"
+                />
+              </div>
+            </div>
+
+            {/* Video Source Picker */}
+            <div className="space-y-2 pt-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                Chọn Video nguồn *
+              </label>
+
+              {/* Media List - Only Videos */}
+              <div className="border border-border rounded-lg max-h-[200px] overflow-y-auto divide-y divide-border/60 bg-muted/10 pr-1 scrollbar-thin">
+                {mediaList
+                  .filter((media) => media.mimeType.startsWith("video/"))
+                  .map((media) => {
+                    const isSelected = videoWallSourceMediaId === media.id;
+
+                    return (
+                      <div
+                        key={media.id}
+                        onClick={() => onChangeVideoWallSourceMedia(media.id)}
+                        className={`flex items-center justify-between p-2 cursor-pointer transition-colors ${
+                          isSelected
+                            ? "bg-primary/10 font-bold border-l-2 border-primary"
+                            : "hover:bg-muted/80 bg-background"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 max-w-[80%]">
+                          <div className="h-6 w-6 rounded overflow-hidden shrink-0 border border-border/40 bg-zinc-100 flex items-center justify-center">
+                            <Film className="h-3.5 w-3.5 text-blue-500" />
+                          </div>
+                          <span className="truncate text-[11px] text-foreground">
+                            {media.fileName}
+                          </span>
+                        </div>
+
+                        <div
+                          className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center shrink-0 ${
+                            isSelected
+                              ? "bg-primary border-primary text-primary-foreground"
+                              : "border-border bg-background"
+                          }`}
+                        >
+                          {isSelected && <Check className="h-2.5 w-2.5" />}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {mediaList.filter((media) =>
+                  media.mimeType.startsWith("video/"),
+                ).length === 0 && (
+                  <div className="p-4 text-center text-[10px] text-muted-foreground italic">
+                    Không tìm thấy tệp video nào trong thư viện
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 2. ACTIVE SLIDE CONFIG */}
-        {activeSlide && (
+        {activeSlide && !isVideoWallMode && (
           <div className="space-y-3 pt-3 border-t border-border/60">
             <h4 className="text-xs font-bold text-foreground/80 border-b border-border/40 pb-1 uppercase tracking-wider flex items-center justify-between">
               <span>Trang hiện tại (Trang {activeSlideIndex + 1})</span>
               <Badge
                 variant="secondary"
-                className="text-[9px] font-bold bg-primary/10 text-primary border-none">
+                className="text-[9px] font-bold bg-primary/10 text-primary border-none"
+              >
                 Đang sửa
               </Badge>
             </h4>
@@ -373,19 +533,22 @@ export default function PlaylistProperties({
                 <button
                   type="button"
                   onClick={() => setFilterType("all")}
-                  className={`flex-1 py-1 rounded text-center transition-all ${filterType === "all" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}>
+                  className={`flex-1 py-1 rounded text-center transition-all ${filterType === "all" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                >
                   Tất cả
                 </button>
                 <button
                   type="button"
                   onClick={() => setFilterType("image")}
-                  className={`flex-1 py-1 rounded text-center transition-all ${filterType === "image" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}>
+                  className={`flex-1 py-1 rounded text-center transition-all ${filterType === "image" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                >
                   Ảnh
                 </button>
                 <button
                   type="button"
                   onClick={() => setFilterType("video")}
-                  className={`flex-1 py-1 rounded text-center transition-all ${filterType === "video" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}>
+                  className={`flex-1 py-1 rounded text-center transition-all ${filterType === "video" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                >
                   Video
                 </button>
               </div>
@@ -404,7 +567,8 @@ export default function PlaylistProperties({
                         isSelected
                           ? "bg-primary/10 font-bold border-l-2 border-primary"
                           : "hover:bg-muted/80 bg-background"
-                      }`}>
+                      }`}
+                    >
                       <div className="flex items-center gap-2 max-w-[80%]">
                         <div className="h-6 w-6 rounded overflow-hidden shrink-0 border border-border/40 bg-zinc-100 flex items-center justify-center">
                           {isMediaVideo ? (
@@ -427,7 +591,8 @@ export default function PlaylistProperties({
                           isSelected
                             ? "bg-primary border-primary text-primary-foreground"
                             : "border-border bg-background"
-                        }`}>
+                        }`}
+                      >
                         {isSelected && <Check className="h-2.5 w-2.5" />}
                       </div>
                     </div>

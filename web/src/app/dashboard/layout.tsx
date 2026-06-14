@@ -11,7 +11,6 @@ import { DashboardProvider, useDashboard } from "./context/DashboardContext";
 const getActiveTab = (pathname: string): DashboardTab => {
   const segment = pathname.split("/").pop();
   if (segment === "dashboard") return "home";
-  if (segment === "manage") return "content-manage";
   if (
     [
       "home",
