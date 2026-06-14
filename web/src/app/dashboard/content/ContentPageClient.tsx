@@ -20,16 +20,29 @@ export default function ContentPageClient() {
     API_BASE_URL,
   } = useDashboard();
 
+  // Pagination state – controlled here so SWR key changes trigger refetch
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
   // Use SWR hook for caching and automatic revalidation
-  const { mediaList, mutate } = useMedia();
+  const { mediaList, total, totalPages, mutate } = useMedia(currentPage, itemsPerPage);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
   const [isWebUrlModalOpen, setIsWebUrlModalOpen] = useState(false);
 
-  // Filter media based on search query
+  // Filter media on current page based on search query
   const filteredMedia = mediaList.filter((m) =>
     m.fileName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const handleItemsPerPageChange = (size: number) => {
+    setItemsPerPage(size);
+    setCurrentPage(1);
+  };
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -130,13 +143,18 @@ export default function ContentPageClient() {
     <div className="space-y-6 w-full">
       <ContentTab
         mediaList={filteredMedia}
+        total={total}
+        totalPages={totalPages}
+        currentPage={currentPage}
+        itemsPerPage={itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
         uploading={uploading}
         handleUploadClick={handleUploadClick}
         handleFileChange={handleFileChange}
         handleDeleteMedia={handleDeleteMedia}
         setPreviewVideoUrl={setPreviewVideoUrl}
         fileInputRef={fileInputRef}
-        API_BASE_URL={API_BASE_URL}
         formatBytes={formatBytes}
         onOpenWebUrlModal={() => setIsWebUrlModalOpen(true)}
       />

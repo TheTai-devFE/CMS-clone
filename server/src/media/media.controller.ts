@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -58,8 +59,14 @@ export class MediaController {
   }
 
   @Get()
-  async getMedia(@CurrentUser() user: any) {
-    return this.mediaService.getUserMedia(user.id, user.role);
+  async getMedia(
+    @CurrentUser() user: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = Math.max(1, parseInt(page || '1', 10));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit || '20', 10)));
+    return this.mediaService.getUserMedia(user.id, user.role, pageNum, limitNum);
   }
 
   @Delete(':id')

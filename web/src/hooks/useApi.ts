@@ -20,19 +20,30 @@ export function useDevices() {
   };
 }
 
-export function useMedia() {
-  const { data, error, isLoading, mutate } = useSWR<MediaItem[]>(
-    '/api/media',
+interface PaginatedMedia {
+  data: MediaItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export function useMedia(page = 1, limit = 20) {
+  const { data, error, isLoading, mutate } = useSWR<PaginatedMedia>(
+    `/api/media?page=${page}&limit=${limit}`,
     fetcher
   );
 
   return {
-    mediaList: data || [],
+    mediaList: data?.data || [],
+    total: data?.total || 0,
+    totalPages: data?.totalPages || 1,
     error,
     isLoading,
-    mutate
+    mutate,
   };
 }
+
 
 export function usePlaylists() {
   const { data, error, isLoading, mutate } = useSWR<Playlist[]>(

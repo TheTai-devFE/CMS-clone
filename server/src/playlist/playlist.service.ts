@@ -13,7 +13,6 @@ import { AddPlaylistItemsDto } from './dto/add-playlist-items.dto';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdatePlaylistDto } from './dto/update-playlist.dto';
-import { Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { exec } from 'child_process';
 import * as util from 'util';

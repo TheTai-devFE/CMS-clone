@@ -31,7 +31,7 @@ export default function KpiCards({
   return (
     <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 select-none">
       {/* Ô 1: Màn hình quảng cáo (Asymmetric - Chiếm 2 cột trên màn hình lớn) */}
-      <div className="lg:col-span-2 bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between shadow-xs">
+      <div className="lg:col-span-1 bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between shadow-xs">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold tracking-tight text-muted-foreground uppercase">
             Màn hình quảng cáo (Players)
@@ -57,9 +57,7 @@ export default function KpiCards({
               className="bg-emerald-500 h-full transition-all duration-500" 
               style={{ width: `${onlinePercentage}%` }}
             />
-            <div 
-              className="bg-zinc-400 dark:bg-zinc-600 h-full flex-1" 
-            />
+          
           </div>
         </div>
       </div>
