@@ -94,9 +94,22 @@ export default function PlayerTab({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={device.status === 'online' ? 'bg-emerald-500/10 text-emerald-500 border-none hover:bg-emerald-500/10' : 'bg-gray-500/10 text-gray-500 border-none hover:bg-gray-500/10'}>
-                        {device.status === 'online' ? 'Online' : 'Offline'}
-                      </Badge>
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge className={device.status === 'online' ? 'bg-emerald-500/10 text-emerald-500 border-none hover:bg-emerald-500/10' : 'bg-gray-500/10 text-gray-500 border-none hover:bg-gray-500/10'}>
+                          {device.status === 'online' ? 'Online' : 'Offline'}
+                        </Badge>
+                        {device.status === 'online' && device.syncStatus === 'syncing' && (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                            </span>
+                            <span className="text-[10px] text-sky-600 font-semibold dark:text-sky-400 animate-pulse">
+                              Đang tải: {device.syncProgress || 0}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge className={device.approvalStatus === 'approved' ? 'bg-emerald-500/10 text-emerald-500 border-none hover:bg-emerald-500/10' : 'bg-amber-500/10 text-amber-500 border-none hover:bg-amber-500/10'}>

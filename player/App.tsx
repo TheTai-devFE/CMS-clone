@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -19,7 +19,8 @@ import PasswordLockModal from './src/components/PasswordLockModal';
 
 // Screens
 import HomeScreen from './src/screens/HomeScreen';
-import AdPlayerScreen, { PLAYLIST } from './src/screens/AdPlayerScreen';
+import AdPlayerScreen from './src/screens/AdPlayerScreen';
+import { getLocalPlaylist, syncPlaylist, PlayerPlaylistItem } from './src/utils/syncManager';
 import RegisterScreen from './src/screens/RegisterScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import NetworkScreen from './src/screens/NetworkScreen';
@@ -56,6 +57,13 @@ export default function App() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [registeredDeviceName, setRegisteredDeviceName] = useState<string>('');
 
+  // Playlist State & Syncing Ref
+  const [playlist, setPlaylist] = useState<PlayerPlaylistItem[]>([]);
+  const [syncProgress, setSyncProgress] = useState<number | null>(null);
+  const isSyncingRef = useRef(false);
+  // Track previous sleeping state to avoid redundant setState
+  const prevSleepingRef = useRef(false);
+
   // Load configuration from AsyncStorage on mount
   useEffect(() => {
     const loadConfig = async () => {
@@ -76,13 +84,17 @@ export default function App() {
         }
 
         // Đọc và thiết lập hướng màn hình lưu trữ ban đầu
-        const storedOrientation = await AsyncStorage.getItem('screenOrientation');
-        if (storedOrientation === 'portrait') {
-          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-        } else if (storedOrientation === 'landscape') {
-          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
-        } else {
-          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.DEFAULT);
+        try {
+          const storedOrientation = await AsyncStorage.getItem('screenOrientation');
+          if (storedOrientation === 'portrait') {
+            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+          } else if (storedOrientation === 'landscape') {
+            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
+          } else {
+            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.DEFAULT);
+          }
+        } catch (orientationErr) {
+          console.warn('Khóa hướng màn hình không được hỗ trợ trên thiết bị/trình duyệt này:', orientationErr);
         }
 
         // Đọc cấu hình Menu Gesture
@@ -96,6 +108,10 @@ export default function App() {
         setSleepScheduleEnabled(storedSleepEnabled);
         setSleepStartTime(storedSleepStart);
         setSleepEndTime(storedSleepEnd);
+
+        // Đọc playlist cục bộ đã lưu
+        const localPl = await getLocalPlaylist();
+        setPlaylist(localPl);
       } catch (e) {
         console.error('Lỗi khi tải cấu hình từ AsyncStorage hoặc xoay màn hình:', e);
       }
@@ -103,11 +119,14 @@ export default function App() {
     loadConfig();
   }, []);
 
-  // Check Sleep status loop
+  // Check Sleep status loop — only call setIsSleeping when value actually changes
   useEffect(() => {
     const checkSleep = () => {
       if (!sleepScheduleEnabled) {
-        setIsSleeping(false);
+        if (prevSleepingRef.current !== false) {
+          prevSleepingRef.current = false;
+          setIsSleeping(false);
+        }
         return;
       }
       
@@ -127,11 +146,15 @@ export default function App() {
         sleeping = currentMin >= startMin || currentMin < endMin;
       }
       
-      setIsSleeping(sleeping);
+      // Only trigger re-render when sleeping state actually changes
+      if (prevSleepingRef.current !== sleeping) {
+        prevSleepingRef.current = sleeping;
+        setIsSleeping(sleeping);
+      }
     };
 
     checkSleep();
-    const interval = setInterval(checkSleep, 10000); // Check every 10 seconds
+    const interval = setInterval(checkSleep, 10000);
     return () => clearInterval(interval);
   }, [sleepScheduleEnabled, sleepStartTime, sleepEndTime]);
 
@@ -164,6 +187,42 @@ export default function App() {
       console.error('Lỗi khi xóa cấu hình thiết bị:', e);
     }
   };
+
+  const handleClearProgram = useCallback(async () => {
+    try {
+      const currentHash = (await AsyncStorage.getItem('local_sync_hash')) || 'empty';
+      if (currentHash !== 'empty') {
+        await AsyncStorage.setItem('ignored_sync_hash', currentHash);
+        console.log(`[Sync] Đã lưu ignored_sync_hash: ${currentHash} để chặn đồng bộ lại chương trình vừa xóa.`);
+      }
+      await AsyncStorage.setItem('local_playlist', JSON.stringify([]));
+      await AsyncStorage.setItem('local_sync_hash', 'empty');
+      setPlaylist([]);
+    } catch (e) {
+      console.error('Lỗi khi xóa chương trình phát cục bộ:', e);
+    }
+  }, []);
+
+  // Báo cáo tiến độ đồng bộ về Server realtime
+  const reportSyncProgress = useCallback(async (progress: number, status: string) => {
+    if (!deviceId || !apiKey) return;
+    try {
+      await fetch(`http://${formIp}:${formPort}/api/player/heartbeat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deviceId,
+          apiKey,
+          syncStatus: status,
+          syncProgress: progress,
+        }),
+      });
+    } catch (err) {
+      console.warn('[Sync] Lỗi báo cáo tiến trình sync lên server:', err);
+    }
+  }, [deviceId, apiKey, formIp, formPort]);
 
   // Heartbeat loop when device is registered
   useEffect(() => {
@@ -225,6 +284,68 @@ export default function App() {
             await AsyncStorage.setItem('sleep_schedule_enabled', serverSleepEnabled ? 'true' : 'false');
             await AsyncStorage.setItem('sleep_start_time', serverSleepStart);
             await AsyncStorage.setItem('sleep_end_time', serverSleepEnd);
+
+            // Xử lý kiểm tra và đồng bộ hóa Playlist dựa trên syncHash
+            const serverHash = data.syncHash || 'empty';
+            const localHash = (await AsyncStorage.getItem('local_sync_hash')) || 'empty';
+            const ignoredHash = (await AsyncStorage.getItem('ignored_sync_hash')) || '';
+
+            // Nếu server hash thay đổi khác với ignoredHash, xóa ignoredHash để nhận chương trình mới
+            if (serverHash !== 'empty' && serverHash !== ignoredHash && ignoredHash !== '') {
+              await AsyncStorage.removeItem('ignored_sync_hash');
+              console.log(`[Sync] Phát hiện syncHash mới từ CMS: ${serverHash}. Đã xóa ignored_sync_hash.`);
+            }
+
+            const activeIgnoredHash = (await AsyncStorage.getItem('ignored_sync_hash')) || '';
+
+            if (serverHash !== localHash && serverHash !== activeIgnoredHash && !isSyncingRef.current) {
+              console.log(`[Sync] Phát hiện syncHash thay đổi: Server=${serverHash}, Local=${localHash}. Bắt đầu đồng bộ ngầm...`);
+              isSyncingRef.current = true;
+              setSyncProgress(0);
+              reportSyncProgress(0, 'syncing');
+
+              // Watchdog: Tự động giải phóng trạng thái sync nếu bị treo quá 3 phút (180s)
+              const watchdogTimer = setTimeout(() => {
+                if (isSyncingRef.current) {
+                  console.warn('[Sync] Watchdog: Đồng bộ playlist chạy quá 3 phút, tự động giải phóng khóa.');
+                  isSyncingRef.current = false;
+                  setSyncProgress(null);
+                  reportSyncProgress(0, 'error');
+                }
+              }, 180000);
+
+              try {
+                const updatedPl = await syncPlaylist(
+                  formIp,
+                  formPort,
+                  deviceId,
+                  apiKey,
+                  serverHash,
+                  (progress) => {
+                    setSyncProgress(progress);
+                    if (progress < 100) {
+                      reportSyncProgress(progress, 'syncing');
+                    }
+                  }
+                );
+                if (updatedPl !== null) {
+                  setPlaylist(updatedPl);
+                  reportSyncProgress(100, 'playing');
+                } else {
+                  reportSyncProgress(0, 'error');
+                }
+              } catch (syncErr) {
+                console.error('[Sync] Lỗi khi tải và lưu cache playlist:', syncErr);
+                reportSyncProgress(0, 'error');
+              } finally {
+                clearTimeout(watchdogTimer);
+                isSyncingRef.current = false;
+                // Đợi 1 giây để thanh loading đạt 100% hiển thị mượt mà
+                setTimeout(() => {
+                  setSyncProgress(null);
+                }, 1000);
+              }
+            }
           }
         }
       } catch (err) {
@@ -234,7 +355,7 @@ export default function App() {
 
     if (deviceId && apiKey) {
       sendHeartbeat();
-      interval = setInterval(sendHeartbeat, 60000);
+      interval = setInterval(sendHeartbeat, 10000);
     }
 
     return () => {
@@ -390,6 +511,9 @@ export default function App() {
     }
   };
 
+  // Stable callback to avoid re-creating on every render
+  const handleRelaunchRequest = useCallback(() => setActiveTab(null), []);
+
   // Screen orientation/dimensions
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
   const isLandscape = screenWidth > screenHeight;
@@ -402,11 +526,12 @@ export default function App() {
         {/* Dynamic content rendering based on activeTab */}
         <View style={styles.contentArea}>
           {activeTab === null ? (
-            PLAYLIST.length > 0 ? (
+            playlist.length > 0 ? (
               <AdPlayerScreen
                 isLandscape={isLandscape}
-                onRelaunchRequest={() => setActiveTab(null)}
+                onRelaunchRequest={handleRelaunchRequest}
                 isSleeping={isSleeping}
+                playlist={playlist}
               />
             ) : (
               <HomeScreen 
@@ -438,6 +563,7 @@ export default function App() {
               formName={formName}
               onBack={() => setActiveTab(null)}
               onLogout={handleLogout}
+              onClearProgram={handleClearProgram}
             />
           ) : activeTab === 'network' ? (
             <NetworkScreen
@@ -542,6 +668,20 @@ export default function App() {
             <Text style={styles.sleepOverlayText}>📺 Đang trong chế độ nghỉ tiết kiệm điện...</Text>
           </View>
         )}
+
+        {/* SYNC PROGRESS OVERLAY */}
+        {syncProgress !== null && (
+          <View style={styles.syncOverlay}>
+            <View style={styles.syncBox}>
+              <Text style={styles.syncTitle}>📥 Đang đồng bộ nội dung mới...</Text>
+              <View style={styles.progressBarBg}>
+                <View style={[styles.progressBarFill, { width: `${syncProgress}%` }]} />
+              </View>
+              <Text style={styles.syncPercent}>{syncProgress}%</Text>
+              <Text style={styles.syncSubtitle}>Vui lòng giữ thiết bị kết nối mạng</Text>
+            </View>
+          </View>
+        )}
       </View>
     </TouchableWithoutFeedback>
   );
@@ -600,5 +740,64 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontSize: 13,
     fontWeight: '600',
+  },
+  syncOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(10, 15, 30, 0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 99999,
+  },
+  syncBox: {
+    width: '80%',
+    maxWidth: 420,
+    backgroundColor: 'rgba(30, 41, 59, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  syncTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  progressBarBg: {
+    width: '100%',
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: colors.success,
+    borderRadius: 4,
+  },
+  syncPercent: {
+    color: '#ffffff',
+    fontSize: 26,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  syncSubtitle: {
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

@@ -43,7 +43,10 @@ export default function OverviewPageClient() {
 
   const onlineDevicesCount = devices.filter(d => d.status === 'online').length;
 
-  if (localLoading || !currentUser) {
+  // Chỉ chặn màn hình loading khi cả hai nguồn dữ liệu cốt lõi đều chưa được tải xong lần đầu
+  const isInitialLoading = (devices.length === 0 && devicesLoading) || (mediaList.length === 0 && mediaLoading);
+
+  if (isInitialLoading || !currentUser) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
         <RefreshCw className="h-8 w-8 text-primary animate-spin" />
@@ -89,25 +92,32 @@ export default function OverviewPageClient() {
               <Activity className="h-5 w-5 text-primary shrink-0" />
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto max-h-[600px] pr-2 space-y-4">
-              {eventLogs.slice(0, 10).map((log) => (
-                <div key={log.id} className="flex items-start justify-between border-b border-border/50 pb-3 last:border-b-0 last:pb-0 gap-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-foreground">{log.deviceName}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{log.detail}</p>
-                    <span className="text-[10px] text-muted-foreground block">
-                      {new Date(log.time).toLocaleString('vi-VN')}
-                    </span>
-                  </div>
-                  <Badge className={`shrink-0 text-[10px] ${
-                    log.status === 'Playback Success' ? 'bg-emerald-500/10 text-emerald-500 border-none' :
-                    log.status === 'Online' ? 'bg-emerald-500/10 text-emerald-500 border-none' :
-                    log.status === 'Heartbeat' ? 'bg-sky-500/10 text-sky-500 border-none' : 'bg-amber-500/10 text-amber-500 border-none'
-                  }`}>
-                    {log.status}
-                  </Badge>
+              {logsLoading && eventLogs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-2">
+                  <RefreshCw className="h-5 w-5 text-primary animate-spin" />
+                  <span className="text-xs text-muted-foreground">Đang tải nhật ký...</span>
                 </div>
-              ))}
-              {eventLogs.length === 0 && (
+              ) : (
+                eventLogs.slice(0, 10).map((log) => (
+                  <div key={log.id} className="flex items-start justify-between border-b border-border/50 pb-3 last:border-b-0 last:pb-0 gap-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">{log.deviceName}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{log.detail}</p>
+                      <span className="text-[10px] text-muted-foreground block">
+                        {new Date(log.time).toLocaleString('vi-VN')}
+                      </span>
+                    </div>
+                    <Badge className={`shrink-0 text-[10px] ${
+                      log.status === 'Playback Success' ? 'bg-emerald-500/10 text-emerald-500 border-none' :
+                      log.status === 'Online' ? 'bg-emerald-500/10 text-emerald-500 border-none' :
+                      log.status === 'Heartbeat' ? 'bg-sky-500/10 text-sky-500 border-none' : 'bg-amber-500/10 text-amber-500 border-none'
+                    }`}>
+                      {log.status}
+                    </Badge>
+                  </div>
+                ))
+              )}
+              {!logsLoading && eventLogs.length === 0 && (
                 <p className="text-sm text-muted-foreground italic text-center py-10">Không có hoạt động nào</p>
               )}
             </CardContent>

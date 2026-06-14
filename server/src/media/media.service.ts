@@ -128,7 +128,10 @@ export class MediaService {
 
       // Nếu đã có bản ghi trong DB của User hiện tại, trả về luôn để tránh trùng lặp
       if (existingMedia && existingMedia.userId === userId) {
-        return existingMedia;
+        return {
+          ...existingMedia,
+          fileSize: existingMedia.fileSize.toString(),
+        };
       }
 
       // Lưu bản ghi mới vào Database

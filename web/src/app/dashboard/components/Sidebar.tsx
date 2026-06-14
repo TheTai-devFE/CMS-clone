@@ -9,7 +9,8 @@ import {
   Users,
   FileText,
   Database,
-  Calendar
+  Calendar,
+  Layers
 } from 'lucide-react';
 
 import { User, DashboardTab } from '@/types/dashboard';
@@ -56,13 +57,25 @@ export default function Sidebar({ currentUser }: SidebarProps) {
         <Link
           href="/dashboard/content"
           className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-150 text-sm rounded-lg ${
-            isActive('/dashboard/content')
+            isActive('/dashboard/content') && pathname === '/dashboard/content'
               ? 'bg-primary text-primary-foreground font-semibold shadow-sm shadow-primary/10'
               : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
           }`}
         >
           <ImageIcon className="size-5 shrink-0" />
           <span>Media Library</span>
+        </Link>
+
+        <Link
+          href="/dashboard/content/manage"
+          className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-150 text-sm rounded-lg ${
+            isActive('/dashboard/content/manage')
+              ? 'bg-primary text-primary-foreground font-semibold shadow-sm shadow-primary/10'
+              : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+          }`}
+        >
+          <Layers className="size-5 shrink-0" />
+          <span>Quản lý nội dung</span>
         </Link>
         
         <Link

@@ -1,168 +1,282 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Image, ActivityIndicator } from 'react-native';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors } from '../theme/colors';
+import { useVideoPlayer, VideoView } from "expo-video";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableWithoutFeedback,
+  View,
+} from "react-native";
+import { colors } from "../theme/colors";
+import { PlayerPlaylistItem } from "../utils/syncManager";
 
 interface AdPlayerScreenProps {
   isLandscape: boolean;
   onRelaunchRequest?: () => void;
   isSleeping?: boolean;
+  playlist: PlayerPlaylistItem[];
 }
 
-export type MediaItem = 
-  | { type: 'image'; url: string; duration: number }
-  | { type: 'video'; url: string; duration: number }; // fallback duration in ms
-
-export const PLAYLIST: MediaItem[] = [];
-
-export default function AdPlayerScreen({ isLandscape, isSleeping }: AdPlayerScreenProps) {
+/**
+ * AdPlayerScreen — Ref-based playback architecture
+ *
+ * Design principle: ZERO state-driven effects for playback logic.
+ * Only `currentIndex` exists as React state (for rendering the correct media).
+ * All transitions, timers, and player commands go through refs + imperative calls.
+ * This prevents the infinite loop caused by:
+ *   - expo-video's internal setState triggering re-renders
+ *   - Image onLoadStart/onLoadEnd setState cascades
+ *   - Object-reference churn in useEffect dependency arrays
+ */
+function AdPlayerScreen({
+  isLandscape,
+  isSleeping,
+  playlist,
+}: AdPlayerScreenProps) {
+  // === SINGLE render state — only updated when slide index changes ===
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [imageLoading, setImageLoading] = useState(true);
-  const [breakpointEnabled, setBreakpointEnabled] = useState(false);
-  
-  const currentItem = PLAYLIST.length > 0 ? PLAYLIST[currentIndex] : null;
 
-  const imageSource = React.useMemo(() => {
-    if (currentItem && currentItem.type === 'image') {
-      return { uri: currentItem.url };
-    }
-    return null;
-  }, [currentItem]);
+  // === Refs — mutable state that does NOT trigger re-renders ===
+  const currentIndexRef = useRef(0);
+  const playlistRef = useRef(playlist);
+  const isSleepingRef = useRef(isSleeping);
+  const slideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTransitioningRef = useRef(false);
+  const currentLoadedUrlRef = useRef("");
+  const hasInitializedRef = useRef(false);
 
-  const slideTimer = useRef<any>(null);
+  // Keep refs in sync with latest props (cheap assignment, no re-render)
+  playlistRef.current = playlist;
+  isSleepingRef.current = isSleeping;
 
-  // Initialize Video Player for the video source
-  const videoUrl = PLAYLIST.find(item => item.type === 'video')?.url || '';
-  const player = useVideoPlayer(videoUrl, (playerInstance) => {
-    playerInstance.loop = false;
-    playerInstance.muted = true;
+  // === Video player — stable instance from expo-video ===
+  const player = useVideoPlayer(null as any, (p) => {
+    p.loop = false;
+    // Always unmute because we enforce user interaction on Web via overlay
+    p.muted = false;
   });
+  const playerRef = useRef(player);
+  playerRef.current = player;
 
-  // Load breakpoint settings
-  useEffect(() => {
-    const loadEnabled = async () => {
-      try {
-        const stored = await AsyncStorage.getItem('breakpointContinuationEnabled') === 'true';
-        setBreakpointEnabled(stored);
-      } catch (e) {
-        console.error(e);
+  // Safe helper to play video and catch browser autoplay blocking rejections
+  const safePlay = useCallback((p: any) => {
+    try {
+      p.currentTime = 0;
+      const playPromise = p.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch((err: any) => {
+          console.warn("[Playback] Autoplay block caught:", err.message);
+        });
       }
-    };
-    loadEnabled();
+    } catch (err) {
+      console.warn("[Playback] safePlay error:", err);
+    }
   }, []);
 
-  // Handle sleep pause
-  useEffect(() => {
-    if (isSleeping) {
-      player.pause();
+  // === Utility: clear the slide timer ===
+  const clearSlideTimer = useCallback(() => {
+    if (slideTimerRef.current) {
+      clearTimeout(slideTimerRef.current);
+      slideTimerRef.current = null;
     }
-  }, [isSleeping, player]);
+  }, []);
 
-  // Save playback progress periodically
-  useEffect(() => {
-    let interval: any = null;
-    
-    const saveProgress = async () => {
-      if (breakpointEnabled && currentItem && currentItem.type === 'video' && player.playing) {
-        try {
-          await AsyncStorage.setItem('breakpoint_video_url', currentItem.url);
-          await AsyncStorage.setItem('breakpoint_playback_position', player.currentTime.toString());
-        } catch (err) {
-          console.error('Lỗi khi lưu tiến độ video:', err);
-        }
-      }
-    };
+  // === Core: advance to next item (forward declaration via ref) ===
+  const goToNextRef = useRef<() => void>(() => {});
 
-    interval = setInterval(saveProgress, 2000); // Save every 2 seconds
-    return () => clearInterval(interval);
-  }, [currentItem, player, breakpointEnabled]);
+  // === Core: load media at a given index (purely imperative) ===
+  const loadItem = useCallback(
+    (index: number) => {
+      const pl = playlistRef.current;
+      const p = playerRef.current;
+      if (pl.length === 0 || index < 0 || index >= pl.length) return;
 
-  // Restore playback progress
-  useEffect(() => {
-    const restoreProgress = async () => {
-      if (breakpointEnabled && currentItem && currentItem.type === 'video') {
-        try {
-          const savedUrl = await AsyncStorage.getItem('breakpoint_video_url');
-          const savedPosStr = await AsyncStorage.getItem('breakpoint_playback_position');
-          
-          if (savedUrl === currentItem.url && savedPosStr) {
-            const savedPos = parseFloat(savedPosStr);
-            if (savedPos > 0 && player.duration - savedPos > 2) {
-              player.currentTime = savedPos;
-              console.log('Khôi phục tiến độ phát video tại:', savedPos);
-            }
-            // Clear keys to prevent looping back to same point
-            await AsyncStorage.removeItem('breakpoint_video_url');
-            await AsyncStorage.removeItem('breakpoint_playback_position');
+      const item = pl[index];
+      clearSlideTimer();
+
+      if (item.type === "video") {
+        // Only call replace() when URL genuinely changed — prevents spurious playToEnd
+        if (currentLoadedUrlRef.current !== item.url) {
+          console.log(`[Playback] Loading video: ${item.url}`);
+          currentLoadedUrlRef.current = item.url;
+          try {
+            p.replace(item.url);
+          } catch (err) {
+            console.warn("[Playback] player.replace() error:", err);
           }
-        } catch (err) {
-          console.error('Lỗi khi khôi phục tiến độ video:', err);
         }
+        if (!isSleepingRef.current) {
+          safePlay(p);
+        }
+      } else if (item.type === "image") {
+        try {
+          p.pause();
+        } catch (_) {
+          /* noop */
+        }
+        currentLoadedUrlRef.current = "";
       }
-    };
-    
-    restoreProgress();
-  }, [currentIndex, currentItem, breakpointEnabled, player]);
 
-  const handleNext = () => {
-    if (PLAYLIST.length === 0) return;
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % PLAYLIST.length);
-    setImageLoading(true);
-  };
+      // Duration-based timer to advance to next slide
+      const duration = item.duration || 10000;
+      slideTimerRef.current = setTimeout(() => {
+        goToNextRef.current();
+      }, duration);
+    },
+    [clearSlideTimer],
+  );
 
-  // Handle slide switching logic
-  useEffect(() => {
-    if (!currentItem) return;
-    // Clear any existing timer
-    if (slideTimer.current) {
-      clearTimeout(slideTimer.current);
+  // === Core: transition to next slide ===
+  const goToNext = useCallback(() => {
+    const pl = playlistRef.current;
+    if (pl.length === 0) return;
+
+    // Transition gate — prevent re-entry
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+
+    const prevIdx = currentIndexRef.current;
+    const nextIdx = (prevIdx + 1) % pl.length;
+
+    if (nextIdx === prevIdx) {
+      // Single-item playlist — replay without state change
+      const item = pl[0];
+      clearSlideTimer();
+      if (item.type === "video") {
+        safePlay(playerRef.current);
+      }
+      // Restart timer
+      slideTimerRef.current = setTimeout(() => {
+        isTransitioningRef.current = false;
+        goToNextRef.current();
+      }, item.duration || 10000);
+      isTransitioningRef.current = false;
+      return;
     }
 
-    if (currentItem.type === 'image') {
-      // Pause video when showing image
-      player.pause();
-      
-      // Set timer to change slide
-      slideTimer.current = setTimeout(() => {
-        handleNext();
-      }, currentItem.duration);
-    } else if (currentItem.type === 'video') {
-      // Play video
-      // If we are currently sleeping, do not start playing video
-      if (!isSleeping) {
-        player.currentTime = 0;
-        player.play();
-      }
+    // Multi-item playlist — update index and load new item
+    currentIndexRef.current = nextIdx;
+    setCurrentIndex(nextIdx); // Single state update → re-render with new slide
+    loadItem(nextIdx);
 
-      // Set fallback timer in case video end event doesn't fire
-      slideTimer.current = setTimeout(() => {
-        handleNext();
-      }, currentItem.duration);
-    }
+    // Release gate after settling
+    setTimeout(() => {
+      isTransitioningRef.current = false;
+    }, 500);
+  }, [loadItem, clearSlideTimer]);
 
-    return () => {
-      if (slideTimer.current) {
-        clearTimeout(slideTimer.current);
-      }
-    };
-  }, [currentIndex, currentItem, isSleeping]);
+  // Wire up the ref so loadItem's timer can call goToNext
+  goToNextRef.current = goToNext;
 
-  // Listen to video completion event using expo-video listener
+  // === Effect: initial load when playlist first becomes available ===
   useEffect(() => {
-    if (!currentItem) return;
-    const subscription = player.addListener('playToEnd', () => {
-      if (currentItem.type === 'video') {
-        handleNext();
+    if (playlist.length > 0 && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      currentIndexRef.current = 0;
+      setCurrentIndex(0);
+      // Tiny delay to let mount settle before loading media
+      const t = setTimeout(() => loadItem(0), 150);
+      return () => clearTimeout(t);
+    }
+    // Reset initialization when playlist goes empty
+    if (playlist.length === 0) {
+      hasInitializedRef.current = false;
+      clearSlideTimer();
+    }
+  }, [playlist.length, loadItem, clearSlideTimer]);
+
+  // === Effect: detect playlist content change (not just length) ===
+  const playlistHashRef = useRef("");
+  useEffect(() => {
+    const hash = playlist.map((item) => item.url).join("|");
+    if (hash !== playlistHashRef.current && playlistHashRef.current !== "") {
+      // Playlist content changed — reload from beginning
+      playlistHashRef.current = hash;
+      currentIndexRef.current = 0;
+      setCurrentIndex(0);
+      if (playlist.length > 0) {
+        currentLoadedUrlRef.current = ""; // Force reload
+        const t = setTimeout(() => loadItem(0), 150);
+        return () => clearTimeout(t);
+      }
+    } else {
+      playlistHashRef.current = hash;
+    }
+  }, [playlist, loadItem]);
+
+  // === Effect: video playToEnd listener (empty deps — player instance is stable) ===
+  useEffect(() => {
+    const p = playerRef.current;
+    const subscription = p.addListener("playToEnd", () => {
+      // Only advance if video actually played (filter spurious events from replace())
+      if (p.currentTime > 0.5) {
+        console.log("[Playback] Video ended naturally, advancing");
+        clearSlideTimer(); // Cancel fallback timer
+        goToNextRef.current();
       }
     });
 
     return () => {
       subscription.remove();
     };
-  }, [player, currentIndex, currentItem]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally empty — player is stable, goToNextRef is a ref
 
-  if (!currentItem || PLAYLIST.length === 0) {
+  // === Effect: sleep state changes ===
+  useEffect(() => {
+    const p = playerRef.current;
+    if (isSleeping) {
+      try {
+        p.pause();
+      } catch (_) {
+        /* noop */
+      }
+      clearSlideTimer();
+    } else {
+      // Resume playback for current item
+      const pl = playlistRef.current;
+      const idx = currentIndexRef.current;
+      if (pl.length > 0 && idx < pl.length) {
+        const item = pl[idx];
+        if (item.type === "video") {
+          safePlay(p);
+        }
+        // Restart duration timer
+        clearSlideTimer();
+        slideTimerRef.current = setTimeout(() => {
+          goToNextRef.current();
+        }, item.duration || 10000);
+      }
+    }
+  }, [isSleeping, clearSlideTimer]);
+
+  // === Cleanup on unmount ===
+  useEffect(() => {
+    return () => {
+      clearSlideTimer();
+    };
+  }, [clearSlideTimer]);
+
+  // === Ensure index stays in bounds when playlist shrinks ===
+  useEffect(() => {
+    if (playlist.length > 0 && currentIndex >= playlist.length) {
+      const safeIdx = 0;
+      currentIndexRef.current = safeIdx;
+      setCurrentIndex(safeIdx);
+    }
+  }, [playlist.length, currentIndex]);
+
+  // === Derive current item for rendering (computation only, no state) ===
+  const safeIdx =
+    playlist.length > 0 ? Math.min(currentIndex, playlist.length - 1) : -1;
+  const currentItem = safeIdx >= 0 ? playlist[safeIdx] : null;
+
+  // ===== RENDER =====
+
+
+
+  if (!currentItem || playlist.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <View style={styles.emptyIconCircle}>
@@ -170,90 +284,95 @@ export default function AdPlayerScreen({ isLandscape, isSleeping }: AdPlayerScre
         </View>
         <Text style={styles.emptyTitle}>Chưa có nội dung trình chiếu</Text>
         <Text style={styles.emptySubtitle}>
-          Thiết bị hiện đang ở chế độ chờ. Vui lòng liên kết thiết bị với CMS và gán lịch phát để cập nhật nội dung.
+          Thiết bị hiện đang ở chế độ chờ. Vui lòng liên kết thiết bị với CMS và
+          gán lịch phát để cập nhật nội dung.
         </Text>
-        <Text style={styles.emptyHint}>Chạm vào màn hình để mở bảng cấu hình</Text>
+        <Text style={styles.emptyHint}>
+          Chạm vào màn hình để mở bảng cấu hình
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Image container */}
-      <View style={[styles.mediaContainer, { display: currentItem.type === 'image' ? 'flex' : 'none' }]}>
-        {currentItem.type === 'image' && imageSource && (
+      {/* Image layer — only mounted when current item is image */}
+      {currentItem.type === "image" && (
+        <View style={styles.mediaContainer}>
           <Image
-            source={imageSource}
+            source={{ uri: currentItem.url }}
             style={styles.media}
             resizeMode="cover"
-            onLoadStart={() => setImageLoading(true)}
-            onLoadEnd={() => setImageLoading(false)}
+            // No onLoadStart/onLoadEnd — these cause setState loops on Web
           />
-        )}
-        {currentItem.type === 'image' && imageLoading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={colors.secondary} />
-          </View>
-        )}
-      </View>
+        </View>
+      )}
 
-      {/* Video container - Keep mounted to prevent expo-video player release issues */}
-      <View style={[styles.mediaContainer, { display: currentItem.type === 'video' ? 'flex' : 'none' }]}>
-        <VideoView
-          player={player}
-          style={styles.media}
-          nativeControls={false}
-          contentFit="cover"
-        />
-      </View>
-
-      {/* Floating Kiosk Status Tag (Top Right) */}
-      <View style={[styles.kioskBadge, { top: isLandscape ? 12 : 36 }]}>
-        <View style={styles.badgeDot} />
-        <Text style={styles.badgeText}>KIOSK PLAYBACK</Text>
-      </View>
-
-      {/* Touch Screen Overlay Indicator (Subtle bottom text) */}
-      <View style={styles.overlayContainer}>
-        <Text style={styles.overlayText}>Chạm màn hình để mở Bảng cấu hình</Text>
-      </View>
+      {/* Video layer — only mounted when current item is video */}
+      {currentItem.type === "video" && (
+        <View style={styles.mediaContainer}>
+          <VideoView
+            player={player}
+            style={styles.media}
+            nativeControls={false}
+            contentFit="cover"
+          />
+        </View>
+      )}
     </View>
   );
 }
 
+// === React.memo with deep comparison on playlist URLs ===
+function arePropsEqual(
+  prev: AdPlayerScreenProps,
+  next: AdPlayerScreenProps,
+): boolean {
+  if (prev.isLandscape !== next.isLandscape) return false;
+  if (prev.isSleeping !== next.isSleeping) return false;
+  if (prev.playlist.length !== next.playlist.length) return false;
+  for (let i = 0; i < prev.playlist.length; i++) {
+    if (prev.playlist[i]?.url !== next.playlist[i]?.url) return false;
+    if (prev.playlist[i]?.type !== next.playlist[i]?.type) return false;
+  }
+  return true;
+}
+
+export default React.memo(AdPlayerScreen, arePropsEqual);
+
 const styles = StyleSheet.create({
   emptyContainer: {
     flex: 1,
-    backgroundColor: '#0a0f1d', // Ultra dark background matching premium signage style
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#0a0f1d",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 24,
   },
   emptyIconCircle: {
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 24,
   },
   emptyIconText: {
     fontSize: 40,
   },
   emptyTitle: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 12,
     letterSpacing: -0.5,
   },
   emptySubtitle: {
-    color: 'rgba(255, 255, 255, 0.45)',
+    color: "rgba(255, 255, 255, 0.45)",
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     maxWidth: 420,
     lineHeight: 22,
     marginBottom: 32,
@@ -261,90 +380,66 @@ const styles = StyleSheet.create({
   emptyHint: {
     color: colors.success,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.8,
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    backgroundColor: "rgba(16, 185, 129, 0.08)",
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.15)',
-    textTransform: 'uppercase',
+    borderColor: "rgba(16, 185, 129, 0.15)",
+    textTransform: "uppercase",
   },
   container: {
     flex: 1,
-    backgroundColor: '#000000',
-    position: 'relative',
+    backgroundColor: "#000000",
+    position: "relative",
   },
   mediaContainer: {
     flex: 1,
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
   },
   media: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
-  loadingOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  interactionOverlay: {
+    flex: 1,
+    backgroundColor: "#0a0f1d",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
   },
-  kioskBadge: {
-    position: 'absolute',
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 100,
+  interactionIconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "rgba(59, 130, 246, 0.08)",
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    zIndex: 10,
+    borderColor: "rgba(59, 130, 246, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
   },
-  badgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.success,
-    marginRight: 6,
-    shadowColor: colors.success,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
+  interactionIconText: {
+    fontSize: 40,
   },
-  badgeText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
+  interactionTitle: {
+    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 12,
+    letterSpacing: -0.5,
   },
-  overlayContainer: {
-    position: 'absolute',
-    bottom: 96,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  overlayText: {
-    color: 'rgba(255, 255, 255, 0.45)',
-    fontSize: 12,
-    fontWeight: '600',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 100,
-    letterSpacing: 0.5,
+  interactionSubtitle: {
+    color: "rgba(255, 255, 255, 0.45)",
+    fontSize: 14,
+    textAlign: "center",
+    maxWidth: 420,
+    lineHeight: 22,
   },
 });

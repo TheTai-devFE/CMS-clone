@@ -1,4 +1,4 @@
-export type DashboardTab = 'home' | 'content' | 'player' | 'admin' | 'eventlog' | 'resource' | 'schedule';
+export type DashboardTab = 'home' | 'content' | 'content-manage' | 'player' | 'admin' | 'eventlog' | 'resource' | 'schedule';
 
 export interface User {
   id: string;
@@ -27,6 +27,8 @@ export interface Device {
   osVersion?: string;
   appVersion?: string;
   lastHeartbeat?: string;
+  syncStatus?: string;
+  syncProgress?: number;
 }
 
 export interface MediaItem {
@@ -45,6 +47,11 @@ export interface Playlist {
   description?: string;
   isSyncGroup: boolean;
   createdAt: string;
+  syncLayout?: {
+    width?: number;
+    height?: number;
+    aspectRatio?: string;
+  };
 }
 
 export interface Schedule {
@@ -59,6 +66,7 @@ export interface Schedule {
   templateId?: string;
   playlist?: { playlistName: string };
   template?: { name: string };
+  devices?: { deviceId: string; device?: Device }[];
 }
 
 export interface EventLog {

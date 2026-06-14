@@ -8,6 +8,7 @@ import { api } from '@/utils/api';
 import { Playlist } from '@/types/dashboard';
 import PlaylistEditor from './playlist-editor/PlaylistEditor';
 import PlaylistPreviewModal from './PlaylistPreviewModal';
+import { QuickPublishModal } from './QuickPublishModal';
 
 interface PlaylistTabProps {
   playlists: Playlist[];
@@ -24,6 +25,10 @@ export default function PlaylistTab({ playlists, fetchPlaylistsData }: PlaylistT
   // Preview modal states
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewPlaylist, setPreviewPlaylist] = useState<Playlist | null>(null);
+
+  // Quick Publish modal states
+  const [isPublishOpen, setIsPublishOpen] = useState(false);
+  const [publishPlaylist, setPublishPlaylist] = useState<Playlist | null>(null);
 
   const handleOpenCreate = () => {
     setEditingPlaylist(null);
@@ -120,18 +125,33 @@ export default function PlaylistTab({ playlists, fetchPlaylistsData }: PlaylistT
               </div>
             </CardContent>
             <CardFooter className="p-3 border-t border-border flex justify-between gap-1 bg-muted/5">
-              {/* Review / Preview Button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setPreviewPlaylist(pl);
-                  setIsPreviewOpen(true);
-                }}
-                className="text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-xs gap-1 px-2"
-              >
-                <Eye className="h-3.5 w-3.5" /> Xem trước
-              </Button>
+              <div className="flex items-center gap-1">
+                {/* Review / Preview Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setPreviewPlaylist(pl);
+                    setIsPreviewOpen(true);
+                  }}
+                  className="text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-xs gap-1 px-2"
+                >
+                  <Eye className="h-3.5 w-3.5" /> Xem trước
+                </Button>
+
+                {/* Quick Publish Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setPublishPlaylist(pl);
+                    setIsPublishOpen(true);
+                  }}
+                  className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-xs gap-1 px-2"
+                >
+                  <Play className="h-3.5 w-3.5" /> Phát ngay
+                </Button>
+              </div>
               
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(pl)} className="text-primary hover:text-primary/90 text-xs px-2">
@@ -163,6 +183,19 @@ export default function PlaylistTab({ playlists, fetchPlaylistsData }: PlaylistT
         onClose={() => {
           setIsPreviewOpen(false);
           setPreviewPlaylist(null);
+        }}
+      />
+
+      {/* Quick publish modal */}
+      <QuickPublishModal
+        playlist={publishPlaylist}
+        isOpen={isPublishOpen}
+        onClose={() => {
+          setIsPublishOpen(false);
+          setPublishPlaylist(null);
+        }}
+        onSuccess={() => {
+          alert('Đã gửi lệnh phát lên thiết bị thành công! Thiết bị sẽ tự động tải file và trình chiếu.');
         }}
       />
     </div>
