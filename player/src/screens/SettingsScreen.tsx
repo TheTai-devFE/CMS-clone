@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { colors } from '../theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ScreenOrientation from 'expo-screen-orientation';
 import * as FileSystem from 'expo-file-system/legacy';
 import ConfirmationModal from '../components/ConfirmationModal';
 
@@ -35,7 +34,6 @@ export default function SettingsScreen({
   onClearProgram,
 }: SettingsScreenProps) {
   // Settings States
-  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('landscape');
   const [storageLocation, setStorageLocation] = useState<'internal' | 'tfcard' | 'usb'>('internal');
   const [usbOfflineFallback, setUsbOfflineFallback] = useState(false);
   const [usbPath, setUsbPath] = useState('/CDMedia');
@@ -57,7 +55,6 @@ export default function SettingsScreen({
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const storedOrientation = await AsyncStorage.getItem('screenOrientation') || 'landscape';
         const storedStorage = await AsyncStorage.getItem('storageLocation') || 'internal';
         const storedFallback = await AsyncStorage.getItem('usbOfflineFallback') === 'true';
         const storedUsbPath = await AsyncStorage.getItem('usbPath') || '/CDMedia';
@@ -69,7 +66,6 @@ export default function SettingsScreen({
         const storedSleepStart = await AsyncStorage.getItem('sleep_start_time') || '22:00';
         const storedSleepEnd = await AsyncStorage.getItem('sleep_end_time') || '06:00';
         
-        setOrientation(storedOrientation as 'portrait' | 'landscape');
         setStorageLocation(storedStorage as 'internal' | 'tfcard' | 'usb');
         setUsbOfflineFallback(storedFallback);
         setUsbPath(storedUsbPath);
@@ -86,20 +82,6 @@ export default function SettingsScreen({
     };
     loadSettings();
   }, []);
-
-  const handleOrientationChange = async (newOrientation: 'portrait' | 'landscape') => {
-    setOrientation(newOrientation);
-    try {
-      await AsyncStorage.setItem('screenOrientation', newOrientation);
-      if (newOrientation === 'portrait') {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-      } else {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
-      }
-    } catch (err) {
-      console.warn('Lỗi xoay màn hình:', err);
-    }
-  };
 
   const handleStorageChange = async (val: 'internal' | 'tfcard' | 'usb') => {
     setStorageLocation(val);
@@ -246,7 +228,7 @@ export default function SettingsScreen({
             <Text style={styles.sectionHeader}>THIẾT LẬP THIẾT BỊ</Text>
             <View style={styles.glassListCard}>
               {/* Item: Device Name */}
-              <View style={styles.settingsItem}>
+              <View style={[styles.settingsItem, { borderBottomWidth: 0 }]}>
                 <View style={styles.itemLeft}>
                   <View style={styles.iconWrapper}>
                     <Text style={styles.itemIcon}>💻</Text>
@@ -255,33 +237,6 @@ export default function SettingsScreen({
                     <Text style={styles.itemTitle}>Tên thiết bị</Text>
                     <Text style={styles.itemSub}>{formName || 'Terminal-Alpha'}</Text>
                   </View>
-                </View>
-              </View>
-
-              {/* Item: Screen Orientation */}
-              <View style={[styles.settingsItem, { borderBottomWidth: 0 }]}>
-                <View style={styles.itemLeft}>
-                  <View style={styles.iconWrapper}>
-                    <Text style={styles.itemIcon}>🔄</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.itemTitle}>Hướng xoay màn hình</Text>
-                    <Text style={styles.itemSub}>Xoay ngang / dọc giao diện</Text>
-                  </View>
-                </View>
-                <View style={styles.segmentedContainer}>
-                  <TouchableOpacity
-                    style={[styles.segmentedButton, orientation === 'landscape' && styles.segmentedButtonActive]}
-                    onPress={() => handleOrientationChange('landscape')}
-                  >
-                    <Text style={[styles.segmentedText, orientation === 'landscape' && styles.segmentedTextActive]}>Ngang</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.segmentedButton, orientation === 'portrait' && styles.segmentedButtonActive]}
-                    onPress={() => handleOrientationChange('portrait')}
-                  >
-                    <Text style={[styles.segmentedText, orientation === 'portrait' && styles.segmentedTextActive]}>Dọc</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
             </View>

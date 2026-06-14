@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ScreenOrientation from 'expo-screen-orientation';
 
 // Theme & Custom components
 import { colors } from './src/theme/colors';
@@ -83,19 +82,7 @@ export default function App() {
           setRegisteredDeviceName(storedName);
         }
 
-        // Đọc và thiết lập hướng màn hình lưu trữ ban đầu
-        try {
-          const storedOrientation = await AsyncStorage.getItem('screenOrientation');
-          if (storedOrientation === 'portrait') {
-            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-          } else if (storedOrientation === 'landscape') {
-            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
-          } else {
-            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.DEFAULT);
-          }
-        } catch (orientationErr) {
-          console.warn('Khóa hướng màn hình không được hỗ trợ trên thiết bị/trình duyệt này:', orientationErr);
-        }
+
 
         // Đọc cấu hình Menu Gesture
         const storedGesture = await AsyncStorage.getItem('menuGestureEnabled') === 'true';
