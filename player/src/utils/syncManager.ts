@@ -20,7 +20,7 @@ export interface SyncMediaItem {
 }
 
 export interface PlayerPlaylistItem {
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'pdf' | 'url';
   url: string; // Trỏ tới file cục bộ file://... hoặc URL online (nếu chạy web)
   duration: number; // Thời lượng hiển thị (mili-giây)
   checksum: string;
@@ -159,9 +159,19 @@ export async function syncPlaylist(
           console.warn('Preload failed or timed out for item:', downloadUrl, prefetchErr);
         }
 
-        const isVideo = item.mimeType.startsWith('video/');
+        let itemType: 'image' | 'video' | 'pdf' | 'url' = 'image';
+        if (item.mimeType === 'url') {
+          itemType = 'url';
+        } else if (item.mimeType === 'application/pdf' || getFileExtension(item.fileName, item.fileUrl) === 'pdf') {
+          itemType = 'pdf';
+        } else if (item.mimeType.startsWith('video/')) {
+          itemType = 'video';
+        } else if (item.mimeType.startsWith('image/')) {
+          itemType = 'image';
+        }
+
         localPlaylist.push({
-          type: isVideo ? 'video' : 'image',
+          type: itemType,
           url: downloadUrl, // Trỏ thẳng tới link http://... của server
           duration: (item.duration || 10) * 1000,
           checksum: item.checksum,
@@ -183,44 +193,61 @@ export async function syncPlaylist(
     
     for (const item of items) {
       const ext = getFileExtension(item.fileName, item.fileUrl);
-      const localFileName = `${item.checksum}.${ext}`;
-      const localFilePath = `${MEDIA_DIR}${localFileName}`;
+      const isUrl = item.mimeType === 'url';
       
-      activeChecksums.push(item.checksum);
-
-      // Xác định nguồn URL tải file
-      let downloadUrl = item.fileUrl;
-      if (!downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://')) {
-        downloadUrl = `http://${serverIp}:${serverPort}${item.fileUrl}`;
+      let itemType: 'image' | 'video' | 'pdf' | 'url' = 'image';
+      if (isUrl) {
+        itemType = 'url';
+      } else if (item.mimeType === 'application/pdf' || ext === 'pdf') {
+        itemType = 'pdf';
+      } else if (item.mimeType.startsWith('video/')) {
+        itemType = 'video';
+      } else if (item.mimeType.startsWith('image/')) {
+        itemType = 'image';
       }
 
-      // Kiểm tra file cục bộ đã tồn tại chưa
-      const fileInfo = await FileSystem.getInfoAsync(localFilePath);
-      if (!fileInfo.exists) {
-        console.log(`Bắt đầu tải file: ${item.fileName} -> ${localFilePath}`);
-        try {
-          // Bọc việc download bằng timeout 45 giây để tránh bị kẹt vĩnh viễn khi mạng yếu
-          await promiseWithTimeout(
-            FileSystem.downloadAsync(downloadUrl, localFilePath),
-            45000,
-            `Tải file ${item.fileName} quá thời gian (45s)`
-          );
-          console.log(`Tải thành công file: ${item.fileName}`);
-        } catch (downloadErr) {
-          console.error(`Lỗi khi tải file ${item.fileName}:`, downloadErr);
-          processedCount++;
-          onProgress?.(Math.round((processedCount / items.length) * 100));
-          continue;
-        }
+      let playUrl = '';
+
+      if (itemType === 'url') {
+        // Đối với Web URL, không tải về máy, lưu URL online trực tiếp
+        playUrl = item.fileUrl;
       } else {
-        console.log(`File đã tồn tại cục bộ (checksum match): ${item.fileName}`);
+        const localFileName = `${item.checksum}.${ext}`;
+        const localFilePath = `${MEDIA_DIR}${localFileName}`;
+        activeChecksums.push(item.checksum);
+
+        // Xác định nguồn URL tải file
+        let downloadUrl = item.fileUrl;
+        if (!downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://')) {
+          downloadUrl = `http://${serverIp}:${serverPort}${item.fileUrl}`;
+        }
+
+        // Kiểm tra file cục bộ đã tồn tại chưa
+        const fileInfo = await FileSystem.getInfoAsync(localFilePath);
+        if (!fileInfo.exists) {
+          console.log(`Bắt đầu tải file: ${item.fileName} -> ${localFilePath}`);
+          try {
+            await promiseWithTimeout(
+              FileSystem.downloadAsync(downloadUrl, localFilePath),
+              45000,
+              `Tải file ${item.fileName} quá thời gian (45s)`
+            );
+            console.log(`Tải thành công file: ${item.fileName}`);
+          } catch (downloadErr) {
+            console.error(`Lỗi khi tải file ${item.fileName}:`, downloadErr);
+            processedCount++;
+            onProgress?.(Math.round((processedCount / items.length) * 100));
+            continue;
+          }
+        } else {
+          console.log(`File đã tồn tại cục bộ (checksum match): ${item.fileName}`);
+        }
+        playUrl = localFilePath;
       }
 
-      // Xác định kiểu file
-      const isVideo = item.mimeType.startsWith('video/');
       localPlaylist.push({
-        type: isVideo ? 'video' : 'image',
-        url: localFilePath,
+        type: itemType,
+        url: playUrl,
         duration: (item.duration || 10) * 1000,
         checksum: item.checksum,
       });

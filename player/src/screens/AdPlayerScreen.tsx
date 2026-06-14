@@ -36,6 +36,7 @@ function AdPlayerScreen({
 }: AdPlayerScreenProps) {
   // === SINGLE render state — only updated when slide index changes ===
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [hasInteracted, setHasInteracted] = useState(Platform.OS !== "web");
 
   // === Refs — mutable state that does NOT trigger re-renders ===
   const currentIndexRef = useRef(0);
@@ -45,6 +46,7 @@ function AdPlayerScreen({
   const isTransitioningRef = useRef(false);
   const currentLoadedUrlRef = useRef("");
   const hasInitializedRef = useRef(false);
+  const hasInteractedRef = useRef(Platform.OS !== "web");
 
   // Keep refs in sync with latest props (cheap assignment, no re-render)
   playlistRef.current = playlist;
@@ -53,8 +55,8 @@ function AdPlayerScreen({
   // === Video player — stable instance from expo-video ===
   const player = useVideoPlayer(null as any, (p) => {
     p.loop = false;
-    // Always unmute because we enforce user interaction on Web via overlay
-    p.muted = false;
+    // Mute on Web by default to prevent autoplay blocking during initialization
+    p.muted = Platform.OS === "web";
   });
   const playerRef = useRef(player);
   playerRef.current = player;
@@ -66,13 +68,37 @@ function AdPlayerScreen({
       const playPromise = p.play();
       if (playPromise && typeof playPromise.catch === "function") {
         playPromise.catch((err: any) => {
-          console.warn("[Playback] Autoplay block caught:", err.message);
+          if (err.name === "AbortError") {
+            console.log(
+              "[Playback] Playback interrupted (AbortError) - safe to ignore.",
+            );
+          } else {
+            console.warn("[Playback] Autoplay block caught:", err.message);
+          }
         });
       }
     } catch (err) {
       console.warn("[Playback] safePlay error:", err);
     }
   }, []);
+
+  const handleInteraction = useCallback(() => {
+    setHasInteracted(true);
+    hasInteractedRef.current = true;
+    const p = playerRef.current;
+    if (p) {
+      p.muted = false;
+    }
+    // Play video immediately if the current slide is a video
+    const pl = playlistRef.current;
+    const idx = currentIndexRef.current;
+    if (pl.length > 0 && idx < pl.length) {
+      const item = pl[idx];
+      if (item.type === "video") {
+        safePlay(playerRef.current);
+      }
+    }
+  }, [safePlay]);
 
   // === Utility: clear the slide timer ===
   const clearSlideTimer = useCallback(() => {
@@ -96,20 +122,31 @@ function AdPlayerScreen({
       clearSlideTimer();
 
       if (item.type === "video") {
+        let isSourceChanged = false;
         // Only call replace() when URL genuinely changed — prevents spurious playToEnd
         if (currentLoadedUrlRef.current !== item.url) {
           console.log(`[Playback] Loading video: ${item.url}`);
           currentLoadedUrlRef.current = item.url;
+          isSourceChanged = true;
           try {
             p.replace(item.url);
           } catch (err) {
             console.warn("[Playback] player.replace() error:", err);
           }
         }
-        if (!isSleepingRef.current) {
-          safePlay(p);
+        if (!isSleepingRef.current && hasInteractedRef.current) {
+          if (isSourceChanged && Platform.OS === "web") {
+            // Delay play call on Web to allow source initialization and prevent AbortError
+            setTimeout(() => {
+              if (currentLoadedUrlRef.current === item.url) {
+                safePlay(p);
+              }
+            }, 250);
+          } else {
+            safePlay(p);
+          }
         }
-      } else if (item.type === "image") {
+      } else if (item.type === "image" || item.type === "pdf" || item.type === "url") {
         try {
           p.pause();
         } catch (_) {
@@ -143,7 +180,7 @@ function AdPlayerScreen({
       // Single-item playlist — replay without state change
       const item = pl[0];
       clearSlideTimer();
-      if (item.type === "video") {
+      if (item.type === "video" && hasInteractedRef.current) {
         safePlay(playerRef.current);
       }
       // Restart timer
@@ -205,6 +242,31 @@ function AdPlayerScreen({
     }
   }, [playlist, loadItem]);
 
+  // === Effect: Global unhandled rejection handler to silence harmless Web video AbortErrors ===
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    const handleUnhandledRejection = (event: any) => {
+      const reason = event.reason;
+      if (
+        reason &&
+        (reason.name === "AbortError" ||
+          (reason.message && reason.message.includes("play() request was interrupted")) ||
+          (reason.message && reason.message.includes("user didn't interact with the document first")))
+      ) {
+        event.preventDefault(); // Prevent red warning in browser console
+        console.log(
+          `[Playback] Ignored harmless browser video error: ${reason.message || reason.name}`,
+        );
+      }
+    };
+
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    return () => {
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+    };
+  }, []);
+
   // === Effect: video playToEnd listener (empty deps — player instance is stable) ===
   useEffect(() => {
     const p = playerRef.current;
@@ -239,7 +301,7 @@ function AdPlayerScreen({
       const idx = currentIndexRef.current;
       if (pl.length > 0 && idx < pl.length) {
         const item = pl[idx];
-        if (item.type === "video") {
+        if (item.type === "video" && hasInteractedRef.current) {
           safePlay(p);
         }
         // Restart duration timer
@@ -276,6 +338,22 @@ function AdPlayerScreen({
 
 
 
+  if (Platform.OS === "web" && !hasInteracted) {
+    return (
+      <TouchableWithoutFeedback onPress={handleInteraction}>
+        <View style={styles.interactionOverlay}>
+          <View style={styles.interactionIconCircle}>
+            <Text style={styles.interactionIconText}>🔊</Text>
+          </View>
+          <Text style={styles.interactionTitle}>Nhấp để kích hoạt âm thanh</Text>
+          <Text style={styles.interactionSubtitle}>
+            Trình duyệt yêu cầu tương tác của người dùng để phát video có âm thanh. Nhấp vào bất kỳ đâu để bắt đầu trình chiếu.
+          </Text>
+        </View>
+      </TouchableWithoutFeedback>
+    );
+  }
+
   if (!currentItem || playlist.length === 0) {
     return (
       <View style={styles.emptyContainer}>
@@ -302,7 +380,7 @@ function AdPlayerScreen({
           <Image
             source={{ uri: currentItem.url }}
             style={styles.media}
-            resizeMode="cover"
+            resizeMode="contain"
             // No onLoadStart/onLoadEnd — these cause setState loops on Web
           />
         </View>
@@ -315,8 +393,54 @@ function AdPlayerScreen({
             player={player}
             style={styles.media}
             nativeControls={false}
-            contentFit="cover"
+            contentFit="contain"
           />
+        </View>
+      )}
+
+      {/* PDF layer — mounted when current item is PDF */}
+      {currentItem.type === "pdf" && (
+        <View style={styles.mediaContainer}>
+          {Platform.OS === "web" ? (
+            <iframe
+              src={currentItem.url}
+              style={{
+                width: "100%",
+                height: "100%",
+                border: "none",
+                backgroundColor: "#000000",
+              }}
+              title="PDF Viewer"
+            />
+          ) : (
+            <View style={styles.fallbackContainer}>
+              <Text style={styles.fallbackText}>📄 Đang hiển thị tài liệu PDF</Text>
+              <Text style={styles.fallbackSub}>{currentItem.url}</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Web URL layer — mounted when current item is Web URL */}
+      {currentItem.type === "url" && (
+        <View style={styles.mediaContainer}>
+          {Platform.OS === "web" ? (
+            <iframe
+              src={currentItem.url}
+              style={{
+                width: "100%",
+                height: "100%",
+                border: "none",
+                backgroundColor: "#000000",
+              }}
+              title="Web URL Viewer"
+            />
+          ) : (
+            <View style={styles.fallbackContainer}>
+              <Text style={styles.fallbackText}>🌐 Đang hiển thị trang Web</Text>
+              <Text style={styles.fallbackSub}>{currentItem.url}</Text>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -406,6 +530,27 @@ const styles = StyleSheet.create({
   media: {
     width: "100%",
     height: "100%",
+  },
+  fallbackContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#0d1117",
+    width: "100%",
+    height: "100%",
+  },
+  fallbackText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  fallbackSub: {
+    color: "rgba(255, 255, 255, 0.45)",
+    fontSize: 12,
+    textAlign: "center",
+    maxWidth: "80%",
   },
   interactionOverlay: {
     flex: 1,
