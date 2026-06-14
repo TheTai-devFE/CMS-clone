@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Plus, Tv } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { User, Device } from '@/types/dashboard';
-import { useDashboard } from '../context/DashboardContext';
-import FilterBar from './FilterBar';
-import PlayerTable from './PlayerTable';
-import BatchActionsBar from './BatchActionsBar';
-import { ScheduleModal } from './schedule/ScheduleModal';
-import { usePlaylists, useTemplates } from '@/hooks/useApi';
+import { Button } from "@/components/ui/button";
+import { usePlaylists, useTemplates } from "@/hooks/useApi";
+import { Device, User } from "@/types/dashboard";
+import { Plus, Tv } from "lucide-react";
+import { useState } from "react";
+import { useDashboard } from "../context/DashboardContext";
+import BatchActionsBar from "./BatchActionsBar";
+import FilterBar from "./FilterBar";
+import PlayerTable from "./PlayerTable";
+import { ScheduleModal } from "./schedule/ScheduleModal";
 
 interface PlayerTabProps {
   devices: Device[];
@@ -26,15 +26,16 @@ export default function PlayerTab({
   handleDeleteDevice,
   handleEditDevice,
   fetchData,
-  onOpenClaimModal
+  onOpenClaimModal,
 }: PlayerTabProps) {
-  const { setError, setSuccessMsg, searchQuery, setSearchQuery } = useDashboard();
+  const { setError, setSuccessMsg, searchQuery, setSearchQuery } =
+    useDashboard();
   const { playlists } = usePlaylists();
   const { templates } = useTemplates();
 
   // Local state for table filter dropdowns
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [approvalFilter, setApprovalFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [approvalFilter, setApprovalFilter] = useState<string>("all");
 
   // Local state for batch selection
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
@@ -43,20 +44,22 @@ export default function PlayerTab({
 
   // Filter devices based on status and approval selections
   const filteredDevices = devices.filter((device) => {
-    const matchesStatus = statusFilter === 'all' || device.status === statusFilter;
-    const matchesApproval = approvalFilter === 'all' || device.approvalStatus === approvalFilter;
+    const matchesStatus =
+      statusFilter === "all" || device.status === statusFilter;
+    const matchesApproval =
+      approvalFilter === "all" || device.approvalStatus === approvalFilter;
     return matchesStatus && matchesApproval;
   });
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    setError('');
-    setSuccessMsg('');
+    setError("");
+    setSuccessMsg("");
     try {
       await fetchData();
-      setSuccessMsg('Đã làm mới danh sách thiết bị phát');
+      setSuccessMsg("Đã làm mới danh sách thiết bị phát");
     } catch {
-      setError('Không thể làm mới danh sách thiết bị phát');
+      setError("Không thể làm mới danh sách thiết bị phát");
     } finally {
       setIsRefreshing(false);
     }
@@ -65,7 +68,7 @@ export default function PlayerTab({
   // Selection handlers
   const handleToggleSelect = (id: string) => {
     setSelectedDeviceIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
@@ -87,42 +90,67 @@ export default function PlayerTab({
   };
 
   const handleRebootDevices = () => {
-    if (!confirm(`Bạn có chắc chắn muốn khởi động lại ${selectedDeviceIds.length} thiết bị đã chọn?`)) return;
-    setError('');
-    setSuccessMsg(`Đã gửi lệnh khởi động lại (Reboot) tới ${selectedDeviceIds.length} thiết bị.`);
+    if (
+      !confirm(
+        `Bạn có chắc chắn muốn khởi động lại ${selectedDeviceIds.length} thiết bị đã chọn?`,
+      )
+    )
+      return;
+    setError("");
+    setSuccessMsg(
+      `Đã gửi lệnh khởi động lại (Reboot) tới ${selectedDeviceIds.length} thiết bị.`,
+    );
     setSelectedDeviceIds([]);
   };
 
   const handleVolumeDevices = () => {
-    const volume = prompt('Nhập mức âm lượng mong muốn (0 - 100):', '50');
+    const volume = prompt("Nhập mức âm lượng mong muốn (0 - 100):", "50");
     if (volume === null) return;
     const volNum = parseInt(volume);
     if (isNaN(volNum) || volNum < 0 || volNum > 100) {
-      setError('Mức âm lượng không hợp lệ (phải từ 0 đến 100).');
+      setError("Mức âm lượng không hợp lệ (phải từ 0 đến 100).");
       return;
     }
-    setError('');
-    setSuccessMsg(`Đã gửi lệnh điều chỉnh âm lượng (${volNum}%) tới ${selectedDeviceIds.length} thiết bị.`);
+    setError("");
+    setSuccessMsg(
+      `Đã gửi lệnh điều chỉnh âm lượng (${volNum}%) tới ${selectedDeviceIds.length} thiết bị.`,
+    );
     setSelectedDeviceIds([]);
   };
 
   const handleInstallApk = () => {
-    setError('');
-    setSuccessMsg(`Đang tiến hành đẩy gói ứng dụng APK mới xuống ${selectedDeviceIds.length} thiết bị.`);
+    setError("");
+    setSuccessMsg(
+      `Đang tiến hành đẩy gói ứng dụng APK mới xuống ${selectedDeviceIds.length} thiết bị.`,
+    );
     setSelectedDeviceIds([]);
   };
 
   const handleUninstallApk = () => {
-    if (!confirm(`Bạn có chắc chắn muốn gỡ cài đặt ứng dụng APK trên ${selectedDeviceIds.length} thiết bị đã chọn?`)) return;
-    setError('');
-    setSuccessMsg(`Đã gửi lệnh gỡ cài đặt ứng dụng APK tới ${selectedDeviceIds.length} thiết bị.`);
+    if (
+      !confirm(
+        `Bạn có chắc chắn muốn gỡ cài đặt ứng dụng APK trên ${selectedDeviceIds.length} thiết bị đã chọn?`,
+      )
+    )
+      return;
+    setError("");
+    setSuccessMsg(
+      `Đã gửi lệnh gỡ cài đặt ứng dụng APK tới ${selectedDeviceIds.length} thiết bị.`,
+    );
     setSelectedDeviceIds([]);
   };
 
   const handleRemoveContents = () => {
-    if (!confirm(`CẢNH BÁO: Bạn có chắc chắn muốn xóa TOÀN BỘ nội dung phát trên ${selectedDeviceIds.length} thiết bị đã chọn?`)) return;
-    setError('');
-    setSuccessMsg(`Đã xóa sạch nội dung phát trên ${selectedDeviceIds.length} thiết bị.`);
+    if (
+      !confirm(
+        `CẢNH BÁO: Bạn có chắc chắn muốn xóa TOÀN BỘ nội dung phát trên ${selectedDeviceIds.length} thiết bị đã chọn?`,
+      )
+    )
+      return;
+    setError("");
+    setSuccessMsg(
+      `Đã xóa sạch nội dung phát trên ${selectedDeviceIds.length} thiết bị.`,
+    );
     setSelectedDeviceIds([]);
   };
 
@@ -131,10 +159,18 @@ export default function PlayerTab({
       {/* Top Header Row with dynamic titles */}
       <div className="flex flex-row items-center justify-between select-none py-1">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">Giám sát Players</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Theo dõi tình trạng hoạt động, cấu hình và gửi lệnh tới các màn hình quảng cáo.</p>
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
+            Giám sát Players
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Theo dõi tình trạng hoạt động, cấu hình và gửi lệnh tới các màn hình
+            quảng cáo.
+          </p>
         </div>
-        <Button onClick={onOpenClaimModal} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-semibold rounded-lg h-9">
+        <Button
+          onClick={onOpenClaimModal}
+          size="sm"
+          className="bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-semibold rounded-lg h-9">
           <Plus className="mr-1.5 h-4 w-4" /> Liên kết thiết bị
         </Button>
       </div>
@@ -156,9 +192,17 @@ export default function PlayerTab({
         <div className="flex flex-col items-center justify-center py-16 border border-dashed rounded-xl bg-card border-border/80 gap-3.5 select-none">
           <Tv className="h-10 w-10 text-muted-foreground/50" />
           <div className="text-center flex flex-col items-center gap-1.5">
-            <h3 className="font-semibold text-sm text-foreground">Không tìm thấy thiết bị phát nào</h3>
-            <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">Nhập mã kết nối (Pairing Code) từ App Player để bắt đầu liên kết thiết bị mới.</p>
-            <Button size="sm" onClick={onOpenClaimModal} className="bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-semibold rounded-lg mt-2 h-8">
+            <h3 className="font-semibold text-sm text-foreground">
+              Không tìm thấy thiết bị phát nào
+            </h3>
+            <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+              Nhập mã kết nối (Pairing Code) từ App Player để bắt đầu liên kết
+              thiết bị mới.
+            </p>
+            <Button
+              size="sm"
+              onClick={onOpenClaimModal}
+              className="bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-semibold rounded-lg mt-2 h-8">
               <Plus className="mr-1.5 h-3.5 w-3.5" /> Liên kết thiết bị ngay
             </Button>
           </div>
@@ -196,7 +240,9 @@ export default function PlayerTab({
           templates={templates}
           deviceIds={selectedDeviceIds}
           onSuccess={() => {
-            setSuccessMsg(`Đã lập lịch phát hàng loạt cho ${selectedDeviceIds.length} thiết bị thành công.`);
+            setSuccessMsg(
+              `Đã lập lịch phát hàng loạt cho ${selectedDeviceIds.length} thiết bị thành công.`,
+            );
             setSelectedDeviceIds([]);
             setIsScheduleModalOpen(false);
             fetchData();

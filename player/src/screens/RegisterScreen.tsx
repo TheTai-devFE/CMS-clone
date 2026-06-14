@@ -10,8 +10,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { getHardwareId } from '../utils/deviceInfo';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface RegisterScreenProps {
   isLandscape: boolean;
@@ -25,6 +27,36 @@ interface RegisterScreenProps {
   deviceName: string;
   onDisconnect: () => void;
 }
+
+const getFriendlyOsVersion = (): string => {
+  if (Platform.OS === 'android') {
+    const apiLevel = Number(Platform.Version);
+    const apiMap: Record<number, string> = {
+      19: '4.4',
+      21: '5.0',
+      22: '5.1',
+      23: '6.0',
+      24: '7.0',
+      25: '7.1',
+      26: '8.0',
+      27: '8.1',
+      28: '9',
+      29: '10',
+      30: '11',
+      31: '12',
+      32: '12L',
+      33: '13',
+      34: '14',
+      35: '15',
+    };
+    const androidVer = apiMap[apiLevel] || `SDK ${apiLevel}`;
+    return `Android ${androidVer} (API ${apiLevel})`;
+  }
+  if (Platform.OS === 'ios') {
+    return `iOS ${Platform.Version}`;
+  }
+  return `${Platform.OS} ${Platform.Version}`;
+};
 
 export default function RegisterScreen({
   isLandscape,
@@ -54,6 +86,9 @@ export default function RegisterScreen({
   const [expireAt, setExpireAt] = useState<number>(0);
   const [pairingStatus, setPairingStatus] = useState<'idle' | 'loading' | 'pending' | 'linked' | 'error' | 'expired'>('idle');
   const [errorMsg, setErrorMsg] = useState<string>('');
+  
+  // Custom Confirmation State
+  const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
 
 
   const fetchPairingCode = async (targetIp = localIp, targetPort = localPort) => {
@@ -76,8 +111,8 @@ export default function RegisterScreen({
         },
         body: JSON.stringify({
           macAddress: hardwareId,
-          screenResolution: `${Math.round(Dimensions.get('window').width)}x${Math.round(Dimensions.get('window').height)}`,
-          osVersion: Platform.OS + ' ' + Platform.Version,
+          screenResolution: `${Math.round(Dimensions.get('screen').width)}x${Math.round(Dimensions.get('screen').height)}`,
+          osVersion: getFriendlyOsVersion(),
           appVersion: '1.0.0',
         }),
       });
@@ -208,6 +243,10 @@ export default function RegisterScreen({
     }
   };
 
+  const handleDisconnectWithConfirmation = () => {
+    setShowConfirmDisconnect(true);
+  };
+
   return (
     <View style={styles.container}>
       {/* Ambient Background Blur Decoration */}
@@ -285,7 +324,7 @@ export default function RegisterScreen({
 
                 <TouchableOpacity
                   style={styles.btnDisconnect}
-                  onPress={onDisconnect}
+                  onPress={handleDisconnectWithConfirmation}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.btnDisconnectText}>Hủy liên kết thiết bị này</Text>
@@ -363,6 +402,19 @@ export default function RegisterScreen({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <ConfirmationModal
+        visible={showConfirmDisconnect}
+        title="Xác nhận hủy liên kết"
+        description="Bạn có chắc chắn muốn hủy liên kết thiết bị này khỏi máy chủ không?"
+        confirmText="HỦY LIÊN KẾT"
+        icon="🔌"
+        onConfirm={() => {
+          setShowConfirmDisconnect(false);
+          onDisconnect();
+        }}
+        onCancel={() => setShowConfirmDisconnect(false)}
+      />
     </View>
   );
 }

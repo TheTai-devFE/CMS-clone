@@ -9,13 +9,21 @@ export const cookieStorage = {
   getAccessToken: () => Cookies.get(ACCESS_TOKEN_KEY),
   
   setAccessToken: (token: string) => {
-    Cookies.set(ACCESS_TOKEN_KEY, token, { expires: 1/24, secure: true, sameSite: 'strict' }); // 1 giờ
+    Cookies.set(ACCESS_TOKEN_KEY, token, { 
+      expires: 1/24, 
+      secure: process.env.NODE_ENV === 'production', 
+      sameSite: 'lax' 
+    }); // 1 giờ
   },
 
   getRefreshToken: () => Cookies.get(REFRESH_TOKEN_KEY),
 
   setRefreshToken: (token: string) => {
-    Cookies.set(REFRESH_TOKEN_KEY, token, { expires: 7, secure: true, sameSite: 'strict' }); // 7 ngày
+    Cookies.set(REFRESH_TOKEN_KEY, token, { 
+      expires: 7, 
+      secure: process.env.NODE_ENV === 'production', 
+      sameSite: 'lax' 
+    }); // 7 ngày
   },
 
   getUserInfo: (): User | null => {
@@ -28,7 +36,11 @@ export const cookieStorage = {
   },
 
   setUserInfo: (user: User) => {
-    Cookies.set(USER_INFO_KEY, JSON.stringify(user), { expires: 7, secure: true, sameSite: 'strict' });
+    Cookies.set(USER_INFO_KEY, JSON.stringify(user), { 
+      expires: 7, 
+      secure: process.env.NODE_ENV === 'production', 
+      sameSite: 'lax' 
+    });
   },
 
   clearAll: () => {

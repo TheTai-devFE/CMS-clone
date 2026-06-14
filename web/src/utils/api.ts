@@ -57,12 +57,16 @@ export const api = {
         throw new Error(errorData.message || `Lỗi hệ thống (${response.status})`);
       }
 
-      // Nếu không có nội dung trả về (ví dụ DELETE thành công)
-      if (response.status === 204) {
+      // Đọc phản hồi dưới dạng text để xử lý an toàn trường hợp body rỗng
+      const text = await response.text();
+      if (!text) {
         return null;
       }
-
-      return await response.json();
+      try {
+        return JSON.parse(text);
+      } catch (err) {
+        return text;
+      }
     } catch (error: unknown) {
       console.error(`API Error [${endpoint}]:`, error);
       throw error;
