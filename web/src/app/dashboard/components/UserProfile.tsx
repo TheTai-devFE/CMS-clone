@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { api } from '../../../utils/api';
+import { useDashboard } from '../context/DashboardContext';
 
 interface UserProfileProps {
   currentUser: {
@@ -16,25 +17,23 @@ interface UserProfileProps {
 }
 
 export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
+  const { setError, setSuccessMsg } = useDashboard();
+  
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [pwdError, setPwdError] = useState('');
-  const [pwdSuccess, setPwdSuccess] = useState('');
   const [pwdLoading, setPwdLoading] = useState(false);
 
   const [securityPin, setSecurityPin] = useState(currentUser.securityPassword || '');
-  const [pinError, setPinError] = useState('');
-  const [pinSuccess, setPinSuccess] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
 
   const handleUpdateSecurityPin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setPinError('');
-    setPinSuccess('');
+    setError('');
+    setSuccessMsg('');
 
     if (securityPin && !/^\d{4}$/.test(securityPin)) {
-      setPinError('Mã PIN bảo mật phải chứa đúng 4 chữ số');
+      setError('Mã PIN bảo mật phải chứa đúng 4 chữ số');
       return;
     }
 
@@ -43,9 +42,9 @@ export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
       await api.post('/api/auth/security-password', {
         securityPassword: securityPin || null,
       });
-      setPinSuccess('Cập nhật mã bảo mật thiết bị thành công!');
+      setSuccessMsg('Cập nhật mã bảo mật thiết bị thành công!');
     } catch (err: any) {
-      setPinError(err.message || 'Có lỗi xảy ra khi cập nhật mã PIN');
+      setError(err.message || 'Có lỗi xảy ra khi cập nhật mã PIN');
     } finally {
       setPinLoading(false);
     }
@@ -53,16 +52,16 @@ export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setPwdError('');
-    setPwdSuccess('');
+    setError('');
+    setSuccessMsg('');
 
     if (newPassword.length < 6) {
-      setPwdError('Mật khẩu mới phải có ít nhất 6 ký tự');
+      setError('Mật khẩu mới phải có ít nhất 6 ký tự');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPwdError('Xác nhận mật khẩu mới không khớp');
+      setError('Xác nhận mật khẩu mới không khớp');
       return;
     }
 
@@ -72,12 +71,12 @@ export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
         oldPassword,
         newPassword,
       });
-      setPwdSuccess('Đổi mật khẩu thành công!');
+      setSuccessMsg('Đổi mật khẩu thành công!');
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      setPwdError(err.message || 'Có lỗi xảy ra khi đổi mật khẩu');
+      setError(err.message || 'Có lỗi xảy ra khi đổi mật khẩu');
     } finally {
       setPwdLoading(false);
     }
@@ -182,17 +181,6 @@ export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
           </div>
 
           <div className="profile-card-body">
-            {pwdError && (
-              <div className="alert alert-error" style={{ marginBottom: '16px', padding: '8px 12px' }}>
-                <span>{pwdError}</span>
-              </div>
-            )}
-            {pwdSuccess && (
-              <div className="alert alert-success" style={{ marginBottom: '16px', padding: '8px 12px' }}>
-                <span>{pwdSuccess}</span>
-              </div>
-            )}
-
             <form onSubmit={handleChangePassword} className="password-form">
               <div className="form-group">
                 <label className="form-label">Mật khẩu hiện tại</label>
@@ -257,17 +245,6 @@ export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
           </div>
 
           <div className="profile-card-body">
-            {pinError && (
-              <div className="alert alert-error" style={{ marginBottom: '16px', padding: '8px 12px' }}>
-                <span>{pinError}</span>
-              </div>
-            )}
-            {pinSuccess && (
-              <div className="alert alert-success" style={{ marginBottom: '16px', padding: '8px 12px' }}>
-                <span>{pinSuccess}</span>
-              </div>
-            )}
-
             <form onSubmit={handleUpdateSecurityPin} className="password-form">
               <div className="form-group">
                 <label className="form-label">Mã PIN bảo mật thiết bị</label>

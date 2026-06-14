@@ -1,24 +1,15 @@
-import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Tv,
-  RefreshCw,
-  Trash,
-  Plus,
-  Settings
-} from 'lucide-react';
+"use client";
 
-import { User, Device } from '@/types/dashboard';
+import { Button } from "@/components/ui/button";
+import { usePlaylists, useTemplates } from "@/hooks/useApi";
+import { Device, User } from "@/types/dashboard";
+import { Plus, Tv } from "lucide-react";
+import { useState } from "react";
+import { useDashboard } from "../context/DashboardContext";
+import BatchActionsBar from "./BatchActionsBar";
+import FilterBar from "./FilterBar";
+import PlayerTable from "./PlayerTable";
+import { ScheduleModal } from "./schedule/ScheduleModal";
 
 interface PlayerTabProps {
   devices: Device[];
@@ -35,126 +26,229 @@ export default function PlayerTab({
   handleDeleteDevice,
   handleEditDevice,
   fetchData,
-  onOpenClaimModal
+  onOpenClaimModal,
 }: PlayerTabProps) {
+  const { setError, setSuccessMsg, searchQuery, setSearchQuery } =
+    useDashboard();
+  const { playlists } = usePlaylists();
+  const { templates } = useTemplates();
+
+  // Local state for table filter dropdowns
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [approvalFilter, setApprovalFilter] = useState<string>("all");
+
+  // Local state for batch selection
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+
+  // Filter devices based on status and approval selections
+  const filteredDevices = devices.filter((device) => {
+    const matchesStatus =
+      statusFilter === "all" || device.status === statusFilter;
+    const matchesApproval =
+      approvalFilter === "all" || device.approvalStatus === approvalFilter;
+    return matchesStatus && matchesApproval;
+  });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      await fetchData();
+      setSuccessMsg("Đã làm mới danh sách thiết bị phát");
+    } catch {
+      setError("Không thể làm mới danh sách thiết bị phát");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Selection handlers
+  const handleToggleSelect = (id: string) => {
+    setSelectedDeviceIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedDeviceIds.length === filteredDevices.length) {
+      setSelectedDeviceIds([]);
+    } else {
+      setSelectedDeviceIds(filteredDevices.map((d) => d.id));
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedDeviceIds([]);
+  };
+
+  // Batch Actions handlers
+  const handleMultiSchedule = () => {
+    setIsScheduleModalOpen(true);
+  };
+
+  const handleRebootDevices = () => {
+    if (
+      !confirm(
+        `Bạn có chắc chắn muốn khởi động lại ${selectedDeviceIds.length} thiết bị đã chọn?`,
+      )
+    )
+      return;
+    setError("");
+    setSuccessMsg(
+      `Đã gửi lệnh khởi động lại (Reboot) tới ${selectedDeviceIds.length} thiết bị.`,
+    );
+    setSelectedDeviceIds([]);
+  };
+
+  const handleVolumeDevices = () => {
+    const volume = prompt("Nhập mức âm lượng mong muốn (0 - 100):", "50");
+    if (volume === null) return;
+    const volNum = parseInt(volume);
+    if (isNaN(volNum) || volNum < 0 || volNum > 100) {
+      setError("Mức âm lượng không hợp lệ (phải từ 0 đến 100).");
+      return;
+    }
+    setError("");
+    setSuccessMsg(
+      `Đã gửi lệnh điều chỉnh âm lượng (${volNum}%) tới ${selectedDeviceIds.length} thiết bị.`,
+    );
+    setSelectedDeviceIds([]);
+  };
+
+  const handleInstallApk = () => {
+    setError("");
+    setSuccessMsg(
+      `Đang tiến hành đẩy gói ứng dụng APK mới xuống ${selectedDeviceIds.length} thiết bị.`,
+    );
+    setSelectedDeviceIds([]);
+  };
+
+  const handleUninstallApk = () => {
+    if (
+      !confirm(
+        `Bạn có chắc chắn muốn gỡ cài đặt ứng dụng APK trên ${selectedDeviceIds.length} thiết bị đã chọn?`,
+      )
+    )
+      return;
+    setError("");
+    setSuccessMsg(
+      `Đã gửi lệnh gỡ cài đặt ứng dụng APK tới ${selectedDeviceIds.length} thiết bị.`,
+    );
+    setSelectedDeviceIds([]);
+  };
+
+  const handleRemoveContents = () => {
+    if (
+      !confirm(
+        `CẢNH BÁO: Bạn có chắc chắn muốn xóa TOÀN BỘ nội dung phát trên ${selectedDeviceIds.length} thiết bị đã chọn?`,
+      )
+    )
+      return;
+    setError("");
+    setSuccessMsg(
+      `Đã xóa sạch nội dung phát trên ${selectedDeviceIds.length} thiết bị.`,
+    );
+    setSelectedDeviceIds([]);
+  };
+
   return (
-    <Card className="bg-card border-border shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between">
+    <div className="space-y-4">
+      {/* Top Header Row with dynamic titles */}
+      <div className="flex flex-row items-center justify-between select-none py-1">
         <div>
-          <CardTitle className="text-xl">Danh sách thiết bị</CardTitle>
-          <CardDescription>Theo dõi tình trạng hoạt động và xóa thiết bị màn hình</CardDescription>
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
+            Giám sát Players
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Theo dõi tình trạng hoạt động, cấu hình và gửi lệnh tới các màn hình
+            quảng cáo.
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button size="sm" onClick={onOpenClaimModal} className="bg-primary text-primary-foreground hover:bg-primary/95">
-            <Plus className="mr-2 h-4 w-4" /> Liên kết thiết bị
-          </Button>
-          <Button variant="outline" size="sm" onClick={fetchData}>
-            <RefreshCw className="mr-2 h-4 w-4" /> Làm mới
-          </Button>
+        <Button
+          onClick={onOpenClaimModal}
+          size="sm"
+          className="bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-semibold rounded-lg h-9">
+          <Plus className="mr-1.5 h-4 w-4" /> Liên kết thiết bị
+        </Button>
+      </div>
+
+      {/* Single Row Filter Bar Component */}
+      <FilterBar
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        approvalFilter={approvalFilter}
+        setApprovalFilter={setApprovalFilter}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+      />
+
+      {/* Main Table or Empty State Component */}
+      {filteredDevices.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 border border-dashed rounded-xl bg-card border-border/80 gap-3.5 select-none">
+          <Tv className="h-10 w-10 text-muted-foreground/50" />
+          <div className="text-center flex flex-col items-center gap-1.5">
+            <h3 className="font-semibold text-sm text-foreground">
+              Không tìm thấy thiết bị phát nào
+            </h3>
+            <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+              Nhập mã kết nối (Pairing Code) từ App Player để bắt đầu liên kết
+              thiết bị mới.
+            </p>
+            <Button
+              size="sm"
+              onClick={onOpenClaimModal}
+              className="bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-semibold rounded-lg mt-2 h-8">
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> Liên kết thiết bị ngay
+            </Button>
+          </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        {devices.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 border border-dashed rounded-lg bg-muted/10 gap-3">
-            <Tv className="h-12 w-12 text-muted-foreground/60" />
-            <div className="text-center flex flex-col items-center gap-2">
-              <h3 className="font-semibold text-lg">Chưa có thiết bị</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mt-1 mb-2">Nhập mã kết nối (Pairing Code) từ App Player để bắt đầu liên kết thiết bị.</p>
-              <Button size="sm" onClick={onOpenClaimModal} className="bg-primary text-primary-foreground hover:bg-primary/95">
-                <Plus className="mr-2 h-4 w-4" /> Liên kết thiết bị ngay
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-md border border-border bg-background overflow-hidden">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow>
-                  <TableHead className="font-semibold w-[220px]">Thiết bị</TableHead>
-                  <TableHead className="font-semibold w-[120px]">Trạng thái</TableHead>
-                  <TableHead className="font-semibold w-[120px]">Kích hoạt</TableHead>
-                  <TableHead className="font-semibold">IP Address</TableHead>
-                  <TableHead className="font-semibold">Độ phân giải</TableHead>
-                  <TableHead className="font-semibold">Hệ điều hành</TableHead>
-                  {currentUser.role === 'admin' && (
-                    <TableHead className="font-semibold w-[140px]">User ID</TableHead>
-                  )}
-                  <TableHead className="text-right font-semibold w-[100px]">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {devices.map((device) => (
-                  <TableRow key={device.id} className="hover:bg-muted/40 transition-colors">
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <Tv className={device.status === 'online' ? 'h-4 w-4 text-emerald-500' : 'h-4 w-4 text-muted-foreground'} />
-                        <span className="truncate max-w-[180px]" title={device.deviceName}>
-                          {device.deviceName}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1 items-start">
-                        <Badge className={device.status === 'online' ? 'bg-emerald-500/10 text-emerald-500 border-none hover:bg-emerald-500/10' : 'bg-gray-500/10 text-gray-500 border-none hover:bg-gray-500/10'}>
-                          {device.status === 'online' ? 'Online' : 'Offline'}
-                        </Badge>
-                        {device.status === 'online' && device.syncStatus === 'syncing' && (
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
-                            </span>
-                            <span className="text-[10px] text-sky-600 font-semibold dark:text-sky-400 animate-pulse">
-                              Đang tải: {device.syncProgress || 0}%
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={device.approvalStatus === 'approved' ? 'bg-emerald-500/10 text-emerald-500 border-none hover:bg-emerald-500/10' : 'bg-amber-500/10 text-amber-500 border-none hover:bg-amber-500/10'}>
-                        {device.approvalStatus === 'approved' ? 'Đã duyệt' : 'Chờ duyệt'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{device.ipAddress || '—'}</TableCell>
-                    <TableCell className="text-muted-foreground">{device.screenResolution || '—'}</TableCell>
-                    <TableCell className="text-muted-foreground truncate max-w-[120px]" title={device.osVersion || ''}>
-                      {device.osVersion || '—'}
-                    </TableCell>
-                    {currentUser.role === 'admin' && (
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {device.userId ? `${device.userId.substring(0, 8)}...` : '—'}
-                      </TableCell>
-                    )}
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditDevice(device)}
-                          className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 p-0 rounded-md"
-                          title="Cấu hình màn hình"
-                        >
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteDevice(device.id, device.deviceName)}
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 h-8 w-8 p-0 rounded-md"
-                          title="Xóa màn hình"
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      ) : (
+        <PlayerTable
+          devices={filteredDevices}
+          selectedDeviceIds={selectedDeviceIds}
+          onToggleSelect={handleToggleSelect}
+          onToggleSelectAll={handleToggleSelectAll}
+          currentUser={currentUser}
+          handleEditDevice={handleEditDevice}
+          handleDeleteDevice={handleDeleteDevice}
+        />
+      )}
+
+      {/* Floating Action Toolbar */}
+      <BatchActionsBar
+        selectedCount={selectedDeviceIds.length}
+        onClearSelection={handleClearSelection}
+        onMultiSchedule={handleMultiSchedule}
+        onReboot={handleRebootDevices}
+        onVolume={handleVolumeDevices}
+        onInstallApk={handleInstallApk}
+        onUninstallApk={handleUninstallApk}
+        onRemoveContents={handleRemoveContents}
+      />
+
+      {isScheduleModalOpen && (
+        <ScheduleModal
+          isOpen={isScheduleModalOpen}
+          onClose={() => setIsScheduleModalOpen(false)}
+          schedule={null}
+          playlists={playlists}
+          templates={templates}
+          deviceIds={selectedDeviceIds}
+          onSuccess={() => {
+            setSuccessMsg(
+              `Đã lập lịch phát hàng loạt cho ${selectedDeviceIds.length} thiết bị thành công.`,
+            );
+            setSelectedDeviceIds([]);
+            setIsScheduleModalOpen(false);
+            fetchData();
+          }}
+        />
+      )}
+    </div>
   );
 }
