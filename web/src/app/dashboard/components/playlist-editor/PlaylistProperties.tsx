@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Clock, Check, Search, Film } from "lucide-react";
+import { Settings, Clock, Check, Search, Film, FileText, Globe } from "lucide-react";
 import { MediaItem, Device } from "@/types/dashboard";
 import { PlaylistItemData } from "./PlaylistSidebar";
 import { getFileUrl } from "@/utils/api";
@@ -99,7 +99,7 @@ export default function PlaylistProperties({
   onChangeVideoWallSourceMedia,
 }: PlaylistPropertiesProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<"all" | "image" | "video">(
+  const [filterType, setFilterType] = useState<"all" | "image" | "video" | "pdf" | "url">(
     "all",
   );
 
@@ -136,10 +136,14 @@ export default function PlaylistProperties({
       .includes(searchQuery.toLowerCase());
     const isImg = media.mimeType.startsWith("image/");
     const isVid = media.mimeType.startsWith("video/");
+    const isPdf = media.mimeType === "application/pdf";
+    const isUrl = media.mimeType === "url";
 
     if (filterType === "image") return matchesSearch && isImg;
     if (filterType === "video") return matchesSearch && isVid;
-    return matchesSearch && (isImg || isVid);
+    if (filterType === "pdf") return matchesSearch && isPdf;
+    if (filterType === "url") return matchesSearch && isUrl;
+    return matchesSearch && (isImg || isVid || isPdf || isUrl);
   });
 
   return (
@@ -529,27 +533,41 @@ export default function PlaylistProperties({
               </div>
 
               {/* Type Filter */}
-              <div className="flex border border-border bg-muted/30 p-0.5 rounded-md text-[10px] font-semibold">
+              <div className="flex border border-border bg-muted/30 p-0.5 rounded-md text-[9px] font-semibold overflow-x-auto no-scrollbar gap-0.5">
                 <button
                   type="button"
                   onClick={() => setFilterType("all")}
-                  className={`flex-1 py-1 rounded text-center transition-all ${filterType === "all" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                  className={`flex-grow min-w-[42px] py-1 rounded text-center transition-all ${filterType === "all" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
                 >
                   Tất cả
                 </button>
                 <button
                   type="button"
                   onClick={() => setFilterType("image")}
-                  className={`flex-1 py-1 rounded text-center transition-all ${filterType === "image" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                  className={`flex-grow min-w-[32px] py-1 rounded text-center transition-all ${filterType === "image" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
                 >
                   Ảnh
                 </button>
                 <button
                   type="button"
                   onClick={() => setFilterType("video")}
-                  className={`flex-1 py-1 rounded text-center transition-all ${filterType === "video" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                  className={`flex-grow min-w-[36px] py-1 rounded text-center transition-all ${filterType === "video" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
                 >
                   Video
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterType("pdf")}
+                  className={`flex-grow min-w-[32px] py-1 rounded text-center transition-all ${filterType === "pdf" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                >
+                  PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterType("url")}
+                  className={`flex-grow min-w-[32px] py-1 rounded text-center transition-all ${filterType === "url" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                >
+                  Web
                 </button>
               </div>
 
@@ -573,6 +591,10 @@ export default function PlaylistProperties({
                         <div className="h-6 w-6 rounded overflow-hidden shrink-0 border border-border/40 bg-zinc-100 flex items-center justify-center">
                           {isMediaVideo ? (
                             <Film className="h-3.5 w-3.5 text-blue-500" />
+                          ) : media.mimeType === "application/pdf" ? (
+                            <FileText className="h-3.5 w-3.5 text-red-500" />
+                          ) : media.mimeType === "url" ? (
+                            <Globe className="h-3.5 w-3.5 text-emerald-500" />
                           ) : (
                             <img
                               src={getFileUrl(media.fileUrl)}
