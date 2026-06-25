@@ -24,6 +24,8 @@ export interface PlayerPlaylistItem {
   url: string; // Trỏ tới file cục bộ file://... hoặc URL online (nếu chạy web)
   duration: number; // Thời lượng hiển thị (mili-giây)
   checksum: string;
+  sortOrder?: number;
+  itemId?: string;
 }
 
 /**
@@ -120,6 +122,8 @@ export async function syncPlaylist(
       }
       await AsyncStorage.setItem('local_playlist', JSON.stringify([]));
       await AsyncStorage.setItem('local_sync_hash', targetSyncHash);
+      await AsyncStorage.setItem('is_sync_group', 'false');
+      await AsyncStorage.removeItem('sync_layout');
       return [];
     }
 
@@ -175,6 +179,8 @@ export async function syncPlaylist(
           url: downloadUrl, // Trỏ thẳng tới link http://... của server
           duration: (item.duration || 10) * 1000,
           checksum: item.checksum,
+          sortOrder: item.sortOrder,
+          itemId: item.itemId,
         });
         
         count++;
@@ -183,6 +189,8 @@ export async function syncPlaylist(
       
       await AsyncStorage.setItem('local_playlist', JSON.stringify(localPlaylist));
       await AsyncStorage.setItem('local_sync_hash', targetSyncHash);
+      await AsyncStorage.setItem('is_sync_group', syncData.isSyncGroup ? 'true' : 'false');
+      await AsyncStorage.setItem('sync_layout', syncData.syncLayout ? JSON.stringify(syncData.syncLayout) : '');
       return localPlaylist;
     }
 
@@ -250,6 +258,8 @@ export async function syncPlaylist(
         url: playUrl,
         duration: (item.duration || 10) * 1000,
         checksum: item.checksum,
+        sortOrder: item.sortOrder,
+        itemId: item.itemId,
       });
 
       processedCount++;
@@ -262,6 +272,8 @@ export async function syncPlaylist(
     // Lưu playlist cục bộ và syncHash vào AsyncStorage
     await AsyncStorage.setItem('local_playlist', JSON.stringify(localPlaylist));
     await AsyncStorage.setItem('local_sync_hash', targetSyncHash);
+    await AsyncStorage.setItem('is_sync_group', syncData.isSyncGroup ? 'true' : 'false');
+    await AsyncStorage.setItem('sync_layout', syncData.syncLayout ? JSON.stringify(syncData.syncLayout) : '');
     
     console.log('Đồng bộ danh sách phát thành công. Số lượng items:', localPlaylist.length);
     return localPlaylist;

@@ -8,7 +8,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import { colors } from "../theme/colors";
+import io from "socket.io-client";
+import { colors } from "../utils/colors";
 import { PlayerPlaylistItem } from "../utils/syncManager";
 
 interface AdPlayerScreenProps {
@@ -16,6 +17,13 @@ interface AdPlayerScreenProps {
   onRelaunchRequest?: () => void;
   isSleeping?: boolean;
   playlist: PlayerPlaylistItem[];
+  deviceId: string | null;
+  isSyncGroup: boolean;
+  syncLayout: any;
+  clockOffset: number;
+  syncMode?: "ntp" | "websocket";
+  serverIp?: string;
+  serverPort?: string;
 }
 
 /**
@@ -33,23 +41,153 @@ function AdPlayerScreen({
   isLandscape,
   isSleeping,
   playlist,
+  deviceId,
+  isSyncGroup,
+  syncLayout,
+  clockOffset,
+  syncMode = "ntp",
+  serverIp = "localhost",
+  serverPort = "3000",
 }: AdPlayerScreenProps) {
   // === SINGLE render state — only updated when slide index changes ===
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(Platform.OS !== "web");
 
+  // === Video Wall & Group Sync Logic ===
+  // Tìm slot index của thiết bị này trong ma trận Video Wall
+  const mySlotIndex = React.useMemo(() => {
+    console.log("[Video Wall Debug] deviceId:", deviceId);
+    console.log("[Video Wall Debug] isSyncGroup:", isSyncGroup);
+    console.log("[Video Wall Debug] syncLayout (type):", typeof syncLayout);
+    console.log("[Video Wall Debug] syncLayout:", syncLayout);
+
+    if (!isSyncGroup || !syncLayout || !deviceId) return null;
+
+    let parsedLayout = syncLayout;
+    if (typeof syncLayout === "string") {
+      try {
+        parsedLayout = JSON.parse(syncLayout);
+      } catch (e) {
+        console.error("[Video Wall Debug] Không thể parse syncLayout:", e);
+        return null;
+      }
+    }
+
+    const deviceMapping = parsedLayout.deviceMapping;
+    if (!deviceMapping || typeof deviceMapping !== "object") {
+      console.log("[Video Wall Debug] deviceMapping không hợp lệ");
+      return null;
+    }
+
+    for (const slotKey in deviceMapping) {
+      const val = deviceMapping[slotKey];
+      if (Array.isArray(val)) {
+        if (val.includes(deviceId)) {
+          const slot = parseInt(slotKey, 10);
+          console.log("[Video Wall Debug] Thiết bị được gán ô số:", slot);
+          return slot;
+        }
+      } else if (val === deviceId) {
+        const slot = parseInt(slotKey, 10);
+        console.log("[Video Wall Debug] Thiết bị được gán ô số:", slot);
+        return slot;
+      }
+    }
+    console.log("[Video Wall Debug] Không tìm thấy deviceId này trong deviceMapping");
+    return null;
+  }, [isSyncGroup, syncLayout, deviceId]);
+
+  // CSS Viewport Crop: Calculate row/col position for this device's slot
+  const videoWallCrop = React.useMemo(() => {
+    if (!isSyncGroup || mySlotIndex === null || !syncLayout) return null;
+
+    let parsedLayout = syncLayout;
+    if (typeof syncLayout === "string") {
+      try {
+        parsedLayout = JSON.parse(syncLayout);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    const videoWall = parsedLayout.videoWall;
+    if (!videoWall) return null;
+
+    const { rows, cols } = videoWall;
+    if (!rows || !cols) return null;
+
+    const row = Math.floor((mySlotIndex - 1) / cols);
+    const col = (mySlotIndex - 1) % cols;
+
+    const cropObj = {
+      rows,
+      cols,
+      row,
+      col,
+      mediaWidth: `${cols * 100}%`,
+      mediaHeight: `${rows * 100}%`,
+      left: `${-col * 100}%`,
+      top: `${-row * 100}%`,
+    };
+    console.log("[Video Wall Debug] Tính toán CSS crop thành công:", cropObj);
+    return cropObj;
+  }, [isSyncGroup, mySlotIndex, syncLayout]);
+
+  // Lọc playlist: Chỉ phát phần video cắt của chính thiết bị này trên Video Wall
+  const filteredPlaylist = React.useMemo(() => {
+    if (isSyncGroup && mySlotIndex !== null && playlist.length > 0) {
+      const matched = playlist.filter((item) => item.sortOrder === mySlotIndex);
+      if (matched.length > 0) {
+        console.log(`[Video Wall] Player slot ${mySlotIndex}: Đã lọc playlist còn ${matched.length} phần cắt.`);
+        return matched;
+      }
+    }
+    return playlist;
+  }, [playlist, mySlotIndex, isSyncGroup]);
+
+  // Tạo roomId duy nhất cho nhóm bằng cách ghép và sort tất cả deviceId trong syncLayout
+  const roomId = React.useMemo(() => {
+    if (!isSyncGroup || !syncLayout) return null;
+    let parsedLayout = syncLayout;
+    if (typeof syncLayout === "string") {
+      try {
+        parsedLayout = JSON.parse(syncLayout);
+      } catch (e) {
+        return null;
+      }
+    }
+    const deviceMapping = parsedLayout.deviceMapping;
+    if (!deviceMapping || typeof deviceMapping !== "object") return null;
+
+    const deviceIds: string[] = [];
+    for (const slotKey in deviceMapping) {
+      const val = deviceMapping[slotKey];
+      if (Array.isArray(val)) {
+        deviceIds.push(...val);
+      } else if (typeof val === "string") {
+        deviceIds.push(val);
+      }
+    }
+    const id = "room_" + deviceIds.sort().join("_");
+    console.log("[WebSocket Sync] roomId được tạo từ syncLayout:", id);
+    return id;
+  }, [isSyncGroup, syncLayout]);
+
   // === Refs — mutable state that does NOT trigger re-renders ===
   const currentIndexRef = useRef(0);
-  const playlistRef = useRef(playlist);
+  const playlistRef = useRef(filteredPlaylist);
   const isSleepingRef = useRef(isSleeping);
   const slideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTransitioningRef = useRef(false);
   const currentLoadedUrlRef = useRef("");
   const hasInitializedRef = useRef(false);
   const hasInteractedRef = useRef(Platform.OS !== "web");
+  const lastSeekTimeRef = useRef(0);
+  const socketRef = useRef<any>(null);
+  const checkDurationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Keep refs in sync with latest props (cheap assignment, no re-render)
-  playlistRef.current = playlist;
+  playlistRef.current = filteredPlaylist;
   isSleepingRef.current = isSleeping;
 
   // === Video player — stable instance from expo-video ===
@@ -60,6 +198,17 @@ function AdPlayerScreen({
   });
   const playerRef = useRef(player);
   playerRef.current = player;
+
+  // Enable loop mode for Video Wall sync or single-item video playlists
+  useEffect(() => {
+    const pl = playlistRef.current;
+    const isSingleVideo = pl.length === 1 && pl[0].type === "video";
+    if ((isSyncGroup && videoWallCrop) || isSingleVideo) {
+      player.loop = true;
+    } else {
+      player.loop = false;
+    }
+  }, [isSyncGroup, videoWallCrop, player, filteredPlaylist]);
 
   // Safe helper to play video and catch browser autoplay blocking rejections
   const safePlay = useCallback((p: any) => {
@@ -106,6 +255,10 @@ function AdPlayerScreen({
       clearTimeout(slideTimerRef.current);
       slideTimerRef.current = null;
     }
+    if (checkDurationIntervalRef.current) {
+      clearInterval(checkDurationIntervalRef.current);
+      checkDurationIntervalRef.current = null;
+    }
   }, []);
 
   // === Core: advance to next item (forward declaration via ref) ===
@@ -134,6 +287,20 @@ function AdPlayerScreen({
             console.warn("[Playback] player.replace() error:", err);
           }
         }
+
+        // Tự động tua đến vị trí chuẩn tuyệt đối ngay lập tức khi bắt đầu load (chỉ với NTP)
+        if (isSyncGroup && syncMode === "ntp") {
+          const durationMs = item.duration || 10000;
+          const nowServerTime = Date.now() + clockOffset;
+          const targetPosMs = nowServerTime % durationMs;
+          try {
+            p.currentTime = targetPosMs / 1000;
+            console.log(`[Sync Playback] Tua ngay lập tức khi load video đến vị trí: ${(targetPosMs / 1000).toFixed(3)}s`);
+          } catch (err) {
+            console.warn("[Sync Playback] Lỗi tua khi load video:", err);
+          }
+        }
+
         if (!isSleepingRef.current && hasInteractedRef.current) {
           if (isSourceChanged && Platform.OS === "web") {
             // Delay play call on Web to allow source initialization and prevent AbortError
@@ -155,13 +322,56 @@ function AdPlayerScreen({
         currentLoadedUrlRef.current = "";
       }
 
-      // Duration-based timer to advance to next slide
-      const duration = item.duration || 10000;
-      slideTimerRef.current = setTimeout(() => {
-        goToNextRef.current();
-      }, duration);
+      // Duration-based timer to advance to next slide (chỉ đặt nếu playlist có nhiều hơn 1 phần tử hoặc không phải video)
+      if (pl.length > 1 || item.type !== "video") {
+        let duration = item.duration || 10000;
+
+        if (item.type === "video") {
+          // Tạm thời đặt slide timer fallback cực lớn (10 phút) chờ lấy duration thực tế của video
+          duration = 600000;
+
+          let checkCount = 0;
+          checkDurationIntervalRef.current = setInterval(() => {
+            checkCount++;
+            try {
+              const actualDurationSec = p.duration;
+              if (actualDurationSec && actualDurationSec > 0) {
+                if (checkDurationIntervalRef.current) {
+                  clearInterval(checkDurationIntervalRef.current);
+                  checkDurationIntervalRef.current = null;
+                }
+                const actualDurationMs = actualDurationSec * 1000;
+                console.log(`[Playback] Đã phát hiện thời lượng thực tế của video: ${actualDurationSec}s. Cập nhật lại slide timer.`);
+                
+                // Xóa slide timer fallback và đặt lại slide timer chuẩn xác
+                if (slideTimerRef.current) {
+                  clearTimeout(slideTimerRef.current);
+                }
+                slideTimerRef.current = setTimeout(() => {
+                  goToNextRef.current();
+                }, actualDurationMs);
+              }
+            } catch (err) {
+              console.warn("[Playback] Lỗi kiểm tra duration video:", err);
+            }
+
+            if (checkCount > 80) { // Dừng kiểm tra sau 20s
+              if (checkDurationIntervalRef.current) {
+                clearInterval(checkDurationIntervalRef.current);
+                checkDurationIntervalRef.current = null;
+              }
+            }
+          }, 250);
+        }
+
+        slideTimerRef.current = setTimeout(() => {
+          goToNextRef.current();
+        }, duration);
+      } else {
+        console.log("[Playback] Playlist chỉ có 1 video. Kích hoạt chế độ lặp native, không đặt slide timer.");
+      }
     },
-    [clearSlideTimer],
+    [clearSlideTimer, isSyncGroup, clockOffset],
   );
 
   // === Core: transition to next slide ===
@@ -181,9 +391,12 @@ function AdPlayerScreen({
       const item = pl[0];
       clearSlideTimer();
       if (item.type === "video" && hasInteractedRef.current) {
+        // Video có loop = true native nên ta không cần đặt lại slideTimer nữa
         safePlay(playerRef.current);
+        isTransitioningRef.current = false;
+        return;
       }
-      // Restart timer
+      // Restart timer (chỉ dành cho ảnh/pdf/url)
       slideTimerRef.current = setTimeout(() => {
         isTransitioningRef.current = false;
         goToNextRef.current();
@@ -208,7 +421,7 @@ function AdPlayerScreen({
 
   // === Effect: initial load when playlist first becomes available ===
   useEffect(() => {
-    if (playlist.length > 0 && !hasInitializedRef.current) {
+    if (filteredPlaylist.length > 0 && !hasInitializedRef.current) {
       hasInitializedRef.current = true;
       currentIndexRef.current = 0;
       setCurrentIndex(0);
@@ -217,22 +430,22 @@ function AdPlayerScreen({
       return () => clearTimeout(t);
     }
     // Reset initialization when playlist goes empty
-    if (playlist.length === 0) {
+    if (filteredPlaylist.length === 0) {
       hasInitializedRef.current = false;
       clearSlideTimer();
     }
-  }, [playlist.length, loadItem, clearSlideTimer]);
+  }, [filteredPlaylist.length, loadItem, clearSlideTimer]);
 
   // === Effect: detect playlist content change (not just length) ===
   const playlistHashRef = useRef("");
   useEffect(() => {
-    const hash = playlist.map((item) => item.url).join("|");
+    const hash = filteredPlaylist.map((item) => item.url).join("|");
     if (hash !== playlistHashRef.current && playlistHashRef.current !== "") {
       // Playlist content changed — reload from beginning
       playlistHashRef.current = hash;
       currentIndexRef.current = 0;
       setCurrentIndex(0);
-      if (playlist.length > 0) {
+      if (filteredPlaylist.length > 0) {
         currentLoadedUrlRef.current = ""; // Force reload
         const t = setTimeout(() => loadItem(0), 150);
         return () => clearTimeout(t);
@@ -240,7 +453,7 @@ function AdPlayerScreen({
     } else {
       playlistHashRef.current = hash;
     }
-  }, [playlist, loadItem]);
+  }, [filteredPlaylist, loadItem]);
 
   // === Effect: Global unhandled rejection handler to silence harmless Web video AbortErrors ===
   useEffect(() => {
@@ -322,21 +535,189 @@ function AdPlayerScreen({
 
   // === Ensure index stays in bounds when playlist shrinks ===
   useEffect(() => {
-    if (playlist.length > 0 && currentIndex >= playlist.length) {
+    if (filteredPlaylist.length > 0 && currentIndex >= filteredPlaylist.length) {
       const safeIdx = 0;
       currentIndexRef.current = safeIdx;
       setCurrentIndex(safeIdx);
     }
-  }, [playlist.length, currentIndex]);
+  }, [filteredPlaylist.length, currentIndex]);
 
   // === Derive current item for rendering (computation only, no state) ===
   const safeIdx =
-    playlist.length > 0 ? Math.min(currentIndex, playlist.length - 1) : -1;
-  const currentItem = safeIdx >= 0 ? playlist[safeIdx] : null;
+    filteredPlaylist.length > 0 ? Math.min(currentIndex, filteredPlaylist.length - 1) : -1;
+  const currentItem = safeIdx >= 0 ? filteredPlaylist[safeIdx] : null;
+
+  // === Effect: Drift Correction (Sửa lệch pha đồng bộ theo thời gian tuyệt đối của Server) ===
+  useEffect(() => {
+    if (syncMode !== "ntp") return; // Chỉ chạy NTP Drift Correction khi chế độ đồng bộ là ntp
+    if (!isSyncGroup || !currentItem || currentItem.type !== "video" || isSleeping) return;
+
+    const p = playerRef.current;
+    if (!p) return;
+
+    const checkDrift = () => {
+      // Bỏ qua kiểm tra lệch pha nếu vừa thực hiện tua video trong vòng 5 giây trước để video kịp buffer mạng
+      if (Date.now() - lastSeekTimeRef.current < 5000) {
+        return;
+      }
+      try {
+        // Chỉ thực hiện đồng bộ lệch pha khi thời lượng video thực tế đã sẵn sàng
+        const actualDurationSec = p.duration;
+        if (!actualDurationSec || actualDurationSec <= 0) return;
+        const durationMs = actualDurationSec * 1000;
+
+        // Tính toán vị trí phát chuẩn tuyệt đối (server time modulo video duration)
+        const nowServerTime = Date.now() + clockOffset;
+        const targetPosMs = nowServerTime % durationMs;
+        const targetPosSec = targetPosMs / 1000;
+
+        const currentPosSec = p.currentTime;
+        const diff = Math.abs(currentPosSec - targetPosSec);
+
+        // Nếu lệch pha quá 0.5s, tự động tua (seek) video về vị trí chuẩn
+        if (diff > 0.5) {
+          console.log(`[Drift Correction] Lệch pha phát hiện: thực tế=${currentPosSec.toFixed(3)}s, chuẩn=${targetPosSec.toFixed(3)}s, lệch=${diff.toFixed(3)}s. Tiến hành tua...`);
+          lastSeekTimeRef.current = Date.now();
+          p.currentTime = targetPosSec;
+        }
+      } catch (err) {
+        console.warn("[Sync Playback] Lỗi kiểm tra lệch pha (Drift Correction):", err);
+      }
+    };
+
+    // Chạy kiểm tra tức thì và lặp lại định kỳ mỗi 1.5 giây
+    checkDrift();
+    const intervalId = setInterval(checkDrift, 1500);
+
+    return () => clearInterval(intervalId);
+  }, [isSyncGroup, currentItem, clockOffset, isSleeping, syncMode]);
+
+  // === Effect: WebSocket Connection ===
+  useEffect(() => {
+    if (syncMode !== "websocket" || !isSyncGroup || !roomId || !deviceId) {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      return;
+    }
+
+    const socketUrl = `http://${serverIp}:${serverPort}`;
+    console.log(`[WebSocket Sync] Kết nối tới socket server: ${socketUrl} (Room: ${roomId})`);
+    const socket = io(socketUrl, {
+      transports: ["websocket"],
+      reconnectionAttempts: 5,
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      console.log("[WebSocket Sync] Kết nối thành công. Gửi join_room.");
+      socket.emit("join_room", { playlistId: roomId, deviceId });
+    });
+
+    socket.on("disconnect", () => {
+      console.log("[WebSocket Sync] Mất kết nối tới server.");
+    });
+
+    socket.on("connect_error", (err) => {
+      console.warn("[WebSocket Sync] Lỗi kết nối socket:", err.message);
+    });
+
+    return () => {
+      console.log("[WebSocket Sync] Component unmount. Ngắt kết nối socket.");
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [syncMode, isSyncGroup, roomId, deviceId, serverIp, serverPort]);
+
+  // === Effect: WebSocket Master Broadcast Time (Chỉ Master ô số 1 gửi tín hiệu) ===
+  useEffect(() => {
+    if (syncMode !== "websocket" || !isSyncGroup || mySlotIndex !== 1 || !currentItem || currentItem.type !== "video" || isSleeping) {
+      return;
+    }
+
+    const p = playerRef.current;
+    if (!p) return;
+
+    const intervalId = setInterval(() => {
+      const socket = socketRef.current;
+      if (socket && socket.connected) {
+        const payload = {
+          playlistId: roomId,
+          deviceId,
+          mediaId: currentItem.checksum || currentItem.url,
+          currentTime: p.currentTime,
+          timestamp: Date.now(),
+        };
+        socket.emit("master_time_update", payload);
+      }
+    }, 100); // 100ms gửi tín hiệu 1 lần để đảm bảo độ trễ thấp và bám đuổi nhanh
+
+    return () => clearInterval(intervalId);
+  }, [syncMode, isSyncGroup, mySlotIndex, currentItem, roomId, deviceId, isSleeping]);
+
+  // === Effect: WebSocket Slave Follow Master (Các Slave ô 2, 3, 4 bám đuổi) ===
+  useEffect(() => {
+    if (syncMode !== "websocket" || !isSyncGroup || mySlotIndex === 1 || !roomId) {
+      return;
+    }
+
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const handleSlaveSync = (data: { mediaId: string; currentTime: number; timestamp: number }) => {
+      const p = playerRef.current;
+      if (!p) return;
+
+      // 1. Kiểm tra xem Master có đổi video khác hay không
+      const targetIdx = filteredPlaylist.findIndex(
+        (item) => (item.checksum && item.checksum === data.mediaId) || item.url === data.mediaId
+      );
+      if (targetIdx !== -1 && targetIdx !== currentIndexRef.current) {
+        console.log(`[WebSocket Sync] Master chuyển video mới: ${data.mediaId}. Chuyển sang index ${targetIdx}`);
+        currentIndexRef.current = targetIdx;
+        setCurrentIndex(targetIdx);
+        loadItem(targetIdx);
+        return; // Đợi load video mới xong thì vòng sync sau sẽ tự động tua thời gian
+      }
+
+      // 2. Tính toán độ trễ mạng mạng và tua đuổi theo Master
+      const latencySec = (Date.now() - data.timestamp) / 1000;
+      const targetPosSec = data.currentTime + latencySec;
+
+      // Tránh tua liên tục nếu Slave vừa thực hiện tua video trong vòng 5 giây trước đó
+      if (Date.now() - lastSeekTimeRef.current < 5000) {
+        return;
+      }
+
+      try {
+        const actualDurationSec = p.duration;
+        if (!actualDurationSec || actualDurationSec <= 0) return;
+
+        // Chỉ tua nếu vị trí Master nhỏ hơn thời lượng video của Slave
+        if (targetPosSec < actualDurationSec) {
+          const currentPosSec = p.currentTime;
+          const diff = Math.abs(currentPosSec - targetPosSec);
+
+          if (diff > 0.5) {
+            console.log(`[WebSocket Sync] Lệch pha với Master: slave=${currentPosSec.toFixed(3)}s, master=${targetPosSec.toFixed(3)}s (lệch ${diff.toFixed(3)}s). Tiến hành bám đuổi...`);
+            lastSeekTimeRef.current = Date.now();
+            p.currentTime = targetPosSec;
+          }
+        }
+      } catch (err) {
+        console.warn("[WebSocket Sync] Lỗi khi xử lý tua video Slave:", err);
+      }
+    };
+
+    socket.on("slave_sync", handleSlaveSync);
+
+    return () => {
+      socket.off("slave_sync", handleSlaveSync);
+    };
+  }, [syncMode, isSyncGroup, mySlotIndex, filteredPlaylist, roomId, loadItem]);
 
   // ===== RENDER =====
-
-
 
   if (Platform.OS === "web" && !hasInteracted) {
     return (
@@ -354,7 +735,7 @@ function AdPlayerScreen({
     );
   }
 
-  if (!currentItem || playlist.length === 0) {
+  if (!currentItem || filteredPlaylist.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <View style={styles.emptyIconCircle}>
@@ -374,27 +755,55 @@ function AdPlayerScreen({
 
   return (
     <View style={styles.container}>
+
       {/* Image layer — only mounted when current item is image */}
       {currentItem.type === "image" && (
         <View style={styles.mediaContainer}>
-          <Image
-            source={{ uri: currentItem.url }}
-            style={styles.media}
-            resizeMode="contain"
-            // No onLoadStart/onLoadEnd — these cause setState loops on Web
-          />
+          <View
+            style={
+              videoWallCrop
+                ? {
+                    position: "absolute",
+                    width: videoWallCrop.mediaWidth as any,
+                    height: videoWallCrop.mediaHeight as any,
+                    left: videoWallCrop.left as any,
+                    top: videoWallCrop.top as any,
+                  }
+                : { width: "100%", height: "100%" }
+            }
+          >
+            <Image
+              source={{ uri: currentItem.url }}
+              style={styles.media}
+              resizeMode={videoWallCrop ? "cover" : "contain"}
+            />
+          </View>
         </View>
       )}
 
       {/* Video layer — only mounted when current item is video */}
       {currentItem.type === "video" && (
         <View style={styles.mediaContainer}>
-          <VideoView
-            player={player}
-            style={styles.media}
-            nativeControls={false}
-            contentFit="contain"
-          />
+          <View
+            style={
+              videoWallCrop
+                ? {
+                    position: "absolute",
+                    width: videoWallCrop.mediaWidth as any,
+                    height: videoWallCrop.mediaHeight as any,
+                    left: videoWallCrop.left as any,
+                    top: videoWallCrop.top as any,
+                  }
+                : { width: "100%", height: "100%" }
+            }
+          >
+            <VideoView
+              player={player}
+              style={styles.media}
+              nativeControls={false}
+              contentFit={videoWallCrop ? "cover" : "contain"}
+            />
+          </View>
         </View>
       )}
 
@@ -402,16 +811,30 @@ function AdPlayerScreen({
       {currentItem.type === "pdf" && (
         <View style={styles.mediaContainer}>
           {Platform.OS === "web" ? (
-            <iframe
-              src={currentItem.url}
-              style={{
-                width: "100%",
-                height: "100%",
-                border: "none",
-                backgroundColor: "#000000",
-              }}
-              title="PDF Viewer"
-            />
+            <View
+              style={
+                videoWallCrop
+                  ? {
+                      position: "absolute",
+                      width: videoWallCrop.mediaWidth as any,
+                      height: videoWallCrop.mediaHeight as any,
+                      left: videoWallCrop.left as any,
+                      top: videoWallCrop.top as any,
+                    }
+                  : { width: "100%", height: "100%" }
+              }
+            >
+              <iframe
+                src={currentItem.url.includes("#") ? currentItem.url : `${currentItem.url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  border: "none",
+                  backgroundColor: "#000000",
+                }}
+                title="PDF Viewer"
+              />
+            </View>
           ) : (
             <View style={styles.fallbackContainer}>
               <Text style={styles.fallbackText}>📄 Đang hiển thị tài liệu PDF</Text>
@@ -425,16 +848,30 @@ function AdPlayerScreen({
       {currentItem.type === "url" && (
         <View style={styles.mediaContainer}>
           {Platform.OS === "web" ? (
-            <iframe
-              src={currentItem.url}
-              style={{
-                width: "100%",
-                height: "100%",
-                border: "none",
-                backgroundColor: "#000000",
-              }}
-              title="Web URL Viewer"
-            />
+            <View
+              style={
+                videoWallCrop
+                  ? {
+                      position: "absolute",
+                      width: videoWallCrop.mediaWidth as any,
+                      height: videoWallCrop.mediaHeight as any,
+                      left: videoWallCrop.left as any,
+                      top: videoWallCrop.top as any,
+                    }
+                  : { width: "100%", height: "100%" }
+              }
+            >
+              <iframe
+                src={currentItem.url}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  border: "none",
+                  backgroundColor: "#000000",
+                }}
+                title="Web URL Viewer"
+              />
+            </View>
           ) : (
             <View style={styles.fallbackContainer}>
               <Text style={styles.fallbackText}>🌐 Đang hiển thị trang Web</Text>
@@ -454,6 +891,13 @@ function arePropsEqual(
 ): boolean {
   if (prev.isLandscape !== next.isLandscape) return false;
   if (prev.isSleeping !== next.isSleeping) return false;
+  if (prev.deviceId !== next.deviceId) return false;
+  if (prev.isSyncGroup !== next.isSyncGroup) return false;
+  if (prev.clockOffset !== next.clockOffset) return false;
+  if (prev.syncMode !== next.syncMode) return false;
+  if (prev.serverIp !== next.serverIp) return false;
+  if (prev.serverPort !== next.serverPort) return false;
+  if (JSON.stringify(prev.syncLayout) !== JSON.stringify(next.syncLayout)) return false;
   if (prev.playlist.length !== next.playlist.length) return false;
   for (let i = 0; i < prev.playlist.length; i++) {
     if (prev.playlist[i]?.url !== next.playlist[i]?.url) return false;
@@ -524,8 +968,8 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     backgroundColor: "#000000",
-    justifyContent: "center",
-    alignItems: "center",
+    position: "relative",
+    overflow: "hidden",
   },
   media: {
     width: "100%",

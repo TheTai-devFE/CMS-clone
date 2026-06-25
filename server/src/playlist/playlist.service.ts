@@ -14,13 +14,6 @@ import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdatePlaylistDto } from './dto/update-playlist.dto';
 import { ConfigService } from '@nestjs/config';
-import { exec } from 'child_process';
-import * as util from 'util';
-import * as path from 'path';
-import * as fs from 'fs';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-
-const execPromise = util.promisify(exec);
 
 @Injectable()
 export class PlaylistService {
@@ -298,9 +291,12 @@ export class PlaylistService {
         typeof syncLayout.deviceMapping === 'object'
       ) {
         for (const key in syncLayout.deviceMapping) {
-          const ids = syncLayout.deviceMapping[key];
-          if (Array.isArray(ids)) {
-            ids.forEach((id) => {
+          const value = syncLayout.deviceMapping[key];
+          // Support both string (Video Wall: 1 device per slot) and array (Standard sync: multiple devices per slot)
+          if (typeof value === 'string') {
+            deviceIds.add(value);
+          } else if (Array.isArray(value)) {
+            value.forEach((id) => {
               if (typeof id === 'string') deviceIds.add(id);
             });
           }
@@ -705,278 +701,51 @@ export class PlaylistService {
   }
 
   // ==========================================
-  // HELPERS FOR VIDEO WALL AUTOMATED SLICING
+  // VIDEO WALL — CSS VIEWPORT CROPPING
   // ==========================================
-
-  private async getVideoDimensions(
-    filePath: string,
-  ): Promise<{ width: number; height: number }> {
-    try {
-      const { stdout } = await execPromise(
-        `/opt/homebrew/bin/ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "${filePath}"`,
-      );
-      const parts = stdout.trim().split('x');
-      if (parts.length === 2) {
-        const width = parseInt(parts[0], 10);
-        const height = parseInt(parts[1], 10);
-        if (!isNaN(width) && !isNaN(height)) {
-          return { width, height };
-        }
-      }
-      throw new Error('Định dạng kích thước video không hợp lệ');
-    } catch (err) {
-      console.error('[FFprobe] Lỗi khi đọc kích thước video:', err);
-      return { width: 1920, height: 1080 };
-    }
-  }
-
-  private async getVideoDuration(filePath: string): Promise<number> {
-    try {
-      const { stdout } = await execPromise(
-        `/opt/homebrew/bin/ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`,
-      );
-      const duration = parseFloat(stdout.trim());
-      if (!isNaN(duration)) {
-        return Math.ceil(duration);
-      }
-      return 10;
-    } catch (err) {
-      console.error('[FFprobe] Lỗi khi đọc thời lượng video:', err);
-      return 10;
-    }
-  }
-
-  private async sliceVideo(
-    inputPath: string,
-    outputPath: string,
-    width: number,
-    height: number,
-    x: number,
-    y: number,
-  ): Promise<void> {
-    const cmd = `/opt/homebrew/bin/ffmpeg -y -i "${inputPath}" -vf "crop=${width}:${height}:${x}:${y}" -c:v libx264 -crf 23 -an "${outputPath}"`;
-    try {
-      await execPromise(cmd);
-      console.log(`[FFmpeg] Cắt video thành công: ${outputPath}`);
-    } catch (err: unknown) {
-      console.error('[FFmpeg] Lỗi khi cắt video:', err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      throw new BadRequestException(
-        'Không thể cắt video bằng FFmpeg: ' + errMsg,
-      );
-    }
-  }
+  // Instead of FFmpeg slicing, create N playlist items all pointing
+  // to the SAME source media. The Player client will handle CSS-based
+  // viewport cropping to show only its grid slot portion.
 
   private async processVideoWallSlicing(
     playlistId: string,
     sourceMediaId: string,
     rows: number,
     cols: number,
-    userId: string,
+    _userId: string,
   ) {
+    // Verify source media exists
     const sourceMedia = await this.prisma.media.findUnique({
       where: { id: sourceMediaId },
     });
     if (!sourceMedia) {
       throw new NotFoundException(
-        'Không tìm thấy video nguồn để ghép Video Wall',
+        'Không tìm thấy nội dung nguồn để ghép Video Wall',
       );
     }
 
-    const storageType =
-      this.configService.get<string>('STORAGE_TYPE') || 'local';
-    const uploadDir =
-      this.configService.get<string>('UPLOAD_DIR') || './uploads';
+    const totalSlots = rows * cols;
 
-    let sourcePath = '';
-    let isTempSourceDownloaded = false;
-
-    if (storageType === 'r2') {
-      const tempSourceFileName = `downloaded_source_${crypto.randomUUID()}_${path.basename(sourceMedia.fileUrl)}`;
-      sourcePath = path.join(uploadDir, tempSourceFileName);
-
-      try {
-        console.log(
-          `[Video Wall Slicing] Tải video nguồn từ Cloudflare R2: ${sourceMedia.fileUrl}`,
-        );
-        const response = await fetch(sourceMedia.fileUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        fs.writeFileSync(sourcePath, Buffer.from(arrayBuffer));
-        isTempSourceDownloaded = true;
-      } catch (err) {
-        console.error(
-          '[Video Wall Slicing] Lỗi khi tải video nguồn từ R2:',
-          err,
-        );
-        throw new BadRequestException(
-          'Không thể tải video nguồn từ Cloudflare R2 để xử lý cắt video',
-        );
-      }
-    } else {
-      const sourceFileName = path.basename(sourceMedia.fileUrl);
-      sourcePath = path.join(uploadDir, sourceFileName);
-      if (!fs.existsSync(sourcePath)) {
-        throw new BadRequestException(
-          'Tệp video nguồn không tồn tại trên hệ thống cục bộ',
-        );
-      }
-    }
-
-    const { width, height } = await this.getVideoDimensions(sourcePath);
-    const duration = await this.getVideoDuration(sourcePath);
-
-    const sliceWidth = Math.floor(width / cols);
-    const sliceHeight = Math.floor(height / rows);
+    // Default duration: 30 seconds for images, or use a reasonable default for videos.
+    // The Player will override this with actual video duration via player.duration for NTP sync.
+    const defaultDuration = sourceMedia.mimeType.startsWith('video/') ? 30 : 10;
 
     console.log(
-      `[Video Wall Slicing] Video gốc: ${width}x${height}, cắt thành Lưới ${rows}x${cols}. Kích thước ô: ${sliceWidth}x${sliceHeight}`,
+      `[Video Wall] CSS Crop mode: Tạo ${totalSlots} slots (${rows}x${cols}) trỏ đến source media: ${sourceMedia.fileName}`,
     );
 
-    const newPlaylistItems: {
-      mediaId: string;
-      sortOrder: number;
-      duration: number;
-    }[] = [];
-
-    try {
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          const slotIndex = row * cols + col + 1;
-          const xOffset = col * sliceWidth;
-          const yOffset = row * sliceHeight;
-
-          const tempOutputName = `temp_${playlistId}_slot_${slotIndex}.mp4`;
-          const tempOutputPath = path.join(uploadDir, tempOutputName);
-
-          await this.sliceVideo(
-            sourcePath,
-            tempOutputPath,
-            sliceWidth,
-            sliceHeight,
-            xOffset,
-            yOffset,
-          );
-
-          const checksum = await this.calculateFileMd5(tempOutputPath);
-          const finalFileName = `${checksum}.mp4`;
-          const finalFilePath = path.join(uploadDir, finalFileName);
-
-          let fileUrl = '';
-          const fileSize = fs.statSync(tempOutputPath).size;
-
-          if (storageType === 'r2') {
-            try {
-              const accessKeyId = this.configService.get<string>(
-                'CLOUDFLARE_R2_ACCESS_KEY_ID',
-              );
-              const secretAccessKey = this.configService.get<string>(
-                'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
-              );
-              const endpoint = this.configService.get<string>(
-                'CLOUDFLARE_R2_ENDPOINT',
-              );
-              const r2BucketName =
-                this.configService.get<string>('CLOUDFLARE_R2_BUCKET_NAME') ||
-                'cms-media';
-              const r2PublicUrl =
-                this.configService.get<string>('CLOUDFLARE_R2_PUBLIC_URL') ||
-                '';
-
-              const s3Client = new S3Client({
-                region: 'auto',
-                endpoint,
-                credentials: {
-                  accessKeyId: accessKeyId!,
-                  secretAccessKey: secretAccessKey!,
-                },
-              });
-
-              // Check if media already exists in R2 or DB to avoid duplicate upload
-              const existsInDb = await this.prisma.media.findFirst({
-                where: { checksum },
-              });
-
-              if (!existsInDb) {
-                const fileBuffer = fs.readFileSync(tempOutputPath);
-                await s3Client.send(
-                  new PutObjectCommand({
-                    Bucket: r2BucketName,
-                    Key: finalFileName,
-                    Body: fileBuffer,
-                    ContentType: 'video/mp4',
-                  }),
-                );
-              }
-
-              if (fs.existsSync(tempOutputPath)) {
-                fs.unlinkSync(tempOutputPath);
-              }
-
-              const baseUrl = r2PublicUrl.endsWith('/')
-                ? r2PublicUrl.slice(0, -1)
-                : r2PublicUrl;
-              fileUrl = `${baseUrl}/${finalFileName}`;
-            } catch (r2Err) {
-              console.error(
-                '[Video Wall Slicing] Lỗi khi upload phần cắt lên R2:',
-                r2Err,
-              );
-              throw new BadRequestException(
-                'Không thể lưu phần cắt video lên Cloudflare R2',
-              );
-            }
-          } else {
-            if (!fs.existsSync(finalFilePath)) {
-              fs.renameSync(tempOutputPath, finalFilePath);
-            } else {
-              fs.unlinkSync(tempOutputPath);
-            }
-            fileUrl = `/uploads/${finalFileName}`;
-          }
-
-          const sliceName = `Wall_${slotIndex}_${sourceMedia.fileName}`;
-
-          let mediaRecord = await this.prisma.media.findFirst({
-            where: { checksum },
-          });
-
-          if (!mediaRecord) {
-            mediaRecord = await this.prisma.media.create({
-              data: {
-                userId,
-                fileName: sliceName,
-                fileUrl,
-                fileSize: BigInt(fileSize),
-                mimeType: 'video/mp4',
-                checksum,
-              },
-            });
-          }
-
-          newPlaylistItems.push({
-            mediaId: mediaRecord.id,
-            sortOrder: slotIndex,
-            duration,
-          });
-        }
-      }
-    } finally {
-      // Xóa file nguồn tạm nếu đã download
-      if (isTempSourceDownloaded && fs.existsSync(sourcePath)) {
-        try {
-          fs.unlinkSync(sourcePath);
-        } catch (err) {
-          console.error(
-            '[Video Wall Slicing] Lỗi khi xóa file nguồn tạm:',
-            err,
-          );
-        }
-      }
+    // Create N playlist items all referencing the same source media
+    const newPlaylistItems: { mediaId: string; sortOrder: number; duration: number }[] = [];
+    for (let i = 0; i < totalSlots; i++) {
+      const slotIndex = i + 1; // 1-based slot index
+      newPlaylistItems.push({
+        mediaId: sourceMediaId,
+        sortOrder: slotIndex,
+        duration: defaultDuration,
+      });
     }
 
+    // Replace existing playlist items
     await this.prisma.$transaction(async (tx) => {
       await tx.playlistItem.deleteMany({
         where: { playlistId },
@@ -997,17 +766,7 @@ export class PlaylistService {
     });
 
     console.log(
-      `[Video Wall Slicing] Đã gán ${newPlaylistItems.length} ô cắt vào Playlist ID: ${playlistId}`,
+      `[Video Wall] Đã gán ${newPlaylistItems.length} slots vào Playlist ID: ${playlistId}`,
     );
-  }
-
-  private calculateFileMd5(filePath: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const hash = crypto.createHash('md5');
-      const stream = fs.createReadStream(filePath);
-      stream.on('data', (data) => hash.update(data));
-      stream.on('end', () => resolve(hash.digest('hex')));
-      stream.on('error', (err) => reject(err));
-    });
   }
 }
