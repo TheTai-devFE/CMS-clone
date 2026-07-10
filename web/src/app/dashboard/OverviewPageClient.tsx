@@ -8,8 +8,8 @@ import {
 } from "@/hooks/useApi";
 import { DashboardTab } from "@/types/dashboard";
 import { useRouter } from "next/navigation";
-import HomeTab from "./components/HomeTab";
-import KpiCards from "./components/KpiCards";
+import HomeTab from "@/components/dashboard/HomeTab";
+import KpiCards from "@/components/dashboard/KpiCards";
 import { useDashboard } from "./context/DashboardContext";
 
 // Shadcn UI Components

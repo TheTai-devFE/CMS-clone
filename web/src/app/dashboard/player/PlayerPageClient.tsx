@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useDashboard } from '../context/DashboardContext';
+import { useDashboard } from '@/app/dashboard/context/DashboardContext';
 import { api } from '@/utils/api';
-import PlayerTab from '../components/PlayerTab';
-import ClaimDeviceModal from '../components/ClaimDeviceModal';
-import EditDeviceModal from '../components/EditDeviceModal';
+import PlayerTab from '@/components/dashboard/PlayerTab';
+import ClaimDeviceModal from '@/components/dashboard/ClaimDeviceModal';
+import EditDeviceModal from '@/components/dashboard/EditDeviceModal';
 import { useDevices } from '@/hooks/useApi';
 import { Device } from '@/types/dashboard';
 
@@ -27,7 +27,7 @@ export default function PlayerPageClient() {
   if (!currentUser) return null;
 
   // Filter devices based on search query
-  const filteredDevices = devices.filter(d => 
+  const filteredDevices = devices.filter(d =>
     d.deviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (d.ipAddress && d.ipAddress.includes(searchQuery)) ||
     (d.macAddress && d.macAddress.toLowerCase().includes(searchQuery.toLowerCase()))

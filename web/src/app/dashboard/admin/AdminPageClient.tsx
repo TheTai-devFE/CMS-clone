@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useDashboard } from '../context/DashboardContext';
+import { useDashboard } from '@/app/dashboard/context/DashboardContext';
 import { api } from '@/utils/api';
-import AdminTab from '../components/AdminTab';
-import AssignDeviceModal from '../components/AssignDeviceModal';
+import AssignDeviceModal from '@/components/dashboard/AssignDeviceModal';
 import { usePendingDevices, useUsers } from '@/hooks/useApi';
+import AdminTab from '@/components/dashboard/AdminTab';
 
 export default function AdminPageClient() {
   const {
@@ -19,7 +19,7 @@ export default function AdminPageClient() {
 
   // Use SWR hooks for admin data fetching with caching
   const { pendingDevices, mutate: mutatePending } = usePendingDevices(isAdmin);
-  const { users } = useUsers(isAdmin);
+  const { users, mutate: mutateUsers } = useUsers(isAdmin);
 
   // Local Modal States
   const [selectedDeviceForAssign, setSelectedDeviceForAssign] = useState<string | null>(null);
@@ -80,6 +80,7 @@ export default function AdminPageClient() {
         pendingDevices={filteredPendingDevices}
         users={users}
         handleOpenAssignModal={handleOpenAssignModal}
+        onUsersChange={mutateUsers}
       />
 
       <AssignDeviceModal

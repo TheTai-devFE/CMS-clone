@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTemplateDto } from './dto/create-template.dto';
 
@@ -33,7 +34,7 @@ export class TemplateService {
           y: zone.y,
           width: zone.width,
           height: zone.height,
-          contentData: (zone.contentData as any) ?? {},
+          contentData: (zone.contentData ?? {}) as unknown as Prisma.InputJsonValue,
         }));
 
         await tx.zone.createMany({
@@ -124,7 +125,7 @@ export class TemplateService {
             y: zone.y,
             width: zone.width,
             height: zone.height,
-            contentData: (zone.contentData as any) ?? {},
+          contentData: (zone.contentData ?? {}) as unknown as Prisma.InputJsonValue,
           }));
 
           await tx.zone.createMany({

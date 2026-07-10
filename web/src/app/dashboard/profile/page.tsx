@@ -3,20 +3,23 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { cookieStorage } from '../../../utils/cookie';
-import UserProfile from '../components/UserProfile';
+import UserProfile from '@/components/dashboard/UserProfile';
+import { User } from '@/types/dashboard';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const user = cookieStorage.getUserInfo();
     if (!user) {
       router.push('/login');
       return;
     }
-    setCurrentUser(user);
+    setCurrentUser(user as User);
   }, [router]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!currentUser) {
     return (

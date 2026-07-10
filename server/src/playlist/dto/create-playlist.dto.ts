@@ -14,5 +14,5 @@ export class CreatePlaylistDto {
   isSyncGroup?: boolean;
 
   @IsOptional()
-  syncLayout?: any;
+  syncLayout?: Record<string, unknown>;
 }

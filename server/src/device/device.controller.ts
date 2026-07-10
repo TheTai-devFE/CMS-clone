@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { CurrentUser as CurrentUserType } from '../auth/interfaces/current-user.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { DeviceService } from './device.service';
@@ -21,6 +22,12 @@ import { RegisterDeviceDto } from './dto/register-device.dto';
 import { CreatePairingCodeDto } from './dto/create-pairing-code.dto';
 import { ClaimDeviceDto } from './dto/claim-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
+
+export class BatchActionDto {
+  deviceIds: string[];
+  volume?: number;
+  apkUrl?: string;
+}
 
 @Controller()
 export class DeviceController {
@@ -62,13 +69,13 @@ export class DeviceController {
 
   @Post('api/devices/claim')
   @UseGuards(JwtAuthGuard)
-  async claimDevice(@CurrentUser() user: any, @Body() dto: ClaimDeviceDto) {
+  async claimDevice(@CurrentUser() user: CurrentUserType, @Body() dto: ClaimDeviceDto) {
     return this.deviceService.claimDevice(user.id, dto);
   }
 
   @Get('api/devices')
   @UseGuards(JwtAuthGuard)
-  async getUserDevices(@CurrentUser() user: any) {
+  async getUserDevices(@CurrentUser() user: CurrentUserType) {
     if (user.role === 'admin') {
       return this.deviceService.getAllDevices();
     }
@@ -77,7 +84,7 @@ export class DeviceController {
 
   @Get('api/devices/logs')
   @UseGuards(JwtAuthGuard)
-  async getSystemLogs(@CurrentUser() user: any) {
+  async getSystemLogs(@CurrentUser() user: CurrentUserType) {
     return this.deviceService.getSystemLogs(user);
   }
 
@@ -86,7 +93,7 @@ export class DeviceController {
   async updateDevice(
     @Param('id') id: string,
     @Body() dto: UpdateDeviceDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: CurrentUserType,
   ) {
     if (user.role !== 'admin') {
       const userDevices = await this.deviceService.getUserDevices(user.id);
@@ -102,7 +109,7 @@ export class DeviceController {
 
   @Delete('api/devices/:id')
   @UseGuards(JwtAuthGuard)
-  async deleteDevice(@Param('id') id: string, @CurrentUser() user: any) {
+  async deleteDevice(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
     // Nếu là user thường, kiểm tra xem thiết bị có thuộc quyền sở hữu không trước khi xóa
     if (user.role !== 'admin') {
       const userDevices = await this.deviceService.getUserDevices(user.id);
@@ -132,5 +139,39 @@ export class DeviceController {
   @Roles('admin')
   async assignDevice(@Param('id') id: string, @Body() dto: AssignDeviceDto) {
     return this.deviceService.assignDevice(id, dto.userId);
+  }
+
+  // ==========================================
+  // BATCH ACTIONS (YÊU CẦU AUTH)
+  // ==========================================
+
+  @Post('api/devices/batch/reboot')
+  @UseGuards(JwtAuthGuard)
+  async batchReboot(@CurrentUser() user: CurrentUserType, @Body() dto: BatchActionDto) {
+    return this.deviceService.batchReboot(user, dto.deviceIds);
+  }
+
+  @Post('api/devices/batch/volume')
+  @UseGuards(JwtAuthGuard)
+  async batchVolume(@CurrentUser() user: CurrentUserType, @Body() dto: BatchActionDto) {
+    return this.deviceService.batchVolume(user, dto.deviceIds, dto.volume!);
+  }
+
+  @Post('api/devices/batch/install-apk')
+  @UseGuards(JwtAuthGuard)
+  async batchInstallApk(@CurrentUser() user: CurrentUserType, @Body() dto: BatchActionDto) {
+    return this.deviceService.batchInstallApk(user, dto.deviceIds, dto.apkUrl);
+  }
+
+  @Post('api/devices/batch/uninstall-apk')
+  @UseGuards(JwtAuthGuard)
+  async batchUninstallApk(@CurrentUser() user: CurrentUserType, @Body() dto: BatchActionDto) {
+    return this.deviceService.batchUninstallApk(user, dto.deviceIds);
+  }
+
+  @Post('api/devices/batch/clear-content')
+  @UseGuards(JwtAuthGuard)
+  async batchClearContent(@CurrentUser() user: CurrentUserType, @Body() dto: BatchActionDto) {
+    return this.deviceService.batchClearContent(user, dto.deviceIds);
   }
 }

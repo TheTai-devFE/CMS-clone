@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { api } from '../../utils/api';
 import { cookieStorage } from '../../utils/cookie';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -63,7 +64,7 @@ export default function LoginPageClient() {
     <div className="auth-container">
       <div className="auth-decorative">
         <div style={{ marginBottom: '28px' }}>
-          <img src="/Logo-CDM-transparent.png" alt="CDM Logo" style={{ height: '70px', objectFit: 'contain' }} />
+          <Image src="/Logo-CDM-transparent.png" alt="CDM Logo" width={200} height={70} style={{ height: '70px', width: 'auto', objectFit: 'contain' }} />
         </div>
         <h1 className="auth-brand-title">
           Control <span className="auth-brand-accent">Digital Media</span>

@@ -24,7 +24,8 @@ export const api = {
       headers.set('Content-Type', 'application/json');
     }
 
-    const { useMultipart, ...restOptions } = options;
+    const { useMultipart: _useMultipart, ...restOptions } = options;
+    void _useMultipart;
     const config: RequestInit = {
       ...restOptions,
       headers,
@@ -64,7 +65,7 @@ export const api = {
       }
       try {
         return JSON.parse(text);
-      } catch (err) {
+      } catch {
         return text;
       }
     } catch (error: unknown) {

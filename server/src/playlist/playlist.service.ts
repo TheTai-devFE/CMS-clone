@@ -281,7 +281,7 @@ export class PlaylistService {
   // SCHEDULING (LẬP LỊCH)
   // ==========================================
 
-  private getDeviceIdsFromSyncLayout(syncLayout: any): string[] {
+  private getDeviceIdsFromSyncLayout(syncLayout: Record<string, unknown> | null | undefined): string[] {
     if (!syncLayout) return [];
     const deviceIds = new Set<string>();
 
@@ -328,7 +328,7 @@ export class PlaylistService {
       if (dto.deviceIds && dto.deviceIds.length > 0) {
         deviceIds = dto.deviceIds;
       } else {
-        deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout);
+        deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout as Record<string, unknown> | null | undefined);
       }
     } else if (dto.templateId) {
       const template = await this.prisma.template.findUnique({
@@ -476,7 +476,7 @@ export class PlaylistService {
       if (dto.deviceIds && dto.deviceIds.length > 0) {
         deviceIds = dto.deviceIds;
       } else {
-        deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout);
+        deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout as Record<string, unknown> | null | undefined);
       }
     } else if (dto.templateId) {
       const template = await this.prisma.template.findUnique({

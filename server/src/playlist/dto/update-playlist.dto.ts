@@ -14,5 +14,5 @@ export class UpdatePlaylistDto {
   isSyncGroup?: boolean;
 
   @IsOptional()
-  syncLayout?: any;
+  syncLayout?: Record<string, unknown>;
 }

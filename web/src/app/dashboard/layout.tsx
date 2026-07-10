@@ -3,9 +3,9 @@
 import { useDevices } from "@/hooks/useApi";
 import { DashboardTab } from "@/types/dashboard";
 import React, { useState } from "react";
-import Header from "./components/Header";
-import Sidebar from "./components/Sidebar";
-import Toaster from "./components/Toaster";
+import Header from "@/components/dashboard/Header";
+import Sidebar from "@/components/dashboard/Sidebar";
+import Toaster from "@/components/dashboard/Toaster";
 import { DashboardProvider, useDashboard } from "./context/DashboardContext";
 
 const getActiveTab = (pathname: string): DashboardTab => {

@@ -403,18 +403,28 @@ export class DeviceService {
   async getUserDevices(userId: string) {
     const devices = await this.prisma.device.findMany({
       where: { userId },
+      include: { user: { select: { shortId: true } } },
       orderBy: { createdAt: 'desc' },
     });
 
-    return this.enrichDevicesWithRealtimeStatus(devices);
+    const enriched = await this.enrichDevicesWithRealtimeStatus(devices);
+    return enriched.map((d) => ({
+      ...d,
+      userShortId: (d as { user?: { shortId: string } }).user?.shortId || null,
+    }));
   }
 
   async getAllDevices() {
     const devices = await this.prisma.device.findMany({
+      include: { user: { select: { shortId: true } } },
       orderBy: { createdAt: 'desc' },
     });
 
-    return this.enrichDevicesWithRealtimeStatus(devices);
+    const enriched = await this.enrichDevicesWithRealtimeStatus(devices);
+    return enriched.map((d) => ({
+      ...d,
+      userShortId: (d as { user?: { shortId: string } }).user?.shortId || null,
+    }));
   }
 
   async updateDevice(id: string, dto: UpdateDeviceDto) {
@@ -537,7 +547,7 @@ export class DeviceService {
   }
 
   // Helper function để đọc trạng thái realtime từ Redis cho danh sách thiết bị
-  private async enrichDevicesWithRealtimeStatus(devices: any[]) {
+  private async enrichDevicesWithRealtimeStatus(devices: { id: string; status: string }[]) {
     const enriched = await Promise.all(
       devices.map(async (device) => {
         const redisKey = `device:status:${device.id}`;
@@ -565,5 +575,73 @@ export class DeviceService {
       }),
     );
     return enriched;
+  }
+
+  async batchReboot(user: { id: string; role: string }, deviceIds: string[]) {
+    const devices = await this.getAccessibleDevices(user, deviceIds);
+    for (const device of devices) {
+      await this.redis.set(`device:command:${device.id}:reboot`, JSON.stringify({
+        command: 'reboot',
+        timestamp: Date.now(),
+      }), 300);
+    }
+    return { success: true, count: devices.length, message: `Đã gửi lệnh reboot tới ${devices.length} thiết bị` };
+  }
+
+  async batchVolume(user: { id: string; role: string }, deviceIds: string[], volume: number) {
+    const devices = await this.getAccessibleDevices(user, deviceIds);
+    for (const device of devices) {
+      await this.redis.set(`device:command:${device.id}:volume`, JSON.stringify({
+        command: 'volume',
+        volume,
+        timestamp: Date.now(),
+      }), 300);
+    }
+    return { success: true, count: devices.length, message: `Đã gửi lệnh điều chỉnh âm lượng (${volume}%) tới ${devices.length} thiết bị` };
+  }
+
+  async batchInstallApk(user: { id: string; role: string }, deviceIds: string[], apkUrl?: string) {
+    const devices = await this.getAccessibleDevices(user, deviceIds);
+    for (const device of devices) {
+      await this.redis.set(`device:command:${device.id}:install-apk`, JSON.stringify({
+        command: 'install-apk',
+        apkUrl,
+        timestamp: Date.now(),
+      }), 600);
+    }
+    return { success: true, count: devices.length, message: `Đã gửi lệnh cài đặt APK tới ${devices.length} thiết bị` };
+  }
+
+  async batchUninstallApk(user: { id: string; role: string }, deviceIds: string[]) {
+    const devices = await this.getAccessibleDevices(user, deviceIds);
+    for (const device of devices) {
+      await this.redis.set(`device:command:${device.id}:uninstall-apk`, JSON.stringify({
+        command: 'uninstall-apk',
+        timestamp: Date.now(),
+      }), 300);
+    }
+    return { success: true, count: devices.length, message: `Đã gửi lệnh gỡ APK tới ${devices.length} thiết bị` };
+  }
+
+  async batchClearContent(user: { id: string; role: string }, deviceIds: string[]) {
+    const devices = await this.getAccessibleDevices(user, deviceIds);
+    for (const device of devices) {
+      await this.redis.set(`device:command:${device.id}:clear-content`, JSON.stringify({
+        command: 'clear-content',
+        timestamp: Date.now(),
+      }), 300);
+    }
+    return { success: true, count: devices.length, message: `Đã gửi lệnh xóa nội dung tới ${devices.length} thiết bị` };
+  }
+
+  private async getAccessibleDevices(user: { id: string; role: string }, deviceIds: string[]) {
+    if (user.role === 'admin') {
+      return this.prisma.device.findMany({
+        where: { id: { in: deviceIds } },
+      });
+    }
+    return this.prisma.device.findMany({
+      where: { id: { in: deviceIds }, userId: user.id },
+    });
   }
 }
