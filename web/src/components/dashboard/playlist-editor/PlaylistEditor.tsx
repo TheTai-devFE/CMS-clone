@@ -1,11 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Device, MediaItem, Playlist } from "@/types/dashboard";
-import { api } from "@/utils/api";
-import { ChevronLeft, Layers, Loader2 } from "lucide-react";
+import { MediaItem, Playlist, Device } from "@/types/dashboard";
+import { api, getFileUrl } from "@/utils/api";
+import { ChevronLeft, Clock, Film, Layers, Loader2, Search, Check, Settings } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import PlaylistCanvas from "./PlaylistCanvas";
-import PlaylistProperties from "./PlaylistProperties";
 import PlaylistSidebar, { PlaylistItemData } from "./PlaylistSidebar";
 
 interface PlaylistEditorProps {
@@ -76,10 +75,23 @@ export default function PlaylistEditor({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
-  // Players list state
-  const [deviceList, setDeviceList] = useState<Device[]>([]);
-  const [targetDeviceId, setTargetDeviceId] = useState<string>("");
   const [scaleMode, setScaleMode] = useState<"stretch" | "crop">("stretch");
+
+  // Media list filter/search state
+  const [mediaSearchQuery, setMediaSearchQuery] = useState("");
+  const [mediaFilterType, setMediaFilterType] = useState<"all" | "image" | "video">("all");
+
+  const filteredMedia = mediaList.filter((media) => {
+    const matchesSearch = media.fileName.toLowerCase().includes(mediaSearchQuery.toLowerCase());
+    const isImg = media.mimeType.startsWith("image/");
+    const isVid = media.mimeType.startsWith("video/");
+    if (mediaFilterType === "image") return matchesSearch && isImg;
+    if (mediaFilterType === "video") return matchesSearch && isVid;
+    return matchesSearch && (isImg || isVid);
+  });
+
+  // Players list state (for Video Wall only)
+  const [deviceList, setDeviceList] = useState<Device[]>([]);
 
   useEffect(() => {
     const fetchDevices = async () => {
@@ -137,7 +149,6 @@ export default function PlaylistEditor({
           width?: number;
           height?: number;
           scaleMode?: "stretch" | "crop";
-          targetDeviceId?: string;
           deviceMapping?: Record<string, string[]>;
           videoWall?: {
             rows: number;
@@ -153,7 +164,6 @@ export default function PlaylistEditor({
         } else {
           setSelectedResValue("1920*1080");
         }
-        setTargetDeviceId(syncLayout?.targetDeviceId || "");
         setScaleMode(syncLayout?.scaleMode || "stretch");
 
         if (syncLayout?.videoWall) {
@@ -379,16 +389,6 @@ export default function PlaylistEditor({
     );
   };
 
-  // Update active slide target devices (for sync group mode)
-  const handleUpdateSlideTargetDevices = (deviceIds: string[]) => {
-    if (!activeSlideId) return;
-    setSlides((prev) =>
-      prev.map((s) =>
-        s.id === activeSlideId ? { ...s, targetDeviceIds: deviceIds } : s,
-      ),
-    );
-  };
-
   // Assign media to active slide
   const handleAssignMediaToSlide = (mediaId: string) => {
     if (!activeSlideId) return;
@@ -475,7 +475,6 @@ export default function PlaylistEditor({
           height: selectedOption.height,
           aspectRatio: selectedOption.ratio,
           scaleMode,
-          targetDeviceId: !isSyncGroup ? targetDeviceId : undefined,
           deviceMapping: isSyncGroup ? deviceMapping : undefined,
           videoWall: isVideoWallMode
             ? {
@@ -554,9 +553,6 @@ export default function PlaylistEditor({
         </div>
 
         <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" onClick={handleCloseEditor}>
-            Hủy
-          </Button>
           <Button
             onClick={handleSavePlaylist}
             disabled={isSaving}
@@ -612,9 +608,259 @@ export default function PlaylistEditor({
       )}
 
       {/* PPTX Editor Workspace */}
-      <div className="flex gap-4 items-start bg-card border border-border p-3 rounded-2xl shadow-sm w-full">
-        {isVideoWallMode ? (
-          /* Video Wall Grid Simulator Workspace */
+      {!isVideoWallMode && (
+        <div className="space-y-4">
+          {/* Top: Config Panel */}
+          <div className="bg-card border border-border p-4 rounded-2xl shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Playlist Name */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                  Tên Playlist *
+                </label>
+                <input
+                  value={playlistName}
+                  onChange={(e) => setPlaylistName(e.target.value)}
+                  placeholder="Nhập tên playlist"
+                  className="w-full h-8 rounded-md border border-input px-2 py-1 bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Resolution */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                  Tỷ lệ màn hình
+                </label>
+                <select
+                  value={selectedResValue}
+                  onChange={(e) => setSelectedResValue(e.target.value)}
+                  className="w-full h-8 rounded-md border border-input px-2 py-1 bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                >
+                  {RESOLUTION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Playlist Mode */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                  Chế độ phát
+                </label>
+                <div className="flex border border-border bg-muted/30 p-0.5 rounded-md text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSyncGroup(false);
+                      setIsVideoWallMode(false);
+                    }}
+                    className={`flex-1 py-1 rounded text-center transition-all ${!isSyncGroup ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                  >
+                    Đơn lẻ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsSyncGroup(true)}
+                    className={`flex-1 py-1 rounded text-center transition-all ${isSyncGroup ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                  >
+                    Đồng bộ
+                  </button>
+                </div>
+              </div>
+
+              {/* Scale Mode */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                  Tỷ lệ co giãn
+                </label>
+                <div className="flex border border-border bg-muted/30 p-0.5 rounded-md text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setScaleMode("stretch")}
+                    className={`flex-1 py-1 rounded text-center transition-all ${scaleMode === "stretch" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                  >
+                    Bóp hình (Stretch)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScaleMode("crop")}
+                    className={`flex-1 py-1 rounded text-center transition-all ${scaleMode === "crop" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                  >
+                    Cắt hình (Crop)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Description row */}
+            <div className="mt-3 pt-3 border-t border-border/40">
+              <div className="flex items-center gap-4">
+                <div className="flex-1 space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Mô tả ngắn
+                  </label>
+                  <input
+                    value={playlistDesc}
+                    onChange={(e) => setPlaylistDesc(e.target.value)}
+                    placeholder="Mô tả danh sách phát"
+                    className="w-full h-8 rounded-md border border-input px-2 py-1 bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+                {activeSlide && (
+                  <div className="w-48 space-y-1">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Thời gian slide {activeSlideIndex + 1} (giây)
+                    </label>
+                    {!activeSlide.mimeType?.startsWith("video/") ? (
+                      <input
+                        type="number"
+                        value={activeSlide.duration}
+                        onChange={(e) => handleUpdateSlideDuration(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-full h-8 rounded-md border border-input px-2 py-1 bg-background text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                        min="1"
+                      />
+                    ) : (
+                      <span className="text-[10px] text-blue-500 italic">Tự động theo video</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom: Workspace (Sidebar + Canvas | Media List) */}
+          <div className="flex gap-4 items-start bg-card border border-border p-3 rounded-2xl shadow-sm w-full">
+            {/* Left: Slide Sidebar */}
+            <PlaylistSidebar
+              slides={slides}
+              activeSlideId={activeSlideId}
+              mediaList={mediaList}
+              onSelectSlide={setActiveSlideId}
+              onAddSlide={handleAddSlide}
+              onDeleteSlide={handleDeleteSlide}
+              onMoveSlide={handleMoveSlide}
+            />
+
+            {/* Center: Slide Canvas Simulator */}
+            <PlaylistCanvas
+              activeSlide={activeSlide}
+              mediaList={mediaList}
+              canvasWidth={canvasWidth}
+              canvasHeight={canvasHeight}
+              scaleFactor={scaleFactor}
+              canvasRef={canvasRef}
+              scaleMode={scaleMode}
+            />
+
+            {/* Right: Media List Only */}
+            <div className="w-72 shrink-0 border-l border-border bg-card flex flex-col h-[calc(100vh-20rem)] min-h-[400px] rounded-r-xl overflow-hidden">
+              <div className="p-3 border-b border-border/60 bg-muted/20">
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Film className="h-4 w-4 text-primary shrink-0" />
+                  Thư viện Media
+                </span>
+              </div>
+              <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/60" />
+                  <input
+                    placeholder="Tìm kiếm tài nguyên..."
+                    value={mediaSearchQuery}
+                    onChange={(e) => setMediaSearchQuery(e.target.value)}
+                    className="w-full h-8 rounded-md border border-input pl-8 pr-2 py-1 bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+
+                {/* Type Filter */}
+                <div className="flex border border-border bg-muted/30 p-0.5 rounded-md text-[10px] font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setMediaFilterType("all")}
+                    className={`flex-1 py-1 rounded text-center transition-all ${mediaFilterType === "all" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                  >
+                    Tất cả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMediaFilterType("image")}
+                    className={`flex-1 py-1 rounded text-center transition-all ${mediaFilterType === "image" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                  >
+                    Ảnh
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMediaFilterType("video")}
+                    className={`flex-1 py-1 rounded text-center transition-all ${mediaFilterType === "video" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"}`}
+                  >
+                    Video
+                  </button>
+                </div>
+
+                {/* Media Items */}
+                <div className="border border-border rounded-lg max-h-[300px] overflow-y-auto divide-y divide-border/60 bg-muted/10 pr-1 scrollbar-thin">
+                  {filteredMedia.map((media) => {
+                    const isSelected = activeSlide?.mediaId === media.id;
+                    const isMediaVideo = media.mimeType.startsWith("video/");
+
+                    return (
+                      <div
+                        key={media.id}
+                        onClick={() => handleAssignMediaToSlide(media.id)}
+                        className={`flex items-center justify-between p-2 cursor-pointer transition-colors ${
+                          isSelected
+                            ? "bg-primary/10 font-bold border-l-2 border-primary"
+                            : "hover:bg-muted/80 bg-background"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 max-w-[80%]">
+                          <div className="h-6 w-6 rounded overflow-hidden shrink-0 border border-border/40 bg-zinc-100 flex items-center justify-center">
+                            {isMediaVideo ? (
+                              <Film className="h-3.5 w-3.5 text-blue-500" />
+                            ) : (
+                              <img
+                                src={getFileUrl(media.fileUrl)}
+                                alt={media.fileName}
+                                className="h-full w-full object-cover"
+                              />
+                            )}
+                          </div>
+                          <span className="truncate text-[11px] text-foreground">
+                            {media.fileName}
+                          </span>
+                        </div>
+
+                        <div
+                          className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center shrink-0 ${
+                            isSelected
+                              ? "bg-primary border-primary text-primary-foreground"
+                              : "border-border bg-background"
+                          }`}
+                        >
+                          {isSelected && <Check className="h-2.5 w-2.5" />}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {filteredMedia.length === 0 && (
+                    <div className="p-4 text-center text-[10px] text-muted-foreground italic">
+                      Không tìm thấy tệp phù hợp trong thư viện
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Video Wall Mode */}
+      {isVideoWallMode && (
+        <div className="flex gap-4 items-start bg-card border border-border p-3 rounded-2xl shadow-sm w-full">
           <div className="flex-1 min-h-[500px] bg-muted/20 border border-border/40 rounded-xl p-6 flex flex-col justify-between space-y-4">
             <div>
               <h4 className="text-sm font-bold text-foreground flex items-center gap-2 mb-1">
@@ -641,9 +887,6 @@ export default function PlaylistEditor({
                     const cellKey = `${rIdx}-${cIdx}`;
                     const selectedDevId = videoWallMapping[cellKey] || "";
                     const cellNumber = rIdx * videoWallCols + cIdx + 1;
-                    const selectedDevice = deviceList.find(
-                      (d) => d.id === selectedDevId,
-                    );
 
                     return (
                       <div
@@ -654,7 +897,6 @@ export default function PlaylistEditor({
                             : "border-border/80"
                         }`}
                       >
-                        {/* Corner Decorative Accent */}
                         <div className="absolute top-0 right-0 w-12 h-12 bg-primary/5 rounded-bl-full transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform" />
 
                         <div className="flex items-center justify-between">
@@ -664,22 +906,8 @@ export default function PlaylistEditor({
                             </span>
                             Ô {rIdx + 1}x{cIdx + 1}
                           </span>
-                          {selectedDevice && (
-                            <span
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
-                                selectedDevice.status === "online"
-                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                  : "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
-                              }`}
-                            >
-                              {selectedDevice.status === "online"
-                                ? "Online"
-                                : "Offline"}
-                            </span>
-                          )}
                         </div>
 
-                        {/* Device Selector */}
                         <div className="space-y-1 z-10">
                           <select
                             value={selectedDevId}
@@ -707,7 +935,6 @@ export default function PlaylistEditor({
               </div>
             </div>
 
-            {/* Quick Status / Guide */}
             <div className="text-[11px] text-muted-foreground bg-muted/40 p-2.5 rounded-lg border border-border/40 leading-relaxed">
               💡 **Hướng dẫn:** Video wall sẽ cắt video nguồn ra làm **
               {videoWallRows * videoWallCols}** phần theo lưới trên. Khi phát,
@@ -715,64 +942,117 @@ export default function PlaylistEditor({
               và chạy đồng bộ tuyệt đối với các ô còn lại qua cơ chế NTP Clock.
             </div>
           </div>
-        ) : (
-          <>
-            {/* Left: Slide Sidebar */}
-            <PlaylistSidebar
-              slides={slides}
-              activeSlideId={activeSlideId}
-              mediaList={mediaList}
-              onSelectSlide={setActiveSlideId}
-              onAddSlide={handleAddSlide}
-              onDeleteSlide={handleDeleteSlide}
-              onMoveSlide={handleMoveSlide}
-            />
 
-            {/* Center: Slide Canvas Simulator */}
-            <PlaylistCanvas
-              activeSlide={activeSlide}
-              mediaList={mediaList}
-              canvasWidth={canvasWidth}
-              canvasHeight={canvasHeight}
-              scaleFactor={scaleFactor}
-              canvasRef={canvasRef}
-              scaleMode={scaleMode}
-            />
-          </>
-        )}
+          {/* Video Wall Right Panel: Video Source + Device List */}
+          <div className="w-72 shrink-0 border-l border-border bg-card flex flex-col h-[calc(100vh-20rem)] min-h-[400px] rounded-r-xl overflow-hidden">
+            <div className="p-3 border-b border-border/60 bg-muted/20">
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Settings className="h-4 w-4 text-primary shrink-0" />
+                Cấu hình Video Wall
+              </span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin">
+              {/* Rows & Cols */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Số hàng
+                  </label>
+                  <input
+                    type="number"
+                    value={videoWallRows}
+                    onChange={(e) => setVideoWallRows(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+                    className="w-full h-8 rounded-md border border-input px-2 py-1 bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                    min="1"
+                    max="10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Số cột
+                  </label>
+                  <input
+                    type="number"
+                    value={videoWallCols}
+                    onChange={(e) => setVideoWallCols(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+                    className="w-full h-8 rounded-md border border-input px-2 py-1 bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                    min="1"
+                    max="10"
+                  />
+                </div>
+              </div>
 
-        {/* Right: Properties Settings Panel */}
-        <PlaylistProperties
-          playlistName={playlistName}
-          onChangePlaylistName={setPlaylistName}
-          playlistDesc={playlistDesc}
-          onChangePlaylistDesc={setPlaylistDesc}
-          selectedResValue={selectedResValue}
-          onChangeResolution={setSelectedResValue}
-          isSyncGroup={isSyncGroup}
-          onChangeSyncGroup={setIsSyncGroup}
-          activeSlide={activeSlide}
-          activeSlideIndex={activeSlideIndex}
-          onChangeSlideDuration={handleUpdateSlideDuration}
-          mediaList={mediaList}
-          onAssignMediaToSlide={handleAssignMediaToSlide}
-          deviceList={deviceList}
-          targetDeviceId={targetDeviceId}
-          onChangeTargetDevice={setTargetDeviceId}
-          onChangeSlideTargetDevices={handleUpdateSlideTargetDevices}
-          scaleMode={scaleMode}
-          onChangeScaleMode={setScaleMode}
-          // Video Wall Props
-          isVideoWallMode={isVideoWallMode}
-          onChangeVideoWallMode={setIsVideoWallMode}
-          videoWallRows={videoWallRows}
-          onChangeVideoWallRows={setVideoWallRows}
-          videoWallCols={videoWallCols}
-          onChangeVideoWallCols={setVideoWallCols}
-          videoWallSourceMediaId={videoWallSourceMediaId}
-          onChangeVideoWallSourceMedia={setVideoWallSourceMediaId}
-        />
-      </div>
+              {/* Video Source */}
+              <div className="space-y-2 pt-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                  Chọn Video nguồn *
+                </label>
+                <div className="border border-border rounded-lg max-h-[200px] overflow-y-auto divide-y divide-border/60 bg-muted/10 pr-1 scrollbar-thin">
+                  {mediaList
+                    .filter((media) => media.mimeType.startsWith("video/"))
+                    .map((media) => {
+                      const isSelected = videoWallSourceMediaId === media.id;
+                      return (
+                        <div
+                          key={media.id}
+                          onClick={() => setVideoWallSourceMediaId(media.id)}
+                          className={`flex items-center justify-between p-2 cursor-pointer transition-colors ${
+                            isSelected
+                              ? "bg-primary/10 font-bold border-l-2 border-primary"
+                              : "hover:bg-muted/80 bg-background"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 max-w-[80%]">
+                            <div className="h-6 w-6 rounded overflow-hidden shrink-0 border border-border/40 bg-zinc-100 flex items-center justify-center">
+                              <Film className="h-3.5 w-3.5 text-blue-500" />
+                            </div>
+                            <span className="truncate text-[11px] text-foreground">
+                              {media.fileName}
+                            </span>
+                          </div>
+                          <div
+                            className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center shrink-0 ${
+                              isSelected
+                                ? "bg-primary border-primary text-primary-foreground"
+                                : "border-border bg-background"
+                            }`}
+                          >
+                            {isSelected && <Check className="h-2.5 w-2.5" />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  {mediaList.filter((media) => media.mimeType.startsWith("video/")).length === 0 && (
+                    <div className="p-4 text-center text-[10px] text-muted-foreground italic">
+                      Không tìm thấy tệp video nào trong thư viện
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Device List for Video Wall */}
+              <div className="space-y-2 pt-1 border-t border-border/40 pt-3">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                  Danh sách thiết bị
+                </label>
+                <div className="max-h-[200px] overflow-y-auto space-y-1 pr-1 scrollbar-thin">
+                  {deviceList.map((dev) => (
+                    <div key={dev.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/20 text-[11px]">
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${dev.status === 'online' ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                      <span className="truncate text-foreground">{dev.deviceName}</span>
+                    </div>
+                  ))}
+                  {deviceList.length === 0 && (
+                    <div className="text-[10px] text-muted-foreground italic text-center py-2">
+                      Không có thiết bị khả dụng
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

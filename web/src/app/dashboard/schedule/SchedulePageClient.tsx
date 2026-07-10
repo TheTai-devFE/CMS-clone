@@ -1,6 +1,6 @@
 'use client';
-import ScheduleTab from '../components/schedule/ScheduleTab';
-import { useDashboard } from '../context/DashboardContext';
+import ScheduleTab from '@/components/dashboard/schedule/ScheduleTab';
+import { useDashboard } from '@/app/dashboard/context/DashboardContext';
 import { usePlaylists, useSchedules } from '@/hooks/useApi';
 
 export default function SchedulePageClient() {

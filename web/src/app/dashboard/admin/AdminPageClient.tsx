@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useDashboard } from '../context/DashboardContext';
+import { useDashboard } from '@/app/dashboard/context/DashboardContext';
 import { api } from '@/utils/api';
-import AdminTab from '../components/AdminTab';
-import AssignDeviceModal from '../components/AssignDeviceModal';
+import AssignDeviceModal from '@/components/dashboard/AssignDeviceModal';
 import { usePendingDevices, useUsers } from '@/hooks/useApi';
+import AdminTab from '@/components/dashboard/AdminTab';
 
 export default function AdminPageClient() {
   const {

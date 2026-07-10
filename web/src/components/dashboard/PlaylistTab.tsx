@@ -23,7 +23,7 @@ import { api } from "@/utils/api";
 import { Playlist } from "@/types/dashboard";
 import PlaylistEditor from "./playlist-editor/PlaylistEditor";
 import PlaylistPreviewModal from "./PlaylistPreviewModal";
-import { useDashboard } from "../context/DashboardContext";
+import { useDashboard } from "@/app/dashboard/context/DashboardContext";
 import { QuickPublishModal } from "./QuickPublishModal";
 
 interface PlaylistTabProps {

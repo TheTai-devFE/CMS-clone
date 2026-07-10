@@ -4,7 +4,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Tv, Settings, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { User, Device } from '@/types/dashboard';
 
 interface PlayerTableProps {
@@ -60,7 +59,6 @@ export default function PlayerTable({
             </th>
             <th className="p-3 font-semibold w-[220px]">Thiết bị</th>
             <th className="p-3 font-semibold w-[120px]">Trạng thái</th>
-            <th className="p-3 font-semibold w-[120px]">Phê duyệt</th>
             <th className="p-3 font-semibold">IP Address</th>
             <th className="p-3 font-semibold">Độ phân giải</th>
             <th className="p-3 font-semibold">Hệ điều hành</th>
@@ -79,7 +77,6 @@ export default function PlayerTable({
           {devices.map((device) => {
             const isSelected = selectedDeviceIds.includes(device.id);
             const isOnline = device.status === 'online';
-            const isApproved = device.approvalStatus === 'approved';
 
             return (
               <motion.tr
@@ -126,17 +123,6 @@ export default function PlayerTable({
                       {isOnline ? 'Online' : 'Offline'}
                     </span>
                   </div>
-                </td>
-
-                {/* Approval Status */}
-                <td className="p-3">
-                  <Badge className={`text-[10px] font-semibold border-none pointer-events-none ${
-                    isApproved 
-                      ? 'bg-primary/10 text-primary hover:bg-primary/10' 
-                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10'
-                  }`}>
-                    {isApproved ? 'Đã duyệt' : 'Chờ duyệt'}
-                  </Badge>
                 </td>
 
                 {/* IP Address */}

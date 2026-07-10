@@ -1,8 +1,8 @@
 'use client';
 
+import { useDashboard } from '@/app/dashboard/context/DashboardContext';
+import { api } from '@/utils/api';
 import React, { useState } from 'react';
-import { api } from '../../../utils/api';
-import { useDashboard } from '../context/DashboardContext';
 
 interface UserProfileProps {
   currentUser: {
@@ -18,7 +18,7 @@ interface UserProfileProps {
 
 export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
   const { setError, setSuccessMsg } = useDashboard();
-  
+
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -101,7 +101,7 @@ export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
             </svg>
             Thông tin tài khoản
           </div>
-          
+
           <div className="profile-card-body">
             <div className="profile-detail-grid">
               <div className="profile-detail-item">

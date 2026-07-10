@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { useDashboard } from '../context/DashboardContext';
-import EventLogTab from '../components/EventLogTab';
+import { useDashboard } from '@/app/dashboard/context/DashboardContext';
+import EventLogTab from '@/components/dashboard/EventLogTab';
 import { useDeviceLogs } from '@/hooks/useApi';
 
 export default function EventLogPageClient() {

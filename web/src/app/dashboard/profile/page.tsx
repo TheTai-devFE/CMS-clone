@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { cookieStorage } from '../../../utils/cookie';
-import UserProfile from '../components/UserProfile';
+import UserProfile from '@/components/dashboard/UserProfile';
 
 export default function ProfilePage() {
   const router = useRouter();

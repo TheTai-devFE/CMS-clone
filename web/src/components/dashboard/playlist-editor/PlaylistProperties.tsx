@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Settings, Clock, Check, Search, Film } from "lucide-react";
-import { MediaItem, Device } from "@/types/dashboard";
+import { MediaItem } from "@/types/dashboard";
 import { PlaylistItemData } from "./PlaylistSidebar";
 import { getFileUrl } from "@/utils/api";
 
@@ -51,9 +51,6 @@ interface PlaylistPropertiesProps {
   onChangeSlideDuration: (duration: number) => void;
   mediaList: MediaItem[];
   onAssignMediaToSlide: (mediaId: string) => void;
-  deviceList: Device[];
-  targetDeviceId: string;
-  onChangeTargetDevice: (id: string) => void;
   onChangeSlideTargetDevices: (ids: string[]) => void;
   scaleMode: "stretch" | "crop";
   onChangeScaleMode: (mode: "stretch" | "crop") => void;
@@ -83,9 +80,6 @@ export default function PlaylistProperties({
   onChangeSlideDuration,
   mediaList,
   onAssignMediaToSlide,
-  deviceList,
-  targetDeviceId,
-  onChangeTargetDevice,
   onChangeSlideTargetDevices,
   scaleMode,
   onChangeScaleMode,
@@ -252,43 +246,6 @@ export default function PlaylistProperties({
                   Video Wall
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Single Mode: Device Selector & Auto Resolution */}
-          {!isSyncGroup && (
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase">
-                Thiết bị hiển thị (Player)
-              </label>
-              <select
-                value={targetDeviceId}
-                onChange={(e) => {
-                  const devId = e.target.value;
-                  onChangeTargetDevice(devId);
-
-                  const selectedDevice = deviceList.find((d) => d.id === devId);
-                  if (selectedDevice?.screenResolution) {
-                    // Chuẩn hóa chuỗi độ phân giải (ví dụ "1920x1080" hoặc "1920 * 1080" thành "1920*1080")
-                    const normalizedRes = selectedDevice.screenResolution
-                      .toLowerCase()
-                      .replace(/\s+/g, "")
-                      .replace("x", "*");
-
-                    if (normalizedRes.includes("*")) {
-                      onChangeResolution(normalizedRes);
-                    }
-                  }
-                }}
-                className="w-full h-8 rounded-md border border-input px-2 py-1 bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
-                <option value="">-- Chọn thiết bị phát --</option>
-                {deviceList.map((dev) => (
-                  <option key={dev.id} value={dev.id}>
-                    {dev.deviceName} (
-                    {dev.screenResolution || "Chưa cấu hình tỷ lệ"})
-                  </option>
-                ))}
-              </select>
             </div>
           )}
 
@@ -463,51 +420,6 @@ export default function PlaylistProperties({
                   Video sẽ được phát hết thời lượng thực tế trước khi chuyển
                   trang.
                 </span>
-              </div>
-            )}
-
-            {/* Sync Mode: Slide-level Multiple Player Selector */}
-            {isSyncGroup && (
-              <div className="space-y-1.5 border border-border/60 bg-muted/10 p-2.5 rounded-lg">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                  Thiết bị phát (Chọn nhiều)
-                </label>
-                <div className="max-h-[120px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
-                  {deviceList.map((dev) => {
-                    const isChecked = (
-                      activeSlide.targetDeviceIds || []
-                    ).includes(dev.id);
-                    return (
-                      <div key={dev.id} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id={`slide-dev-${dev.id}`}
-                          checked={isChecked}
-                          onChange={(e) => {
-                            const newIds = e.target.checked
-                              ? [...(activeSlide.targetDeviceIds || []), dev.id]
-                              : (activeSlide.targetDeviceIds || []).filter(
-                                  (id) => id !== dev.id,
-                                );
-                            onChangeSlideTargetDevices(newIds);
-                          }}
-                          className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
-                        />
-                        <label
-                          htmlFor={`slide-dev-${dev.id}`}
-                          className="text-[11px] font-medium text-foreground select-none cursor-pointer truncate"
-                          title={dev.deviceName}>
-                          {dev.deviceName}
-                        </label>
-                      </div>
-                    );
-                  })}
-                  {deviceList.length === 0 && (
-                    <div className="text-[10px] text-muted-foreground italic text-center py-2">
-                      Không có thiết bị khả dụng
-                    </div>
-                  )}
-                </div>
               </div>
             )}
 

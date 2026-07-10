@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { useDashboard } from '../context/DashboardContext';
-import ResourceTab from '../components/ResourceTab';
+import { useDashboard } from '@/app/dashboard/context/DashboardContext';
+import ResourceTab from '@/components/dashboard/ResourceTab';
 import { usePlaylists } from '@/hooks/useApi';
 
 export default function ResourcePageClient() {

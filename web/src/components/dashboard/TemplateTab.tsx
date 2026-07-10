@@ -16,7 +16,7 @@ import { useMedia, useTemplates } from '@/hooks/useApi';
 import { api } from '@/utils/api';
 import { Template } from '@/types/dashboard';
 import TemplateEditor from './template-editor/TemplateEditor';
-import { useDashboard } from '../context/DashboardContext';
+import { useDashboard } from '@/app/dashboard/context/DashboardContext';
 
 interface TemplateTabProps {
   fetchTemplatesData: () => void;

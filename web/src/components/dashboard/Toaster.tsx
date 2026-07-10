@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle2, AlertCircle } from 'lucide-react';
-import { useDashboard } from '../context/DashboardContext';
+import { useDashboard } from '@/app/dashboard/context/DashboardContext';
 
 interface ToastItem {
   id: string;

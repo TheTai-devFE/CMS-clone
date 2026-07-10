@@ -5,7 +5,7 @@ import { usePlaylists, useTemplates } from "@/hooks/useApi";
 import { Device, User } from "@/types/dashboard";
 import { Plus, Tv } from "lucide-react";
 import { useState } from "react";
-import { useDashboard } from "../context/DashboardContext";
+import { useDashboard } from "@/app/dashboard/context/DashboardContext";
 import BatchActionsBar from "./BatchActionsBar";
 import FilterBar from "./FilterBar";
 import PlayerTable from "./PlayerTable";

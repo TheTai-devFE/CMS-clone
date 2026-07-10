@@ -20,10 +20,10 @@ import {
 import { Button } from "@/components/ui/button";
 
 // Modals
-import PlaylistEditor from "../../components/playlist-editor/PlaylistEditor";
-import PlaylistPreviewModal from "../../components/PlaylistPreviewModal";
-import { QuickPublishModal } from "../../components/QuickPublishModal";
-import { ScheduleModal } from "../../components/schedule/ScheduleModal";
+import PlaylistEditor from "@/components/dashboard/playlist-editor/PlaylistEditor";
+import PlaylistPreviewModal from "@/components/dashboard/PlaylistPreviewModal";
+import { QuickPublishModal } from "@/components/dashboard/QuickPublishModal";
+import { ScheduleModal } from "@/components/dashboard/schedule/ScheduleModal";
 import { ContentManageTable } from "./ContentManageTable";
 
 export default function ContentManageClient() {

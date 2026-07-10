@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { useDashboard } from "../context/DashboardContext";
+import { useDashboard } from "@/app/dashboard/context/DashboardContext";
 import { api } from "@/utils/api";
 import { Button } from "@/components/ui/button";
-import ContentTab from "../components/ContentTab";
-import VideoPreviewModal from "../components/VideoPreviewModal";
-import CreateWebUrlModal from "../components/CreateWebUrlModal";
+import ContentTab from "@/components/dashboard/ContentTab";
+import VideoPreviewModal from "@/components/dashboard/VideoPreviewModal";
+import CreateWebUrlModal from "@/components/dashboard/CreateWebUrlModal";
 import { useMedia } from "@/hooks/useApi";
 
 export default function ContentPageClient() {

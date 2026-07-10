@@ -6,7 +6,7 @@ import { api } from "@/utils/api";
 import { Playlist, Schedule } from "@/types/dashboard";
 import { ScheduleItem } from "./ScheduleItem";
 import { ScheduleModal } from "./ScheduleModal";
-import { useDashboard } from "../../context/DashboardContext";
+import { useDashboard } from "@/app/dashboard/context/DashboardContext";
 
 interface ScheduleTabProps {
   playlists: Playlist[];
