@@ -10,6 +10,7 @@ export type DashboardTab =
 
 export interface User {
   id: string;
+  shortId: string;
   username: string;
   email: string;
   role: "admin" | "user";
@@ -29,6 +30,7 @@ export interface Device {
   sleepStartTime?: string;
   sleepEndTime?: string;
   userId?: string;
+  userShortId?: string;
   macAddress?: string;
   ipAddress?: string;
   screenResolution?: string;

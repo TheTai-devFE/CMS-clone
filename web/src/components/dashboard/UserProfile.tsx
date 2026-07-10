@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 interface UserProfileProps {
   currentUser: {
     id: string;
+    shortId: string;
     username: string;
     email: string;
     role: string;
@@ -105,8 +106,13 @@ export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
           <div className="profile-card-body">
             <div className="profile-detail-grid">
               <div className="profile-detail-item">
-                <span className="profile-detail-label">User ID (UUID)</span>
-                <span className="profile-detail-value mono">{currentUser.id}</span>
+                <span className="profile-detail-label">Mã User</span>
+                <span className="profile-detail-value mono">{currentUser.shortId}</span>
+              </div>
+
+              <div className="profile-detail-item">
+                <span className="profile-detail-label">User ID (Internal)</span>
+                <span className="profile-detail-value mono text-xs">{currentUser.id}</span>
               </div>
 
               <div className="profile-detail-item">

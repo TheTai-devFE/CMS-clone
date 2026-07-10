@@ -143,7 +143,7 @@ export default function PlayerTable({
                 {/* User ID (Admin only) */}
                 {currentUser.role === 'admin' && (
                   <td className="p-3 font-mono text-[11px] text-muted-foreground">
-                    {device.userId ? `${device.userId.substring(0, 8)}...` : '—'}
+                    {device.userShortId || '—'}
                   </td>
                 )}
 

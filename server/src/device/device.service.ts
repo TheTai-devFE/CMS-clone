@@ -403,18 +403,28 @@ export class DeviceService {
   async getUserDevices(userId: string) {
     const devices = await this.prisma.device.findMany({
       where: { userId },
+      include: { user: { select: { shortId: true } } },
       orderBy: { createdAt: 'desc' },
     });
 
-    return this.enrichDevicesWithRealtimeStatus(devices);
+    const enriched = await this.enrichDevicesWithRealtimeStatus(devices);
+    return enriched.map((d: any) => ({
+      ...d,
+      userShortId: d.user?.shortId || null,
+    }));
   }
 
   async getAllDevices() {
     const devices = await this.prisma.device.findMany({
+      include: { user: { select: { shortId: true } } },
       orderBy: { createdAt: 'desc' },
     });
 
-    return this.enrichDevicesWithRealtimeStatus(devices);
+    const enriched = await this.enrichDevicesWithRealtimeStatus(devices);
+    return enriched.map((d: any) => ({
+      ...d,
+      userShortId: d.user?.shortId || null,
+    }));
   }
 
   async updateDevice(id: string, dto: UpdateDeviceDto) {

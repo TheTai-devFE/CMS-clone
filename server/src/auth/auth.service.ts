@@ -34,12 +34,15 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
-    // Kiểm tra xem đây có phải user đầu tiên không để gán làm admin mặc định
     const userCount = await this.prisma.user.count();
     const assignedRole = userCount === 0 ? 'admin' : dto.role || 'user';
 
+    const nextNum = userCount + 1;
+    const shortId = `USR-${String(nextNum).padStart(4, '0')}`;
+
     const user = await this.prisma.user.create({
       data: {
+        shortId,
         username: dto.username,
         email: dto.email,
         passwordHash,
@@ -49,6 +52,7 @@ export class AuthService {
       },
       select: {
         id: true,
+        shortId: true,
         username: true,
         email: true,
         role: true,
@@ -87,6 +91,7 @@ export class AuthService {
     return {
       user: {
         id: user.id,
+        shortId: user.shortId,
         username: user.username,
         email: user.email,
         role: user.role,
@@ -127,6 +132,7 @@ export class AuthService {
     return this.prisma.user.findMany({
       select: {
         id: true,
+        shortId: true,
         username: true,
         email: true,
         role: true,
@@ -179,5 +185,35 @@ export class AuthService {
     });
 
     return { message: 'Cập nhật mã bảo mật thiết bị thành công' };
+  }
+
+  async updateLicenseLimit(userId: string, newLimit: number, requesterRole: string) {
+    if (requesterRole !== 'admin') {
+      throw new BadRequestException('Chỉ admin mới được thay đổi hạn mức license');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { licenseLimit: newLimit },
+      select: {
+        id: true,
+        shortId: true,
+        username: true,
+        email: true,
+        role: true,
+        licenseLimit: true,
+        status: true,
+      },
+    });
+
+    return updated;
   }
 }

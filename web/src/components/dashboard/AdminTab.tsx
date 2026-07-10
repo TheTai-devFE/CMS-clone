@@ -1,13 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Server,
   Key,
-  CheckCircle2
+  CheckCircle2,
+  Edit2,
+  Save,
+  X
 } from 'lucide-react';
+import { api } from '@/utils/api';
 
 interface Device {
   id: string;
@@ -20,6 +25,7 @@ interface Device {
 
 interface User {
   id: string;
+  shortId: string;
   username: string;
   email: string;
   role: 'admin' | 'user';
@@ -31,13 +37,42 @@ interface AdminTabProps {
   pendingDevices: Device[];
   users: User[];
   handleOpenAssignModal: (deviceId: string) => void;
+  onUsersChange?: () => void;
 }
 
 export default function AdminTab({
   pendingDevices,
   users,
-  handleOpenAssignModal
+  handleOpenAssignModal,
+  onUsersChange
 }: AdminTabProps) {
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editLicenseValue, setEditLicenseValue] = useState<number>(0);
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
+
+  const handleStartEdit = (user: User) => {
+    setEditingUserId(user.id);
+    setEditLicenseValue(user.licenseLimit);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingUserId(null);
+    setEditLicenseValue(0);
+  };
+
+  const handleSaveLicense = async (userId: string) => {
+    setSavingUserId(userId);
+    try {
+      await api.put(`/api/auth/users/${userId}/license`, { licenseLimit: editLicenseValue });
+      onUsersChange?.();
+      handleCancelEdit();
+    } catch (err: any) {
+      console.error('Lỗi khi cập nhật license:', err);
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Pending Approvals Card */}
@@ -92,16 +127,19 @@ export default function AdminTab({
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
+                <TableHead>Mã User</TableHead>
                 <TableHead>Tên tài khoản</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Quyền hạn</TableHead>
                 <TableHead>Hạn mức License</TableHead>
                 <TableHead>Trạng thái</TableHead>
+                <TableHead className="w-[100px]">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {users.map((u) => (
                 <TableRow key={u.id} className="border-border hover:bg-muted/30">
+                  <TableCell className="font-mono text-xs text-muted-foreground">{u.shortId}</TableCell>
                   <TableCell className="font-semibold">{u.username}</TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
@@ -110,12 +148,59 @@ export default function AdminTab({
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium">
-                    {u.role === 'admin' ? 'Vô hạn' : `${u.licenseLimit} thiết bị`}
+                    {editingUserId === u.id ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={editLicenseValue}
+                          onChange={(e) => setEditLicenseValue(parseInt(e.target.value) || 0)}
+                          className="w-20 h-7 text-xs"
+                          min={0}
+                          max={999}
+                        />
+                      </div>
+                    ) : (
+                      u.role === 'admin' ? 'Vô hạn' : `${u.licenseLimit} thiết bị`
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge className={u.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border-none' : 'bg-red-500/10 text-red-500 border-none'}>
                       {u.status === 'active' ? 'Active' : u.status}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {u.role !== 'admin' && (
+                      editingUserId === u.id ? (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSaveLicense(u.id)}
+                            disabled={savingUserId === u.id}
+                            className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCancelEdit}
+                            className="h-7 w-7 p-0 text-muted-foreground"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleStartEdit(u)}
+                          className="h-7 w-7 p-0 text-primary hover:text-primary/80"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

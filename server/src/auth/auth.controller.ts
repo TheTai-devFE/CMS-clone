@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, Param, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Roles } from './decorators/roles.decorator';
@@ -54,5 +54,16 @@ export class AuthController {
   @Roles('admin')
   async getAllUsers() {
     return this.authService.getAllUsers();
+  }
+
+  @Put('users/:id/license')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async updateLicenseLimit(
+    @Param('id') userId: string,
+    @Body() dto: { licenseLimit: number },
+    @CurrentUser() user: any,
+  ) {
+    return this.authService.updateLicenseLimit(userId, dto.licenseLimit, user.role);
   }
 }
