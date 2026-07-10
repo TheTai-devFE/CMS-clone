@@ -64,7 +64,7 @@ export const api = {
       }
       try {
         return JSON.parse(text);
-      } catch (err) {
+      } catch {
         return text;
       }
     } catch (error: unknown) {

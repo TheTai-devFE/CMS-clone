@@ -44,8 +44,8 @@ export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
         securityPassword: securityPin || null,
       });
       setSuccessMsg('Cập nhật mã bảo mật thiết bị thành công!');
-    } catch (err: any) {
-      setError(err.message || 'Có lỗi xảy ra khi cập nhật mã PIN');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi cập nhật mã PIN');
     } finally {
       setPinLoading(false);
     }
@@ -76,8 +76,8 @@ export default function UserProfile({ currentUser, onBack }: UserProfileProps) {
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
-      setError(err.message || 'Có lỗi xảy ra khi đổi mật khẩu');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi đổi mật khẩu');
     } finally {
       setPwdLoading(false);
     }

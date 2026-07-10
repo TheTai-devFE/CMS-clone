@@ -7,6 +7,7 @@ import { RegisterDto } from './dto/register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import type { CurrentUser as CurrentUserType } from './interfaces/current-user.interface';
 
 @Controller('api/auth')
 export class AuthController {
@@ -24,14 +25,14 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  async getProfile(@CurrentUser() user: any) {
+  async getProfile(@CurrentUser() user: CurrentUserType) {
     return user;
   }
 
   @Post('change-password')
   @UseGuards(JwtAuthGuard)
   async changePassword(
-    @CurrentUser() user: any,
+    @CurrentUser() user: CurrentUserType,
     @Body() dto: ChangePasswordDto,
   ) {
     return this.authService.changePassword(user.id, dto);
@@ -40,7 +41,7 @@ export class AuthController {
   @Post('security-password')
   @UseGuards(JwtAuthGuard)
   async updateSecurityPassword(
-    @CurrentUser() user: any,
+    @CurrentUser() user: CurrentUserType,
     @Body() dto: { securityPassword?: string },
   ) {
     return this.authService.updateSecurityPassword(
@@ -62,7 +63,7 @@ export class AuthController {
   async updateLicenseLimit(
     @Param('id') userId: string,
     @Body() dto: { licenseLimit: number },
-    @CurrentUser() user: any,
+    @CurrentUser() user: CurrentUserType,
   ) {
     return this.authService.updateLicenseLimit(userId, dto.licenseLimit, user.role);
   }

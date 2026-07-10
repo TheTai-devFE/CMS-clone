@@ -408,9 +408,9 @@ export class DeviceService {
     });
 
     const enriched = await this.enrichDevicesWithRealtimeStatus(devices);
-    return enriched.map((d: any) => ({
+    return enriched.map((d) => ({
       ...d,
-      userShortId: d.user?.shortId || null,
+      userShortId: (d as { user?: { shortId: string } }).user?.shortId || null,
     }));
   }
 
@@ -421,9 +421,9 @@ export class DeviceService {
     });
 
     const enriched = await this.enrichDevicesWithRealtimeStatus(devices);
-    return enriched.map((d: any) => ({
+    return enriched.map((d) => ({
       ...d,
-      userShortId: d.user?.shortId || null,
+      userShortId: (d as { user?: { shortId: string } }).user?.shortId || null,
     }));
   }
 
@@ -547,7 +547,7 @@ export class DeviceService {
   }
 
   // Helper function để đọc trạng thái realtime từ Redis cho danh sách thiết bị
-  private async enrichDevicesWithRealtimeStatus(devices: any[]) {
+  private async enrichDevicesWithRealtimeStatus(devices: { id: string; status: string }[]) {
     const enriched = await Promise.all(
       devices.map(async (device) => {
         const redisKey = `device:status:${device.id}`;

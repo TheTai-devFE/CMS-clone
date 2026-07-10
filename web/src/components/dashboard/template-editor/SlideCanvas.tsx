@@ -1,5 +1,5 @@
 import React from 'react';
-import { ImageIcon, Video, Tv } from 'lucide-react';
+import { ImageIcon, Tv } from 'lucide-react';
 import { MediaItem } from '@/types/dashboard';
 import { SlideData } from './SlideSidebar';
 import { getFileUrl } from '@/utils/api';

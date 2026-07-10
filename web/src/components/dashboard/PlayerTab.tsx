@@ -103,8 +103,8 @@ export default function PlayerTab({
       await api.post("/api/devices/batch/reboot", { deviceIds: selectedDeviceIds });
       setSuccessMsg(`Đã gửi lệnh khởi động lại tới ${selectedDeviceIds.length} thiết bị.`);
       setSelectedDeviceIds([]);
-    } catch (err: any) {
-      setError(err.message || "Không thể gửi lệnh khởi động lại");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể gửi lệnh khởi động lại');
     }
   };
 
@@ -122,8 +122,8 @@ export default function PlayerTab({
       await api.post("/api/devices/batch/volume", { deviceIds: selectedDeviceIds, volume: volNum });
       setSuccessMsg(`Đã gửi lệnh điều chỉnh âm lượng (${volNum}%) tới ${selectedDeviceIds.length} thiết bị.`);
       setSelectedDeviceIds([]);
-    } catch (err: any) {
-      setError(err.message || "Không thể gửi lệnh điều chỉnh âm lượng");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể gửi lệnh điều chỉnh âm lượng');
     }
   };
 
@@ -134,8 +134,8 @@ export default function PlayerTab({
       await api.post("/api/devices/batch/install-apk", { deviceIds: selectedDeviceIds });
       setSuccessMsg(`Đã gửi lệnh cài đặt APK tới ${selectedDeviceIds.length} thiết bị.`);
       setSelectedDeviceIds([]);
-    } catch (err: any) {
-      setError(err.message || "Không thể gửi lệnh cài đặt APK");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể gửi lệnh cài đặt APK');
     }
   };
 
@@ -152,8 +152,8 @@ export default function PlayerTab({
       await api.post("/api/devices/batch/uninstall-apk", { deviceIds: selectedDeviceIds });
       setSuccessMsg(`Đã gửi lệnh gỡ APK tới ${selectedDeviceIds.length} thiết bị.`);
       setSelectedDeviceIds([]);
-    } catch (err: any) {
-      setError(err.message || "Không thể gửi lệnh gỡ APK");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể gửi lệnh gỡ APK');
     }
   };
 
@@ -170,8 +170,8 @@ export default function PlayerTab({
       await api.post("/api/devices/batch/clear-content", { deviceIds: selectedDeviceIds });
       setSuccessMsg(`Đã gửi lệnh xóa nội dung tới ${selectedDeviceIds.length} thiết bị.`);
       setSelectedDeviceIds([]);
-    } catch (err: any) {
-      setError(err.message || "Không thể gửi lệnh xóa nội dung");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể gửi lệnh xóa nội dung');
     }
   };
 

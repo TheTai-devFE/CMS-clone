@@ -61,8 +61,8 @@ export default function EditDeviceModal({
       setSuccessMsg('Cập nhật cấu hình thiết bị thành công');
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Không thể cập nhật cấu hình thiết bị.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể cập nhật cấu hình thiết bị.');
     } finally {
       setLoading(false);
     }

@@ -15,6 +15,7 @@ import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { CurrentUser as CurrentUserType } from '../auth/interfaces/current-user.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MediaService } from './media.service';
 
@@ -45,7 +46,7 @@ export class MediaController {
   @UseInterceptors(FileInterceptor('file', multerOptions))
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
-    @CurrentUser() user: any,
+    @CurrentUser() user: CurrentUserType,
   ) {
     return this.mediaService.saveUploadedFile(file, user.id);
   }
@@ -53,14 +54,14 @@ export class MediaController {
   @Post('url')
   async createWebUrl(
     @Body() body: { name: string; url: string },
-    @CurrentUser() user: any,
+    @CurrentUser() user: CurrentUserType,
   ) {
     return this.mediaService.saveWebUrl(body.name, body.url, user.id);
   }
 
   @Get()
   async getMedia(
-    @CurrentUser() user: any,
+    @CurrentUser() user: CurrentUserType,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {

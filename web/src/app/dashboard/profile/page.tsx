@@ -4,10 +4,11 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { cookieStorage } from '../../../utils/cookie';
 import UserProfile from '@/components/dashboard/UserProfile';
+import { User } from '@/types/dashboard';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
     const user = cookieStorage.getUserInfo();
@@ -15,7 +16,7 @@ export default function ProfilePage() {
       router.push('/login');
       return;
     }
-    setCurrentUser(user);
+    setCurrentUser(user as User);
   }, [router]);
 
   if (!currentUser) {

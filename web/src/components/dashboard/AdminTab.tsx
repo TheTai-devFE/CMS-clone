@@ -66,8 +66,8 @@ export default function AdminTab({
       await api.put(`/api/auth/users/${userId}/license`, { licenseLimit: editLicenseValue });
       onUsersChange?.();
       handleCancelEdit();
-    } catch (err: any) {
-      console.error('Lỗi khi cập nhật license:', err);
+    } catch (err) {
+      console.error('Lỗi khi cập nhật license:', err instanceof Error ? err.message : err);
     } finally {
       setSavingUserId(null);
     }

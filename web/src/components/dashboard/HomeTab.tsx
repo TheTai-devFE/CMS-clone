@@ -27,7 +27,7 @@ interface HomeTabProps {
   setActiveTab: (tab: DashboardTab) => void;
 }
 
-export default function HomeTab({ devices, mediaList, setActiveTab }: HomeTabProps) {
+export default function HomeTab({ devices, setActiveTab }: HomeTabProps) {
   return (
     <div className="space-y-6">
       {/* Action Panel Grid */}

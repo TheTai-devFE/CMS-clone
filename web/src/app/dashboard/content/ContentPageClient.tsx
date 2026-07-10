@@ -3,7 +3,6 @@
 import React, { useRef, useState } from "react";
 import { useDashboard } from "@/app/dashboard/context/DashboardContext";
 import { api } from "@/utils/api";
-import { Button } from "@/components/ui/button";
 import ContentTab from "@/components/dashboard/ContentTab";
 import VideoPreviewModal from "@/components/dashboard/VideoPreviewModal";
 import CreateWebUrlModal from "@/components/dashboard/CreateWebUrlModal";
@@ -17,7 +16,6 @@ export default function ContentPageClient() {
     setError,
     setSuccessMsg,
     formatBytes,
-    API_BASE_URL,
   } = useDashboard();
 
   // Pagination state – controlled here so SWR key changes trigger refetch

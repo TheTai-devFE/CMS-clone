@@ -51,7 +51,6 @@ interface PlaylistPropertiesProps {
   onChangeSlideDuration: (duration: number) => void;
   mediaList: MediaItem[];
   onAssignMediaToSlide: (mediaId: string) => void;
-  onChangeSlideTargetDevices: (ids: string[]) => void;
   scaleMode: "stretch" | "crop";
   onChangeScaleMode: (mode: "stretch" | "crop") => void;
 
@@ -80,7 +79,6 @@ export default function PlaylistProperties({
   onChangeSlideDuration,
   mediaList,
   onAssignMediaToSlide,
-  onChangeSlideTargetDevices,
   scaleMode,
   onChangeScaleMode,
   isVideoWallMode,

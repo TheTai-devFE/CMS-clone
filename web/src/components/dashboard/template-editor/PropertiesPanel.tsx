@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Clock, Check, Search, Film, Image as ImageIcon } from 'lucide-react';
+import { Settings, Clock, Check, Search, Film } from 'lucide-react';
 import { MediaItem } from '@/types/dashboard';
 import { SlideData } from './SlideSidebar';
 import { getFileUrl } from '@/utils/api';

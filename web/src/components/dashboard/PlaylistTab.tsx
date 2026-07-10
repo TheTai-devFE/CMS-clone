@@ -9,15 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Plus, Eye, Edit, Trash2, ListVideo, Video, Play } from "lucide-react";
+import { Plus, Eye, Video, Play } from "lucide-react";
 import { useMedia } from "@/hooks/useApi";
 import { api } from "@/utils/api";
 import { Playlist } from "@/types/dashboard";
