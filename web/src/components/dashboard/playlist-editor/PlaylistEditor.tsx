@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 import { MediaItem, Playlist, Device } from "@/types/dashboard";
 import { api, getFileUrl } from "@/utils/api";
 import { ChevronLeft, Clock, Film, Layers, Loader2, Search, Check, Settings } from "lucide-react";
@@ -828,10 +829,12 @@ export default function PlaylistEditor({
                             {isMediaVideo ? (
                               <Film className="h-3.5 w-3.5 text-blue-500" />
                             ) : (
-                              <img
+                              <Image
                                 src={getFileUrl(media.fileUrl)}
                                 alt={media.fileName}
-                                className="h-full w-full object-cover"
+                                fill
+                                className="object-cover"
+                                unoptimized
                               />
                             )}
                           </div>
@@ -1038,7 +1041,7 @@ export default function PlaylistEditor({
               </div>
 
               {/* Device List for Video Wall */}
-              <div className="space-y-2 pt-1 border-t border-border/40 pt-3">
+              <div className="space-y-2 border-t border-border/40 pt-3">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase">
                   Danh sách thiết bị
                 </label>

@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, ChevronUp, ChevronDown, Video, Image as ImageIcon } from 'lucide-react';
 import { MediaItem } from '@/types/dashboard';
@@ -77,10 +78,12 @@ export default function SlideSidebar({
                       </div>
                     </div>
                   ) : (
-                    <img
+                    <Image
                       src={getFileUrl(media.fileUrl)}
                       alt={media.fileName}
-                      className="w-full h-full object-cover pointer-events-none"
+                      fill
+                      className="object-cover pointer-events-none"
+                      unoptimized
                     />
                   )
                 ) : (

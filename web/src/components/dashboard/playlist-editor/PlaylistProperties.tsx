@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Settings, Clock, Check, Search, Film } from "lucide-react";
@@ -484,10 +485,12 @@ export default function PlaylistProperties({
                           {isMediaVideo ? (
                             <Film className="h-3.5 w-3.5 text-blue-500" />
                           ) : (
-                            <img
+                            <Image
                               src={getFileUrl(media.fileUrl)}
                               alt={media.fileName}
-                              className="h-full w-full object-cover"
+                              fill
+                              className="object-cover"
+                              unoptimized
                             />
                           )}
                         </div>

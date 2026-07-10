@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -200,10 +201,12 @@ export default function ContentTab({
                           <span className="text-[10px] text-orange-500 font-bold tracking-wider uppercase mt-2">PowerPoint</span>
                         </div>
                       ) : (
-                        <img
+                        <Image
                           src={getFileUrl(media.fileUrl)}
                           alt={media.fileName}
-                          className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200"
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-200"
+                          unoptimized
                         />
                       )}
                     </div>

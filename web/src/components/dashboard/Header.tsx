@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,9 +78,11 @@ export default function Header({
         </Button>
 
         <Link href="/dashboard" className="flex items-center gap-2 md:hidden">
-          <img
+          <Image
             src="/Logo-CDM-transparent.png"
             alt="CDM Logo"
+            width={100}
+            height={24}
             className="h-6 w-auto object-contain"
           />
           <span className="font-bold tracking-tight text-foreground text-xs">

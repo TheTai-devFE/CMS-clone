@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 import { MediaItem } from "@/types/dashboard";
 import { getFileUrl } from "@/utils/api";
 import {
@@ -86,10 +87,12 @@ export default function PlaylistSidebar({
                       </div>
                     </div>
                   ) : (
-                    <img
+                    <Image
                       src={getFileUrl(media.fileUrl)}
                       alt={media.fileName}
-                      className="w-full h-full object-cover pointer-events-none"
+                      fill
+                      className="object-cover pointer-events-none"
+                      unoptimized
                     />
                   )
                 ) : (

@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -35,9 +36,11 @@ export default function Sidebar({ currentUser }: SidebarProps) {
     <aside className="hidden md:flex flex-col w-64 border-r border-border/40 bg-card shrink-0 h-screen sticky top-0">
       {/* App Logo & Title - Clean original layout */}
       <div className="flex h-14 items-center gap-2 border-b border-border/10 px-6 shrink-0">
-        <img
+        <Image
           src="/Logo-CDM-transparent.png"
           alt="CDM Logo"
+          width={120}
+          height={32}
           className="h-8 w-auto object-contain"
         />
         <span className="font-bold tracking-tight text-primary text-base">

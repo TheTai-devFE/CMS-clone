@@ -10,6 +10,7 @@ import { Fragment } from "react";
 import { ContentManageItem } from "./ContentManageItem";
 import { api, getFileUrl } from "@/utils/api";
 import { MobileDropdownActions } from "./MobileDropdownActions";
+import Image from "next/image";
 
 interface ContentManageTableProps {
   currentPlaylists: Playlist[];
@@ -110,8 +111,7 @@ export const ContentManageTable = (props: ContentManageTableProps) => {
       }
       return (
         <div className="w-16 h-10 rounded-lg bg-zinc-900 border border-border/85 overflow-hidden relative shadow-xs">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt="" className="w-full h-full object-cover" />
+          <Image width={64} height={40} src={url} alt="" className="w-full h-full object-cover" />
         </div>
       );
     }
@@ -359,4 +359,3 @@ export const ContentManageTable = (props: ContentManageTableProps) => {
     </Fragment>
   );
 };
-

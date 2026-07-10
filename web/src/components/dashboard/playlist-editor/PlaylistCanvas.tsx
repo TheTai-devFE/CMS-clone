@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { ImageIcon, Tv } from 'lucide-react';
 import { MediaItem } from '@/types/dashboard';
 import { PlaylistItemData } from './PlaylistSidebar';
@@ -72,10 +73,12 @@ export default function PlaylistCanvas({
                   playsInline
                 />
               ) : (
-                <img
+                <Image
                   src={getFileUrl(media.fileUrl)}
                   alt={media.fileName}
-                  className={`w-full h-full ${objectFitClass}`}
+                  fill
+                  className={objectFitClass}
+                  unoptimized
                 />
               )}
             </div>

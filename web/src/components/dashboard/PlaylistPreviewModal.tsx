@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   X,
@@ -380,10 +381,12 @@ export default function PlaylistPreviewModal({
                         playsInline
                       />
                     ) : (
-                      <img
+                      <Image
                         src={getFileUrl(currentItem.media.fileUrl)}
                         alt=""
-                        className={`w-full h-full ${objectFitClass}`}
+                        fill
+                        className={objectFitClass}
+                        unoptimized
                       />
                     ))}
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { ImageIcon, Tv } from 'lucide-react';
 import { MediaItem } from '@/types/dashboard';
 import { SlideData } from './SlideSidebar';
@@ -69,10 +70,12 @@ export default function SlideCanvas({
                   playsInline
                 />
               ) : (
-                <img
+                <Image
                   src={getFileUrl(media.fileUrl)}
                   alt={media.fileName}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  unoptimized
                 />
               )}
             </div>
