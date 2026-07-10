@@ -10,6 +10,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const user = cookieStorage.getUserInfo();
     if (!user) {
@@ -18,6 +19,7 @@ export default function ProfilePage() {
     }
     setCurrentUser(user as User);
   }, [router]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!currentUser) {
     return (

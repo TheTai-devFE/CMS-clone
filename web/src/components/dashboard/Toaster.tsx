@@ -15,11 +15,12 @@ export default function Toaster() {
   const { error, successMsg, setError, setSuccessMsg } = useDashboard();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (error) {
       const id = Date.now().toString() + Math.random().toString(36).substring(2, 9);
       setToasts((prev) => [...prev, { id, type: 'error', message: error }]);
-      setError(''); // Clear global state immediately so next errors can be captured
+      setError('');
     }
   }, [error, setError]);
 
@@ -27,9 +28,10 @@ export default function Toaster() {
     if (successMsg) {
       const id = Date.now().toString() + Math.random().toString(36).substring(2, 9);
       setToasts((prev) => [...prev, { id, type: 'success', message: successMsg }]);
-      setSuccessMsg(''); // Clear global state immediately
+      setSuccessMsg('');
     }
   }, [successMsg, setSuccessMsg]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));

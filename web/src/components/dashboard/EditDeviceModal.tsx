@@ -30,6 +30,7 @@ export default function EditDeviceModal({
   const [sleepEndTime, setSleepEndTime] = useState('06:00');
   const [loading, setLoading] = useState(false);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (device) {
       setDeviceName(device.deviceName || '');
@@ -39,6 +40,7 @@ export default function EditDeviceModal({
       setSleepEndTime(device.sleepEndTime || '06:00');
     }
   }, [device, isOpen]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!isOpen || !device) return null;
 

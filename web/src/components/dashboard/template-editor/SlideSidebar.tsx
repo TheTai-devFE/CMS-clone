@@ -15,7 +15,6 @@ interface SlideSidebarProps {
   slides: SlideData[];
   activeSlideId: string | null;
   mediaList: MediaItem[];
-  apiBaseUrl: string;
   onSelectSlide: (id: string) => void;
   onAddSlide: () => void;
   onDeleteSlide: (id: string) => void;
@@ -26,7 +25,6 @@ export default function SlideSidebar({
   slides,
   activeSlideId,
   mediaList,
-  apiBaseUrl,
   onSelectSlide,
   onAddSlide,
   onDeleteSlide,

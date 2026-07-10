@@ -24,7 +24,8 @@ export const api = {
       headers.set('Content-Type', 'application/json');
     }
 
-    const { useMultipart, ...restOptions } = options;
+    const { useMultipart: _useMultipart, ...restOptions } = options;
+    void _useMultipart;
     const config: RequestInit = {
       ...restOptions,
       headers,

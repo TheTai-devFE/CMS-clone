@@ -37,7 +37,6 @@ interface PropertiesPanelProps {
   onChangeSlideDuration: (duration: number) => void;
   mediaList: MediaItem[];
   onAssignMediaToSlide: (mediaId: string, type: 'image' | 'media') => void;
-  apiBaseUrl: string;
 }
 
 export default function PropertiesPanel({
@@ -53,8 +52,7 @@ export default function PropertiesPanel({
   activeSlideIndex,
   onChangeSlideDuration,
   mediaList,
-  onAssignMediaToSlide,
-  apiBaseUrl
+  onAssignMediaToSlide
 }: PropertiesPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'image' | 'video'>('all');

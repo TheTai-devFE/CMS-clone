@@ -7,7 +7,6 @@ import { getFileUrl } from '@/utils/api';
 interface SlideCanvasProps {
   activeSlide: SlideData | null;
   mediaList: MediaItem[];
-  apiBaseUrl: string;
   canvasWidth: number;
   canvasHeight: number;
   scaleFactor: number;
@@ -17,7 +16,6 @@ interface SlideCanvasProps {
 export default function SlideCanvas({
   activeSlide,
   mediaList,
-  apiBaseUrl,
   canvasWidth,
   canvasHeight,
   scaleFactor,

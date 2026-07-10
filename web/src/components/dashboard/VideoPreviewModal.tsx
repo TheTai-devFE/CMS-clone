@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X } from 'lucide-react';
@@ -15,11 +14,10 @@ export default function VideoPreviewModal({
   if (!previewVideoUrl) return null;
 
   // Detect file type from URL
-  const isVideo = previewVideoUrl.toLowerCase().endsWith('.mp4') || 
+  const isVideo = previewVideoUrl.toLowerCase().endsWith('.mp4') ||
                   (previewVideoUrl.includes('/uploads/') && !previewVideoUrl.toLowerCase().endsWith('.pdf') && !previewVideoUrl.toLowerCase().endsWith('.pptx') && !previewVideoUrl.toLowerCase().endsWith('.ppt'));
   const isPdf = previewVideoUrl.toLowerCase().endsWith('.pdf') || previewVideoUrl.toLowerCase().includes('.pdf');
   const isOffice = previewVideoUrl.includes('officeapps.live.com');
-  const isWebUrl = !isVideo && !isPdf && !isOffice;
 
   const getTitle = () => {
     if (isVideo) return 'Xem trước video quảng cáo';

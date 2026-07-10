@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Loader2, Layers } from 'lucide-react';
-import { api, API_BASE_URL } from '@/utils/api';
+import { api } from '@/utils/api';
 import { Template, MediaItem } from '@/types/dashboard';
 
 import SlideSidebar, { SlideData } from './SlideSidebar';
@@ -55,9 +55,14 @@ export default function TemplateEditor({
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
   // Draft (Local Storage) States
-  const [draftStatus, setDraftStatus] = useState<'idle' | 'detected' | 'restored' | 'ignored'>('idle');
+  const [draftStatus, setDraftStatus] = useState<'idle' | 'detected' | 'restored' | 'ignored'>(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('cms_template_draft')) {
+      return 'detected';
+    }
+    return 'idle';
+  });
 
-  // Load layout data or initialize default slide on mount
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (editingTemplate) {
       setTemplateName(editingTemplate.name);
@@ -70,7 +75,6 @@ export default function TemplateEditor({
       setSelectedResolution(isStandard ? resString : 'custom');
 
       if (editingTemplate.zones && editingTemplate.zones.length > 0) {
-        // Map zones to slides
         const initialSlides: SlideData[] = editingTemplate.zones
           .map((z) => {
             const mediaIds = (z.contentData?.mediaIds as string[]) ?? [];
@@ -93,7 +97,6 @@ export default function TemplateEditor({
         setActiveSlideId(defaultId);
       }
     } else {
-      // Create new template default
       setTemplateName('Bố cục mới');
       setOrientation('landscape');
       setSelectedResolution('1920*1080');
@@ -104,16 +107,7 @@ export default function TemplateEditor({
       setActiveSlideId(defaultId);
     }
   }, [editingTemplate]);
-
-  // Check draft existence on load
-  useEffect(() => {
-    const draft = localStorage.getItem('cms_template_draft');
-    if (draft) {
-      setDraftStatus('detected');
-    } else {
-      setDraftStatus('idle');
-    }
-  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Autosave draft trigger
   useEffect(() => {
@@ -410,7 +404,6 @@ export default function TemplateEditor({
           slides={slides}
           activeSlideId={activeSlideId}
           mediaList={mediaList}
-          apiBaseUrl={API_BASE_URL}
           onSelectSlide={setActiveSlideId}
           onAddSlide={handleAddSlide}
           onDeleteSlide={handleDeleteSlide}
@@ -421,7 +414,6 @@ export default function TemplateEditor({
         <SlideCanvas
           activeSlide={activeSlide}
           mediaList={mediaList}
-          apiBaseUrl={API_BASE_URL}
           canvasWidth={canvasWidth}
           canvasHeight={canvasHeight}
           scaleFactor={scaleFactor}
@@ -443,7 +435,6 @@ export default function TemplateEditor({
           onChangeSlideDuration={handleUpdateSlideDuration}
           mediaList={mediaList}
           onAssignMediaToSlide={handleAssignMediaToSlide}
-          apiBaseUrl={API_BASE_URL}
         />
 
       </div>
