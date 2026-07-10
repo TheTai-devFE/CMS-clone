@@ -12,6 +12,7 @@ interface PlaylistEditorProps {
   mediaList: MediaItem[];
   onClose: () => void;
   onSave: () => void;
+  onCreated?: (playlistId: string) => void;
 }
 
 const RESOLUTION_OPTIONS = [
@@ -50,6 +51,7 @@ export default function PlaylistEditor({
   mediaList,
   onClose,
   onSave,
+  onCreated,
 }: PlaylistEditorProps) {
   // Playlist States
   const [playlistName, setPlaylistName] = useState("");
@@ -487,6 +489,7 @@ export default function PlaylistEditor({
       };
 
       let playlistId = "";
+      const isNew = !editingPlaylist?.id;
       if (editingPlaylist?.id) {
         playlistId = editingPlaylist.id;
         await api.put(`/api/playlists/${playlistId}`, playlistPayload);
@@ -515,7 +518,11 @@ export default function PlaylistEditor({
 
       localStorage.removeItem("cms_playlist_draft");
       onSave();
-      onClose();
+      if (isNew && onCreated) {
+        onCreated(playlistId);
+      } else {
+        onClose();
+      }
     } catch (err) {
       const error = err as Error;
       setErrorMsg(error.message || "Lỗi khi lưu Playlist");

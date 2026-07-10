@@ -97,6 +97,12 @@ export default function PlaylistTab({
         onSave={() => {
           fetchPlaylistsData();
         }}
+        onCreated={(playlistId) => {
+          fetchPlaylistsData();
+          const created = playlists.find((p) => p.id === playlistId) || { id: playlistId, playlistName: "Playlist mới" } as Playlist;
+          setPublishPlaylist(created);
+          setIsPublishOpen(true);
+        }}
       />
     );
   }
