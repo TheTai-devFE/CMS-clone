@@ -6,6 +6,7 @@ import { Device, User } from "@/types/dashboard";
 import { Plus, Tv } from "lucide-react";
 import { useState } from "react";
 import { useDashboard } from "@/app/dashboard/context/DashboardContext";
+import { api } from "@/utils/api";
 import BatchActionsBar from "./BatchActionsBar";
 import FilterBar from "./FilterBar";
 import PlayerTable from "./PlayerTable";
@@ -89,7 +90,7 @@ export default function PlayerTab({
     setIsScheduleModalOpen(true);
   };
 
-  const handleRebootDevices = () => {
+  const handleRebootDevices = async () => {
     if (
       !confirm(
         `Bạn có chắc chắn muốn khởi động lại ${selectedDeviceIds.length} thiết bị đã chọn?`,
@@ -97,13 +98,17 @@ export default function PlayerTab({
     )
       return;
     setError("");
-    setSuccessMsg(
-      `Đã gửi lệnh khởi động lại (Reboot) tới ${selectedDeviceIds.length} thiết bị.`,
-    );
-    setSelectedDeviceIds([]);
+    setSuccessMsg("");
+    try {
+      await api.post("/api/devices/batch/reboot", { deviceIds: selectedDeviceIds });
+      setSuccessMsg(`Đã gửi lệnh khởi động lại tới ${selectedDeviceIds.length} thiết bị.`);
+      setSelectedDeviceIds([]);
+    } catch (err: any) {
+      setError(err.message || "Không thể gửi lệnh khởi động lại");
+    }
   };
 
-  const handleVolumeDevices = () => {
+  const handleVolumeDevices = async () => {
     const volume = prompt("Nhập mức âm lượng mong muốn (0 - 100):", "50");
     if (volume === null) return;
     const volNum = parseInt(volume);
@@ -112,21 +117,29 @@ export default function PlayerTab({
       return;
     }
     setError("");
-    setSuccessMsg(
-      `Đã gửi lệnh điều chỉnh âm lượng (${volNum}%) tới ${selectedDeviceIds.length} thiết bị.`,
-    );
-    setSelectedDeviceIds([]);
+    setSuccessMsg("");
+    try {
+      await api.post("/api/devices/batch/volume", { deviceIds: selectedDeviceIds, volume: volNum });
+      setSuccessMsg(`Đã gửi lệnh điều chỉnh âm lượng (${volNum}%) tới ${selectedDeviceIds.length} thiết bị.`);
+      setSelectedDeviceIds([]);
+    } catch (err: any) {
+      setError(err.message || "Không thể gửi lệnh điều chỉnh âm lượng");
+    }
   };
 
-  const handleInstallApk = () => {
+  const handleInstallApk = async () => {
     setError("");
-    setSuccessMsg(
-      `Đang tiến hành đẩy gói ứng dụng APK mới xuống ${selectedDeviceIds.length} thiết bị.`,
-    );
-    setSelectedDeviceIds([]);
+    setSuccessMsg("");
+    try {
+      await api.post("/api/devices/batch/install-apk", { deviceIds: selectedDeviceIds });
+      setSuccessMsg(`Đã gửi lệnh cài đặt APK tới ${selectedDeviceIds.length} thiết bị.`);
+      setSelectedDeviceIds([]);
+    } catch (err: any) {
+      setError(err.message || "Không thể gửi lệnh cài đặt APK");
+    }
   };
 
-  const handleUninstallApk = () => {
+  const handleUninstallApk = async () => {
     if (
       !confirm(
         `Bạn có chắc chắn muốn gỡ cài đặt ứng dụng APK trên ${selectedDeviceIds.length} thiết bị đã chọn?`,
@@ -134,13 +147,17 @@ export default function PlayerTab({
     )
       return;
     setError("");
-    setSuccessMsg(
-      `Đã gửi lệnh gỡ cài đặt ứng dụng APK tới ${selectedDeviceIds.length} thiết bị.`,
-    );
-    setSelectedDeviceIds([]);
+    setSuccessMsg("");
+    try {
+      await api.post("/api/devices/batch/uninstall-apk", { deviceIds: selectedDeviceIds });
+      setSuccessMsg(`Đã gửi lệnh gỡ APK tới ${selectedDeviceIds.length} thiết bị.`);
+      setSelectedDeviceIds([]);
+    } catch (err: any) {
+      setError(err.message || "Không thể gửi lệnh gỡ APK");
+    }
   };
 
-  const handleRemoveContents = () => {
+  const handleRemoveContents = async () => {
     if (
       !confirm(
         `CẢNH BÁO: Bạn có chắc chắn muốn xóa TOÀN BỘ nội dung phát trên ${selectedDeviceIds.length} thiết bị đã chọn?`,
@@ -148,10 +165,14 @@ export default function PlayerTab({
     )
       return;
     setError("");
-    setSuccessMsg(
-      `Đã xóa sạch nội dung phát trên ${selectedDeviceIds.length} thiết bị.`,
-    );
-    setSelectedDeviceIds([]);
+    setSuccessMsg("");
+    try {
+      await api.post("/api/devices/batch/clear-content", { deviceIds: selectedDeviceIds });
+      setSuccessMsg(`Đã gửi lệnh xóa nội dung tới ${selectedDeviceIds.length} thiết bị.`);
+      setSelectedDeviceIds([]);
+    } catch (err: any) {
+      setError(err.message || "Không thể gửi lệnh xóa nội dung");
+    }
   };
 
   return (

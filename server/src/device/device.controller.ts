@@ -22,6 +22,12 @@ import { CreatePairingCodeDto } from './dto/create-pairing-code.dto';
 import { ClaimDeviceDto } from './dto/claim-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 
+export class BatchActionDto {
+  deviceIds: string[];
+  volume?: number;
+  apkUrl?: string;
+}
+
 @Controller()
 export class DeviceController {
   constructor(private readonly deviceService: DeviceService) {}
@@ -132,5 +138,39 @@ export class DeviceController {
   @Roles('admin')
   async assignDevice(@Param('id') id: string, @Body() dto: AssignDeviceDto) {
     return this.deviceService.assignDevice(id, dto.userId);
+  }
+
+  // ==========================================
+  // BATCH ACTIONS (YÊU CẦU AUTH)
+  // ==========================================
+
+  @Post('api/devices/batch/reboot')
+  @UseGuards(JwtAuthGuard)
+  async batchReboot(@CurrentUser() user: any, @Body() dto: BatchActionDto) {
+    return this.deviceService.batchReboot(user, dto.deviceIds);
+  }
+
+  @Post('api/devices/batch/volume')
+  @UseGuards(JwtAuthGuard)
+  async batchVolume(@CurrentUser() user: any, @Body() dto: BatchActionDto) {
+    return this.deviceService.batchVolume(user, dto.deviceIds, dto.volume!);
+  }
+
+  @Post('api/devices/batch/install-apk')
+  @UseGuards(JwtAuthGuard)
+  async batchInstallApk(@CurrentUser() user: any, @Body() dto: BatchActionDto) {
+    return this.deviceService.batchInstallApk(user, dto.deviceIds, dto.apkUrl);
+  }
+
+  @Post('api/devices/batch/uninstall-apk')
+  @UseGuards(JwtAuthGuard)
+  async batchUninstallApk(@CurrentUser() user: any, @Body() dto: BatchActionDto) {
+    return this.deviceService.batchUninstallApk(user, dto.deviceIds);
+  }
+
+  @Post('api/devices/batch/clear-content')
+  @UseGuards(JwtAuthGuard)
+  async batchClearContent(@CurrentUser() user: any, @Body() dto: BatchActionDto) {
+    return this.deviceService.batchClearContent(user, dto.deviceIds);
   }
 }
