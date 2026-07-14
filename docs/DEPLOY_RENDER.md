@@ -10,26 +10,24 @@ git commit -m "chore: add Dockerfile and production config for Render deployment
 git push origin main
 ```
 
-### 2. Tạo PostgreSQL Database trên Render
-1. Truy cập https://render.com → Đăng nhập (GitHub OAuth)
-2. **New → PostgreSQL**
-3. Cấu hình:
-   - **Name**: `cms-database`
-   - **Region**: Chọn gần bạn nhất (Singapore hoặc Tokyo)
-   - **Instance Type**: Free (hoặc Starter $7/tháng)
-4. Copy **Internal Database URL** sau khi tạo xong
+### 2. Chuẩn bị Environment Variables
 
-### 3. Tạo Redis trên Render (Optional - có thể dùng Upstash Free tier)
+Bạn đã có sẵn **Neon PostgreSQL** và **Cloudflare R2** trong `.env`, chỉ cần thêm **Redis**.
 
-**Option A: Redis trên Render** ($10/tháng)
-- **New → Redis**
-- Copy **Redis URL**
+**Tạo Redis Free trên Upstash** (khuyến nghị):
+1. Truy cập https://upstash.com
+2. Sign up → **Create Database**
+3. Chọn **Redis** → Region: Singapore
+4. Copy 3 giá trị:
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
 
-**Option B: Upstash Free Tier** (Recommended)
-- Truy cập https://upstash.com
-- Tạo Redis database Free
-- Copy **UPSTASH_REDIS_REST_URL**
-
+Hoặc dùng biến Redis truyền thống:
+   - `REDIS_HOST`
+   - `REDIS_PORT`
+   - `REDIS_PASSWORD`
+     UPSTASH_REDIS_REST_URL="https://fine-hamster-126259.upstash.io"
+     UPSTASH_REDIS_REST_TOKEN="gQAAAAAAAe0zAAIgcDExOGM3MTJmMGQwNmY0N2MxYjM5ZTA0NmYwZDM5YWQ1Yw"
 ---
 
 ## 🎯 Deploy Server lên Render
@@ -55,10 +53,10 @@ git push origin main
 Trong tab **Environment** của service, thêm các biến sau:
 
 ```env
-# Database (từ Render PostgreSQL)
-DATABASE_URL=postgresql://user:password@hostname:5432/dbname?sslmode=require
+# Database (đã có sẵn từ Neon - copy từ server/.env)
+DATABASE_URL=postgresql://neondb_owner:npg_Imtn2SrhB3d@ep-cool-glade-ao3ltlgt-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 
-# Redis (từ Upstash hoặc Render Redis)
+# Redis (từ Upstash Free)
 REDIS_HOST=your-redis-host.upstash.io
 REDIS_PORT=6379
 REDIS_PASSWORD=your-redis-password
@@ -68,11 +66,10 @@ JWT_SECRET=super-secret-jwt-key-change-this-to-random-string-123456789
 JWT_EXPIRATION=15m
 JWT_REFRESH_EXPIRATION=7d
 
-# Storage (đã có sẵn Cloudflare R2)
+# Storage (đã có sẵn Cloudflare R2 - copy từ server/.env)
 STORAGE_TYPE=r2
 UPLOAD_DIR=./images
 
-# Cloudflare R2 (giữ nguyên từ .env hiện tại)
 CLOUDFLARE_R2_ACCESS_KEY_ID=4f0e592f71b3adea7ef94a9660694e9d
 CLOUDFLARE_R2_SECRET_ACCESS_KEY=6e13e38dc17176b3c9d8ae9e74985a1bde850036105c766577e4f915c0d8521c
 CLOUDFLARE_R2_BUCKET_NAME=signal
@@ -80,8 +77,10 @@ CLOUDFLARE_R2_ENDPOINT=https://ec20eaab3df047ea58e8c200db7a068a.r2.cloudflaresto
 CLOUDFLARE_R2_PUBLIC_URL=https://pub-561bc66165e84df2b3293d6d7e26f366.r2.dev
 
 # CORS (thêm domain production của bạn sau)
-ALLOWED_ORIGINS=http://localhost:3001,https://your-frontend-domain.onrender.com
+ALLOWED_ORIGINS=http://localhost:3001
 ```
+
+> **💡 Mẹo**: Mở file `server/.env` để copy chính xác các giá trị `DATABASE_URL` và `CLOUDFLARE_R2_*`
 
 ### Bước 3: Deploy
 
@@ -105,10 +104,12 @@ Render không tự động chạy migration. Bạn cần SSH vào container:
 pnpm prisma migrate deploy
 ```
 
-Hoặc thêm vào Dockerfile lệnh auto-migrate (không khuyến nghị cho production):
+Hoặc sửa Dockerfile CMD thành:
 ```dockerfile
 CMD ["sh", "-c", "pnpm prisma migrate deploy && node dist/main"]
 ```
+
+> **⚠️ Lưu ý**: Neon DB yêu cầu `channel_binding=require`, đảm bảo `DATABASE_URL` trong Render Environment Variables có tham số này.
 
 ### 2. Kiểm tra API
 
@@ -174,8 +175,9 @@ Bạn sẽ có các endpoint:
 ## 🆘 Troubleshooting
 
 ### Lỗi: "Cannot connect to database"
-- Kiểm tra `DATABASE_URL` có đúng không
-- Đảm bảo PostgreSQL instance đang chạy
+- Kiểm tra `DATABASE_URL` có đúng với Neon DB không (copy từ `server/.env`)
+- Đảm bảo Neon project đang active (kiểm tra tại https://console.neon.tech)
+- Neon Free tier có thể sleep sau 5 phút inactivity → wake up lại tự động
 
 ### Lỗi: "Redis connection refused"
 - Kiểm tra `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`

@@ -7,6 +7,7 @@ import {
 } from "@/hooks/useApi";
 import { Playlist, Schedule } from "@/types/dashboard";
 import { api } from "@/utils/api";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -27,6 +28,7 @@ import { ScheduleModal } from "@/components/dashboard/schedule/ScheduleModal";
 import { ContentManageTable } from "./ContentManageTable";
 
 export default function ContentManageClient() {
+  const router = useRouter();
   // SWR Hooks
   const {
     playlists,
@@ -218,10 +220,9 @@ export default function ContentManageClient() {
     return Array.from(deviceNames);
   };
 
-  // Open create playlist modal
+  // Open create playlist page
   const handleOpenCreate = () => {
-    setEditingPlaylist(null);
-    setIsEditorOpen(true);
+    router.push("/dashboard/playlist/new");
   };
 
   // Open edit playlist modal
