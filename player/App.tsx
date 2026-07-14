@@ -1,42 +1,45 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  StyleSheet,
-  View,
-  Text,
   Animated,
-  TouchableWithoutFeedback,
   Dimensions,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ScreenOrientation from 'expo-screen-orientation';
-import * as FileSystem from 'expo-file-system';
+  StyleSheet,
+  Text,
+  TouchableWithoutFeedback,
+  View,
+} from "react-native";
 
 // Theme & Custom components
-import { colors } from './src/theme/colors';
-import BottomTabBar from './src/components/BottomTabBar';
-import ExitModal from './src/components/ExitModal';
-import PasswordLockModal from './src/components/PasswordLockModal';
+import BottomTabBar from "./src/components/BottomTabBar";
+import ExitModal from "./src/components/ExitModal";
+import PasswordLockModal from "./src/components/PasswordLockModal";
+import { colors } from "./src/theme/colors";
 
 // Screens
-import HomeScreen from './src/screens/HomeScreen';
-import AdPlayerScreen from './src/screens/AdPlayerScreen';
-import { getLocalPlaylist, syncPlaylist, PlayerPlaylistItem } from './src/utils/syncManager';
-import RegisterScreen from './src/screens/RegisterScreen';
-import SettingsScreen from './src/screens/SettingsScreen';
-import NetworkScreen from './src/screens/NetworkScreen';
+import AdPlayerScreen from "./src/screens/AdPlayerScreen";
+import HomeScreen from "./src/screens/HomeScreen";
+import NetworkScreen from "./src/screens/NetworkScreen";
+import RegisterScreen from "./src/screens/RegisterScreen";
+import SettingsScreen from "./src/screens/SettingsScreen";
+import { getLocalPlaylist, syncPlaylist } from "./src/utils/syncManager";
 
 export default function App() {
   // activeTab: null means running AdPlayerScreen, else showing configuring screens
-  const [activeTab, setActiveTab] = useState<'register' | 'settings' | 'network' | 'exit' | null>(null);
+  const [activeTab, setActiveTab] = useState<
+    "register" | "settings" | "network" | "exit" | null
+  >(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
 
   // Password Lock
   const [isLocked, setIsLocked] = useState(false);
-  const [correctPin, setCorrectPin] = useState('');
-  const [pendingTab, setPendingTab] = useState<'register' | 'settings' | 'network' | 'exit' | null>(null);
+  const [correctPin, setCorrectPin] = useState("");
+  const [pendingTab, setPendingTab] = useState<
+    "register" | "settings" | "network" | "exit" | null
+  >(null);
 
   // Kiosk Features States
   const [menuGestureEnabled, setMenuGestureEnabled] = useState(false);
@@ -45,18 +48,18 @@ export default function App() {
 
   const [isSleeping, setIsSleeping] = useState(false);
   const [sleepScheduleEnabled, setSleepScheduleEnabled] = useState(false);
-  const [sleepStartTime, setSleepStartTime] = useState('22:00');
-  const [sleepEndTime, setSleepEndTime] = useState('06:00');
+  const [sleepStartTime, setSleepStartTime] = useState("22:00");
+  const [sleepEndTime, setSleepEndTime] = useState("06:00");
 
   // Form Configurations
-  const [formIp, setFormIp] = useState('192.168.2.229');
-  const [formPort, setFormPort] = useState('3000');
-  const [formName, setFormName] = useState('Màn hình Phòng khách');
+  const [formIp, setFormIp] = useState("192.168.2.229");
+  const [formPort, setFormPort] = useState("3000");
+  const [formName, setFormName] = useState("Màn hình Phòng khách");
 
   // Registered Device Credentials
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [registeredDeviceName, setRegisteredDeviceName] = useState<string>('');
+  const [registeredDeviceName, setRegisteredDeviceName] = useState<string>("");
 
   // Playlist sync and caching states
   const [playlist, setPlaylist] = useState<any[]>([]);
@@ -78,12 +81,12 @@ export default function App() {
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        const storedIp = await AsyncStorage.getItem('serverIp');
-        const storedPort = await AsyncStorage.getItem('serverPort');
-        const storedId = await AsyncStorage.getItem('deviceId');
-        const storedKey = await AsyncStorage.getItem('apiKey');
-        const storedName = await AsyncStorage.getItem('deviceName');
-        
+        const storedIp = await AsyncStorage.getItem("serverIp");
+        const storedPort = await AsyncStorage.getItem("serverPort");
+        const storedId = await AsyncStorage.getItem("deviceId");
+        const storedKey = await AsyncStorage.getItem("apiKey");
+        const storedName = await AsyncStorage.getItem("deviceName");
+
         if (storedIp) setFormIp(storedIp);
         if (storedPort) setFormPort(storedPort);
         if (storedId) setDeviceId(storedId);
@@ -93,28 +96,18 @@ export default function App() {
           setRegisteredDeviceName(storedName);
         }
 
-        // Đọc và thiết lập hướng màn hình lưu trữ ban đầu
-        try {
-          const storedOrientation = await AsyncStorage.getItem('screenOrientation');
-          if (storedOrientation === 'portrait') {
-            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-          } else if (storedOrientation === 'landscape') {
-            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
-          } else {
-            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.DEFAULT);
-          }
-        } catch (orientationErr) {
-          console.warn('Khóa hướng màn hình không được hỗ trợ trên thiết bị/trình duyệt này:', orientationErr);
-        }
-
         // Đọc cấu hình Menu Gesture
-        const storedGesture = await AsyncStorage.getItem('menuGestureEnabled') === 'true';
+        const storedGesture =
+          (await AsyncStorage.getItem("menuGestureEnabled")) === "true";
         setMenuGestureEnabled(storedGesture);
 
         // Đọc cấu hình Sleep
-        const storedSleepEnabled = await AsyncStorage.getItem('sleep_schedule_enabled') === 'true';
-        const storedSleepStart = await AsyncStorage.getItem('sleep_start_time') || '22:00';
-        const storedSleepEnd = await AsyncStorage.getItem('sleep_end_time') || '06:00';
+        const storedSleepEnabled =
+          (await AsyncStorage.getItem("sleep_schedule_enabled")) === "true";
+        const storedSleepStart =
+          (await AsyncStorage.getItem("sleep_start_time")) || "22:00";
+        const storedSleepEnd =
+          (await AsyncStorage.getItem("sleep_end_time")) || "06:00";
         setSleepScheduleEnabled(storedSleepEnabled);
         setSleepStartTime(storedSleepStart);
         setSleepEndTime(storedSleepEnd);
@@ -123,7 +116,10 @@ export default function App() {
         const localPl = await getLocalPlaylist();
         setPlaylist(localPl);
       } catch (e) {
-        console.error('Lỗi khi tải cấu hình từ AsyncStorage hoặc xoay màn hình:', e);
+        console.error(
+          "Lỗi khi tải cấu hình từ AsyncStorage hoặc xoay màn hình:",
+          e,
+        );
       }
     };
     loadConfig();
@@ -139,23 +135,23 @@ export default function App() {
         }
         return;
       }
-      
+
       const now = new Date();
       const currentMin = now.getHours() * 60 + now.getMinutes();
-      
-      const [startH, startM] = sleepStartTime.split(':').map(Number);
-      const [endH, endM] = sleepEndTime.split(':').map(Number);
-      
+
+      const [startH, startM] = sleepStartTime.split(":").map(Number);
+      const [endH, endM] = sleepEndTime.split(":").map(Number);
+
       const startMin = (startH || 0) * 60 + (startM || 0);
       const endMin = (endH || 0) * 60 + (endM || 0);
-      
+
       let sleeping = false;
       if (startMin < endMin) {
         sleeping = currentMin >= startMin && currentMin < endMin;
       } else {
         sleeping = currentMin >= startMin || currentMin < endMin;
       }
-      
+
       // Only trigger re-render when sleeping state actually changes
       if (prevSleepingRef.current !== sleeping) {
         prevSleepingRef.current = sleeping;
@@ -173,7 +169,8 @@ export default function App() {
     if (activeTab === null) {
       const refreshGesture = async () => {
         try {
-          const storedGesture = await AsyncStorage.getItem('menuGestureEnabled') === 'true';
+          const storedGesture =
+            (await AsyncStorage.getItem("menuGestureEnabled")) === "true";
           setMenuGestureEnabled(storedGesture);
         } catch (e) {
           console.error(e);
@@ -185,54 +182,60 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.removeItem('deviceId');
-      await AsyncStorage.removeItem('apiKey');
-      await AsyncStorage.removeItem('deviceName');
+      await AsyncStorage.removeItem("deviceId");
+      await AsyncStorage.removeItem("apiKey");
+      await AsyncStorage.removeItem("deviceName");
       setDeviceId(null);
       setApiKey(null);
-      setFormName('');
-      setRegisteredDeviceName('');
-      setActiveTab('register');
+      setFormName("");
+      setRegisteredDeviceName("");
+      setActiveTab("register");
     } catch (e) {
-      console.error('Lỗi khi xóa cấu hình thiết bị:', e);
+      console.error("Lỗi khi xóa cấu hình thiết bị:", e);
     }
   };
 
   const handleClearProgram = useCallback(async () => {
     try {
-      const currentHash = (await AsyncStorage.getItem('local_sync_hash')) || 'empty';
-      if (currentHash !== 'empty') {
-        await AsyncStorage.setItem('ignored_sync_hash', currentHash);
-        console.log(`[Sync] Đã lưu ignored_sync_hash: ${currentHash} để chặn đồng bộ lại chương trình vừa xóa.`);
+      const currentHash =
+        (await AsyncStorage.getItem("local_sync_hash")) || "empty";
+      if (currentHash !== "empty") {
+        await AsyncStorage.setItem("ignored_sync_hash", currentHash);
+        console.log(
+          `[Sync] Đã lưu ignored_sync_hash: ${currentHash} để chặn đồng bộ lại chương trình vừa xóa.`,
+        );
       }
-      await AsyncStorage.setItem('local_playlist', JSON.stringify([]));
-      await AsyncStorage.setItem('local_sync_hash', 'empty');
+      await AsyncStorage.setItem("local_playlist", JSON.stringify([]));
+      await AsyncStorage.setItem("local_sync_hash", "empty");
       setPlaylist([]);
     } catch (e) {
-      console.error('Lỗi khi xóa chương trình phát cục bộ:', e);
+      console.error("Lỗi khi xóa chương trình phát cục bộ:", e);
     }
   }, []);
 
   // Báo cáo tiến độ đồng bộ về Server realtime
-  const reportSyncProgress = useCallback(async (progress: number, status: string) => {
-    if (!deviceId || !apiKey) return;
-    try {
-      await fetch(`http://${formIp}:${formPort}/api/player/heartbeat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          deviceId,
-          apiKey,
-          syncStatus: status,
-          syncProgress: progress,
-        }),
-      });
-    } catch (err) {
-      console.warn('[Sync] Lỗi báo cáo tiến trình sync lên server:', err);
-    }
-  }, [deviceId, apiKey, formIp, formPort]);
+  const reportSyncProgress = useCallback(
+    async (progress: number, status: string) => {
+      if (!deviceId || !apiKey) return;
+      try {
+        await fetch(`http://${formIp}:${formPort}/api/player/heartbeat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            deviceId,
+            apiKey,
+            syncStatus: status,
+            syncProgress: progress,
+          }),
+        });
+      } catch (err) {
+        console.warn("[Sync] Lỗi báo cáo tiến trình sync lên server:", err);
+      }
+    },
+    [deviceId, apiKey, formIp, formPort],
+  );
 
   // Heartbeat loop when device is registered
   useEffect(() => {
@@ -240,87 +243,118 @@ export default function App() {
 
     const sendHeartbeat = async () => {
       if (!deviceId || !apiKey) return;
-      
+
       try {
-        const response = await fetch(`http://${formIp}:${formPort}/api/player/heartbeat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+        const response = await fetch(
+          `http://${formIp}:${formPort}/api/player/heartbeat`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              deviceId,
+              apiKey,
+              cpuUsage: Math.floor(Math.random() * 15) + 5, // Mock CPU 5% - 20%
+              freeMemoryMb: Math.floor(Math.random() * 200) + 400, // Mock Free RAM 400MB - 600MB
+            }),
           },
-          body: JSON.stringify({
-            deviceId,
-            apiKey,
-            cpuUsage: Math.floor(Math.random() * 15) + 5, // Mock CPU 5% - 20%
-            freeMemoryMb: Math.floor(Math.random() * 200) + 400, // Mock Free RAM 400MB - 600MB
-          }),
-        });
+        );
 
         if (!response.ok) {
-          console.warn('Gửi heartbeat thất bại, status:', response.status);
+          console.warn("Gửi heartbeat thất bại, status:", response.status);
           if (response.status === 401) {
-            console.error('Thiết bị bị từ chối bởi Server (401). Tiến hành đăng xuất...');
+            console.error(
+              "Thiết bị bị từ chối bởi Server (401). Tiến hành đăng xuất...",
+            );
             await handleLogout();
           }
         } else {
-          console.log('Gửi heartbeat thành công');
+          console.log("Gửi heartbeat thành công");
           const data = await response.json();
           if (data) {
             // Đồng bộ tên thiết bị từ Server
             if (data.deviceName) {
               setRegisteredDeviceName(data.deviceName);
               setFormName(data.deviceName);
-              await AsyncStorage.setItem('deviceName', data.deviceName);
+              await AsyncStorage.setItem("deviceName", data.deviceName);
             }
 
-            await AsyncStorage.setItem('security_use_pass', data.useSecurityPassword ? 'true' : 'false');
+            await AsyncStorage.setItem(
+              "security_use_pass",
+              data.useSecurityPassword ? "true" : "false",
+            );
             if (data.securityPassword) {
-              await AsyncStorage.setItem('security_pass_val', data.securityPassword);
+              await AsyncStorage.setItem(
+                "security_pass_val",
+                data.securityPassword,
+              );
             } else if (data.useSecurityPassword) {
               // Fallback mã PIN mặc định là '0000' nếu admin chưa cấu hình PIN trong profile
-              await AsyncStorage.setItem('security_pass_val', '0000');
+              await AsyncStorage.setItem("security_pass_val", "0000");
             } else {
-              await AsyncStorage.removeItem('security_pass_val');
+              await AsyncStorage.removeItem("security_pass_val");
             }
 
             // Đồng bộ cấu hình Sleep từ Heartbeat
             const serverSleepEnabled = !!data.sleepScheduleEnabled;
-            const serverSleepStart = data.sleepStartTime || '22:00';
-            const serverSleepEnd = data.sleepEndTime || '06:00';
+            const serverSleepStart = data.sleepStartTime || "22:00";
+            const serverSleepEnd = data.sleepEndTime || "06:00";
 
             setSleepScheduleEnabled(serverSleepEnabled);
             setSleepStartTime(serverSleepStart);
             setSleepEndTime(serverSleepEnd);
 
-            await AsyncStorage.setItem('sleep_schedule_enabled', serverSleepEnabled ? 'true' : 'false');
-            await AsyncStorage.setItem('sleep_start_time', serverSleepStart);
-            await AsyncStorage.setItem('sleep_end_time', serverSleepEnd);
+            await AsyncStorage.setItem(
+              "sleep_schedule_enabled",
+              serverSleepEnabled ? "true" : "false",
+            );
+            await AsyncStorage.setItem("sleep_start_time", serverSleepStart);
+            await AsyncStorage.setItem("sleep_end_time", serverSleepEnd);
 
             // Xử lý kiểm tra và đồng bộ hóa Playlist dựa trên syncHash
-            const serverHash = data.syncHash || 'empty';
-            const localHash = (await AsyncStorage.getItem('local_sync_hash')) || 'empty';
-            const ignoredHash = (await AsyncStorage.getItem('ignored_sync_hash')) || '';
+            const serverHash = data.syncHash || "empty";
+            const localHash =
+              (await AsyncStorage.getItem("local_sync_hash")) || "empty";
+            const ignoredHash =
+              (await AsyncStorage.getItem("ignored_sync_hash")) || "";
 
             // Nếu server hash thay đổi khác với ignoredHash, xóa ignoredHash để nhận chương trình mới
-            if (serverHash !== 'empty' && serverHash !== ignoredHash && ignoredHash !== '') {
-              await AsyncStorage.removeItem('ignored_sync_hash');
-              console.log(`[Sync] Phát hiện syncHash mới từ CMS: ${serverHash}. Đã xóa ignored_sync_hash.`);
+            if (
+              serverHash !== "empty" &&
+              serverHash !== ignoredHash &&
+              ignoredHash !== ""
+            ) {
+              await AsyncStorage.removeItem("ignored_sync_hash");
+              console.log(
+                `[Sync] Phát hiện syncHash mới từ CMS: ${serverHash}. Đã xóa ignored_sync_hash.`,
+              );
             }
 
-            const activeIgnoredHash = (await AsyncStorage.getItem('ignored_sync_hash')) || '';
+            const activeIgnoredHash =
+              (await AsyncStorage.getItem("ignored_sync_hash")) || "";
 
-            if (serverHash !== localHash && serverHash !== activeIgnoredHash && !isSyncingRef.current) {
-              console.log(`[Sync] Phát hiện syncHash thay đổi: Server=${serverHash}, Local=${localHash}. Bắt đầu đồng bộ ngầm...`);
+            if (
+              serverHash !== localHash &&
+              serverHash !== activeIgnoredHash &&
+              !isSyncingRef.current
+            ) {
+              console.log(
+                `[Sync] Phát hiện syncHash thay đổi: Server=${serverHash}, Local=${localHash}. Bắt đầu đồng bộ ngầm...`,
+              );
               isSyncingRef.current = true;
               setSyncProgress(0);
-              reportSyncProgress(0, 'syncing');
+              reportSyncProgress(0, "syncing");
 
               // Watchdog: Tự động giải phóng trạng thái sync nếu bị treo quá 3 phút (180s)
               const watchdogTimer = setTimeout(() => {
                 if (isSyncingRef.current) {
-                  console.warn('[Sync] Watchdog: Đồng bộ playlist chạy quá 3 phút, tự động giải phóng khóa.');
+                  console.warn(
+                    "[Sync] Watchdog: Đồng bộ playlist chạy quá 3 phút, tự động giải phóng khóa.",
+                  );
                   isSyncingRef.current = false;
                   setSyncProgress(null);
-                  reportSyncProgress(0, 'error');
+                  reportSyncProgress(0, "error");
                 }
               }, 180000);
 
@@ -334,19 +368,22 @@ export default function App() {
                   (progress) => {
                     setSyncProgress(progress);
                     if (progress < 100) {
-                      reportSyncProgress(progress, 'syncing');
+                      reportSyncProgress(progress, "syncing");
                     }
-                  }
+                  },
                 );
                 if (updatedPl !== null) {
                   setPlaylist(updatedPl);
-                  reportSyncProgress(100, 'playing');
+                  reportSyncProgress(100, "playing");
                 } else {
-                  reportSyncProgress(0, 'error');
+                  reportSyncProgress(0, "error");
                 }
               } catch (syncErr) {
-                console.error('[Sync] Lỗi khi tải và lưu cache playlist:', syncErr);
-                reportSyncProgress(0, 'error');
+                console.error(
+                  "[Sync] Lỗi khi tải và lưu cache playlist:",
+                  syncErr,
+                );
+                reportSyncProgress(0, "error");
               } finally {
                 clearTimeout(watchdogTimer);
                 isSyncingRef.current = false;
@@ -359,7 +396,7 @@ export default function App() {
           }
         }
       } catch (err) {
-        console.warn('Lỗi kết nối khi gửi heartbeat:', err);
+        console.warn("Lỗi kết nối khi gửi heartbeat:", err);
       }
     };
 
@@ -381,17 +418,22 @@ export default function App() {
       if (!formIp || !formPort) return;
       try {
         const startTime = Date.now();
-        const response = await fetch(`http://${formIp}:${formPort}/api/player/time`);
+        const response = await fetch(
+          `http://${formIp}:${formPort}/api/player/time`,
+        );
         const endTime = Date.now();
         if (response.ok) {
           const data = await response.json();
           const rtt = endTime - startTime;
-          const offset = data.serverTime - Math.round((endTime + startTime) / 2);
+          const offset =
+            data.serverTime - Math.round((endTime + startTime) / 2);
           setClockOffset(offset);
-          console.log(`[NTP Sync] ServerTime: ${data.serverTime}, LocalTime: ${endTime}, RTT: ${rtt}ms, ClockOffset: ${offset}ms`);
+          console.log(
+            `[NTP Sync] ServerTime: ${data.serverTime}, LocalTime: ${endTime}, RTT: ${rtt}ms, ClockOffset: ${offset}ms`,
+          );
         }
       } catch (err) {
-        console.warn('Lỗi kết nối khi đồng bộ thời gian (NTP):', err);
+        console.warn("Lỗi kết nối khi đồng bộ thời gian (NTP):", err);
       }
     };
 
@@ -412,46 +454,55 @@ export default function App() {
     const syncPlaylist = async () => {
       if (!deviceId || !apiKey || isSyncing) return;
       isSyncing = true;
-      
+
       try {
-        const response = await fetch(`http://${formIp}:${formPort}/api/player/sync?deviceId=${deviceId}&apiKey=${apiKey}`);
+        const response = await fetch(
+          `http://${formIp}:${formPort}/api/player/sync?deviceId=${deviceId}&apiKey=${apiKey}`,
+        );
         if (!response.ok) {
-          console.warn('Đồng bộ danh sách phát thất bại, status:', response.status);
+          console.warn(
+            "Đồng bộ danh sách phát thất bại, status:",
+            response.status,
+          );
           isSyncing = false;
           return;
         }
 
         const data = await response.json();
-        
-        if (data.status === 'active' && data.type === 'playlist') {
+
+        if (data.status === "active" && data.type === "playlist") {
           const fetchedItems = data.items || [];
           const isSyncPl = !!data.isSyncGroup;
           const layout = data.syncLayout;
 
           // Ensure media directory exists
-          const mediaDir = (FileSystem as any).documentDirectory + 'media/';
+          const mediaDir = (FileSystem as any).documentDirectory + "media/";
           const dirInfo = await (FileSystem as any).getInfoAsync(mediaDir);
           if (!dirInfo.exists) {
-            await (FileSystem as any).makeDirectoryAsync(mediaDir, { intermediates: true });
+            await (FileSystem as any).makeDirectoryAsync(mediaDir, {
+              intermediates: true,
+            });
           }
 
           // Cache all files
           const offlineItems: any[] = [];
           for (const item of fetchedItems) {
-            const cleanFileName = item.fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-            const localUri = mediaDir + item.checksum + '_' + cleanFileName;
-            
+            const cleanFileName = item.fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+            const localUri = mediaDir + item.checksum + "_" + cleanFileName;
+
             try {
               const fileInfo = await (FileSystem as any).getInfoAsync(localUri);
               if (!fileInfo.exists) {
-                console.log(`[Cache Engine] Bắt đầu tải file: ${item.fileName}`);
+                console.log(
+                  `[Cache Engine] Bắt đầu tải file: ${item.fileName}`,
+                );
                 const downloadUrl = `http://${formIp}:${formPort}${item.fileUrl}`;
                 await (FileSystem as any).downloadAsync(downloadUrl, localUri);
                 console.log(`[Cache Engine] Đã tải xong: ${item.fileName}`);
               }
-              
+
               offlineItems.push({
-                type: item.mimeType.startsWith('video/') ? 'video' : 'image',
+                type: item.mimeType.startsWith("video/") ? "video" : "image",
                 url: localUri,
                 duration: (item.duration || 10) * 1000,
                 sortOrder: item.sortOrder,
@@ -459,10 +510,13 @@ export default function App() {
                 fileName: item.fileName,
               });
             } catch (downloadErr) {
-              console.error(`[Cache Engine] Lỗi tải file ${item.fileName}:`, downloadErr);
+              console.error(
+                `[Cache Engine] Lỗi tải file ${item.fileName}:`,
+                downloadErr,
+              );
               // Fallback to online URL if download fails
               offlineItems.push({
-                type: item.mimeType.startsWith('video/') ? 'video' : 'image',
+                type: item.mimeType.startsWith("video/") ? "video" : "image",
                 url: `http://${formIp}:${formPort}${item.fileUrl}`,
                 duration: (item.duration || 10) * 1000,
                 sortOrder: item.sortOrder,
@@ -474,10 +528,14 @@ export default function App() {
 
           setIsSyncGroup(isSyncPl);
           setSyncLayout(layout);
-          
-          const hasChanged = JSON.stringify(playlistRef.current) !== JSON.stringify(offlineItems);
+
+          const hasChanged =
+            JSON.stringify(playlistRef.current) !==
+            JSON.stringify(offlineItems);
           if (hasChanged) {
-            console.log(`[Sync Engine] Cập nhật playlist mới với ${offlineItems.length} items (offline)`);
+            console.log(
+              `[Sync Engine] Cập nhật playlist mới với ${offlineItems.length} items (offline)`,
+            );
             setPlaylist(offlineItems);
           }
         } else {
@@ -486,7 +544,7 @@ export default function App() {
           }
         }
       } catch (err) {
-        console.warn('Lỗi kết nối khi đồng bộ danh sách phát:', err);
+        console.warn("Lỗi kết nối khi đồng bộ danh sách phát:", err);
       } finally {
         isSyncing = false;
       }
@@ -508,7 +566,7 @@ export default function App() {
   const handleSetFormIp = async (ip: string) => {
     setFormIp(ip);
     try {
-      await AsyncStorage.setItem('serverIp', ip);
+      await AsyncStorage.setItem("serverIp", ip);
     } catch (e) {
       console.error(e);
     }
@@ -517,7 +575,7 @@ export default function App() {
   const handleSetFormPort = async (port: string) => {
     setFormPort(port);
     try {
-      await AsyncStorage.setItem('serverPort', port);
+      await AsyncStorage.setItem("serverPort", port);
     } catch (e) {
       console.error(e);
     }
@@ -635,21 +693,25 @@ export default function App() {
   };
 
   // Success action in RegisterScreen
-  const handleRegisterSuccess = async (id: string, key: string, name: string) => {
+  const handleRegisterSuccess = async (
+    id: string,
+    key: string,
+    name: string,
+  ) => {
     try {
-      await AsyncStorage.setItem('deviceId', id);
-      await AsyncStorage.setItem('apiKey', key);
-      await AsyncStorage.setItem('deviceName', name);
-      
+      await AsyncStorage.setItem("deviceId", id);
+      await AsyncStorage.setItem("apiKey", key);
+      await AsyncStorage.setItem("deviceName", name);
+
       setDeviceId(id);
       setApiKey(key);
       setFormName(name);
       setRegisteredDeviceName(name);
-      
+
       triggerToast();
       // Không tự động đóng tab Register, hiển thị giao diện kích hoạt ngay tại đây
     } catch (e) {
-      console.error('Lỗi lưu thông tin sau đăng ký thành công:', e);
+      console.error("Lỗi lưu thông tin sau đăng ký thành công:", e);
     }
   };
 
@@ -657,7 +719,7 @@ export default function App() {
   const handleRelaunchRequest = useCallback(() => setActiveTab(null), []);
 
   // Screen orientation/dimensions
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
   const isLandscape = screenWidth > screenHeight;
 
   return (
@@ -680,7 +742,7 @@ export default function App() {
                 clockOffset={clockOffset}
               />
             ) : (
-              <HomeScreen 
+              <HomeScreen
                 isLandscape={isLandscape}
                 deviceId={deviceId}
                 deviceName={registeredDeviceName}
@@ -688,7 +750,7 @@ export default function App() {
                 serverPort={formPort}
               />
             )
-          ) : activeTab === 'register' ? (
+          ) : activeTab === "register" ? (
             <RegisterScreen
               isLandscape={isLandscape}
               onSuccess={handleRegisterSuccess}
@@ -701,7 +763,7 @@ export default function App() {
               deviceName={registeredDeviceName}
               onDisconnect={handleLogout}
             />
-          ) : activeTab === 'settings' ? (
+          ) : activeTab === "settings" ? (
             <SettingsScreen
               isLandscape={isLandscape}
               formIp={formIp}
@@ -711,7 +773,7 @@ export default function App() {
               onLogout={handleLogout}
               onClearProgram={handleClearProgram}
             />
-          ) : activeTab === 'network' ? (
+          ) : activeTab === "network" ? (
             <NetworkScreen
               isLandscape={isLandscape}
               isLoading={isLoading}
@@ -723,7 +785,7 @@ export default function App() {
             />
           ) : (
             // Placeholder/Fallback to welcome screen if tab is undefined
-            <HomeScreen 
+            <HomeScreen
               isLandscape={isLandscape}
               deviceId={deviceId}
               deviceName={registeredDeviceName}
@@ -737,13 +799,14 @@ export default function App() {
         <BottomTabBar
           activeTab={activeTab}
           onTabPress={async (tab) => {
-            if (tab === 'exit') {
+            if (tab === "exit") {
               setShowExitModal(true);
-            } else if (tab === 'settings' || tab === 'network') {
+            } else if (tab === "settings" || tab === "network") {
               try {
-                const useSecStr = await AsyncStorage.getItem('security_use_pass');
-                const secPass = await AsyncStorage.getItem('security_pass_val');
-                if (useSecStr === 'true' && secPass) {
+                const useSecStr =
+                  await AsyncStorage.getItem("security_use_pass");
+                const secPass = await AsyncStorage.getItem("security_pass_val");
+                if (useSecStr === "true" && secPass) {
                   setCorrectPin(secPass);
                   setPendingTab(tab);
                   setIsLocked(true);
@@ -751,7 +814,7 @@ export default function App() {
                   setActiveTab(tab);
                 }
               } catch (e) {
-                console.error('Lỗi kiểm tra bảo mật tab:', e);
+                console.error("Lỗi kiểm tra bảo mật tab:", e);
                 setActiveTab(tab);
               }
             } else {
@@ -801,8 +864,7 @@ export default function App() {
                 opacity: toastFadeAnim,
                 transform: [{ translateY: toastSlideAnim }],
               },
-            ]}
-          >
+            ]}>
             <Text style={styles.toastIcon}>✓</Text>
             <Text style={styles.toastText}>Đăng ký thiết bị thành công!</Text>
           </Animated.View>
@@ -811,7 +873,9 @@ export default function App() {
         {/* SLEEP COVER OVERLAY */}
         {isSleeping && (
           <View style={styles.sleepOverlay}>
-            <Text style={styles.sleepOverlayText}>📺 Đang trong chế độ nghỉ tiết kiệm điện...</Text>
+            <Text style={styles.sleepOverlayText}>
+              📺 Đang trong chế độ nghỉ tiết kiệm điện...
+            </Text>
           </View>
         )}
 
@@ -819,12 +883,21 @@ export default function App() {
         {syncProgress !== null && (
           <View style={styles.syncOverlay}>
             <View style={styles.syncBox}>
-              <Text style={styles.syncTitle}>📥 Đang đồng bộ nội dung mới...</Text>
+              <Text style={styles.syncTitle}>
+                📥 Đang đồng bộ nội dung mới...
+              </Text>
               <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: `${syncProgress}%` }]} />
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    { width: `${syncProgress}%` },
+                  ]}
+                />
               </View>
               <Text style={styles.syncPercent}>{syncProgress}%</Text>
-              <Text style={styles.syncSubtitle}>Vui lòng giữ thiết bị kết nối mạng</Text>
+              <Text style={styles.syncSubtitle}>
+                Vui lòng giữ thiết bị kết nối mạng
+              </Text>
             </View>
           </View>
         )}
@@ -842,19 +915,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   toastContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 104,
-    alignSelf: 'center',
+    alignSelf: "center",
     backgroundColor: colors.glassBackground,
     borderWidth: 1,
     borderColor: colors.glassBorder,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
-    shadowColor: '#000000',
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
     shadowRadius: 20,
@@ -864,86 +937,86 @@ const styles = StyleSheet.create({
   toastIcon: {
     fontSize: 18,
     color: colors.success,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   toastText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
   },
   sleepOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#000000",
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 99999,
   },
   sleepOverlayText: {
-    color: '#334155',
+    color: "#334155",
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   syncOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(10, 15, 30, 0.92)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(10, 15, 30, 0.92)",
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 99999,
   },
   syncBox: {
-    width: '80%',
+    width: "80%",
     maxWidth: 420,
-    backgroundColor: 'rgba(30, 41, 59, 0.75)',
+    backgroundColor: "rgba(30, 41, 59, 0.75)",
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: "rgba(255, 255, 255, 0.12)",
     borderRadius: 24,
     padding: 32,
-    alignItems: 'center',
-    shadowColor: '#000000',
+    alignItems: "center",
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.35,
     shadowRadius: 24,
     elevation: 10,
   },
   syncTitle: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
   progressBarBg: {
-    width: '100%',
+    width: "100%",
     height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 4,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: 12,
   },
   progressBarFill: {
-    height: '100%',
+    height: "100%",
     backgroundColor: colors.success,
     borderRadius: 4,
   },
   syncPercent: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 26,
-    fontWeight: '800',
+    fontWeight: "800",
     marginBottom: 8,
   },
   syncSubtitle: {
-    color: 'rgba(255, 255, 255, 0.45)',
+    color: "rgba(255, 255, 255, 0.45)",
     fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    textTransform: "uppercase",
     letterSpacing: 0.5,
   },
 });
