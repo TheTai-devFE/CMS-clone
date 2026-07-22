@@ -22,7 +22,7 @@ async function bootstrap() {
         'http://127.0.0.1:8081',
         'exp://localhost:8081',
       ];
-  
+
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,

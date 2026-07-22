@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Put, Param, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Roles } from './decorators/roles.decorator';
@@ -65,6 +73,10 @@ export class AuthController {
     @Body() dto: { licenseLimit: number },
     @CurrentUser() user: CurrentUserType,
   ) {
-    return this.authService.updateLicenseLimit(userId, dto.licenseLimit, user.role);
+    return this.authService.updateLicenseLimit(
+      userId,
+      dto.licenseLimit,
+      user.role,
+    );
   }
 }

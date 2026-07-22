@@ -34,7 +34,8 @@ export class TemplateService {
           y: zone.y,
           width: zone.width,
           height: zone.height,
-          contentData: (zone.contentData ?? {}) as unknown as Prisma.InputJsonValue,
+          contentData: (zone.contentData ??
+            {}) as unknown as Prisma.InputJsonValue,
         }));
 
         await tx.zone.createMany({
@@ -125,7 +126,8 @@ export class TemplateService {
             y: zone.y,
             width: zone.width,
             height: zone.height,
-          contentData: (zone.contentData ?? {}) as unknown as Prisma.InputJsonValue,
+            contentData: (zone.contentData ??
+              {}) as unknown as Prisma.InputJsonValue,
           }));
 
           await tx.zone.createMany({

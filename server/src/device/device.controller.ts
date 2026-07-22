@@ -69,7 +69,10 @@ export class DeviceController {
 
   @Post('api/devices/claim')
   @UseGuards(JwtAuthGuard)
-  async claimDevice(@CurrentUser() user: CurrentUserType, @Body() dto: ClaimDeviceDto) {
+  async claimDevice(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: ClaimDeviceDto,
+  ) {
     return this.deviceService.claimDevice(user.id, dto);
   }
 
@@ -109,7 +112,10 @@ export class DeviceController {
 
   @Delete('api/devices/:id')
   @UseGuards(JwtAuthGuard)
-  async deleteDevice(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
+  async deleteDevice(
+    @Param('id') id: string,
+    @CurrentUser() user: CurrentUserType,
+  ) {
     // Nếu là user thường, kiểm tra xem thiết bị có thuộc quyền sở hữu không trước khi xóa
     if (user.role !== 'admin') {
       const userDevices = await this.deviceService.getUserDevices(user.id);
@@ -147,31 +153,46 @@ export class DeviceController {
 
   @Post('api/devices/batch/reboot')
   @UseGuards(JwtAuthGuard)
-  async batchReboot(@CurrentUser() user: CurrentUserType, @Body() dto: BatchActionDto) {
+  async batchReboot(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: BatchActionDto,
+  ) {
     return this.deviceService.batchReboot(user, dto.deviceIds);
   }
 
   @Post('api/devices/batch/volume')
   @UseGuards(JwtAuthGuard)
-  async batchVolume(@CurrentUser() user: CurrentUserType, @Body() dto: BatchActionDto) {
+  async batchVolume(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: BatchActionDto,
+  ) {
     return this.deviceService.batchVolume(user, dto.deviceIds, dto.volume!);
   }
 
   @Post('api/devices/batch/install-apk')
   @UseGuards(JwtAuthGuard)
-  async batchInstallApk(@CurrentUser() user: CurrentUserType, @Body() dto: BatchActionDto) {
+  async batchInstallApk(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: BatchActionDto,
+  ) {
     return this.deviceService.batchInstallApk(user, dto.deviceIds, dto.apkUrl);
   }
 
   @Post('api/devices/batch/uninstall-apk')
   @UseGuards(JwtAuthGuard)
-  async batchUninstallApk(@CurrentUser() user: CurrentUserType, @Body() dto: BatchActionDto) {
+  async batchUninstallApk(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: BatchActionDto,
+  ) {
     return this.deviceService.batchUninstallApk(user, dto.deviceIds);
   }
 
   @Post('api/devices/batch/clear-content')
   @UseGuards(JwtAuthGuard)
-  async batchClearContent(@CurrentUser() user: CurrentUserType, @Body() dto: BatchActionDto) {
+  async batchClearContent(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: BatchActionDto,
+  ) {
     return this.deviceService.batchClearContent(user, dto.deviceIds);
   }
 }

@@ -17,7 +17,7 @@ async function main() {
       include: {
         schedules: true,
         playlistItems: true,
-      }
+      },
     });
 
     console.log(`Tìm thấy ${playlists.length} playlists.`);
@@ -45,7 +45,7 @@ async function main() {
         userId: user.id,
         playlistName: 'Test Delete Playlist ' + Date.now(),
         description: 'Temporary playlist for testing delete cascade',
-      }
+      },
     });
     console.log('Đã tạo playlist test ID:', testPl.id);
 
@@ -57,7 +57,7 @@ async function main() {
           playlistId: testPl.id,
           mediaId: media.id,
           sortOrder: 1,
-        }
+        },
       });
       console.log('Đã liên kết media item vào playlist test');
     }
@@ -65,10 +65,9 @@ async function main() {
     // Thử xóa playlist vừa tạo
     console.log('Đang thử xóa playlist test...');
     await prisma.playlist.delete({
-      where: { id: testPl.id }
+      where: { id: testPl.id },
     });
     console.log('Xóa playlist test thành công!');
-
   } catch (error) {
     console.error('LỖI THỰC TẾ KHI XÓA PLAYLIST:', error);
   } finally {
