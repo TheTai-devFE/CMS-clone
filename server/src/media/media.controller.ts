@@ -67,7 +67,12 @@ export class MediaController {
   ) {
     const pageNum = Math.max(1, parseInt(page || '1', 10));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit || '20', 10)));
-    return this.mediaService.getUserMedia(user.id, user.role, pageNum, limitNum);
+    return this.mediaService.getUserMedia(
+      user.id,
+      user.role,
+      pageNum,
+      limitNum,
+    );
   }
 
   @Delete(':id')

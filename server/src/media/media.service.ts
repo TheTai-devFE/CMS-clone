@@ -245,12 +245,7 @@ export class MediaService {
     };
   }
 
-  async getUserMedia(
-    userId: string,
-    role: string,
-    page = 1,
-    limit = 20,
-  ) {
+  async getUserMedia(userId: string, role: string, page = 1, limit = 20) {
     const whereClause = role === 'admin' ? {} : { userId };
     const skip = (page - 1) * limit;
 
@@ -275,7 +270,6 @@ export class MediaService {
       totalPages: Math.ceil(total / limit),
     };
   }
-
 
   async deleteMedia(id: string, userId: string, role: string) {
     const media = await this.prisma.media.findUnique({

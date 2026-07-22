@@ -1,4 +1,5 @@
 import { useVideoPlayer, VideoView } from "expo-video";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Image,
@@ -9,13 +10,23 @@ import {
   View,
 } from "react-native";
 import { colors } from "../theme/colors";
-import { PlayerPlaylistItem } from "../utils/syncManager";
+import {
+  fetchSyncTime,
+  getLocalSyncMeta,
+  PlayerPlaylistItem,
+  SyncMeta,
+} from "../utils/syncManager";
 
 interface AdPlayerScreenProps {
   isLandscape: boolean;
   onRelaunchRequest?: () => void;
   isSleeping?: boolean;
   playlist: PlayerPlaylistItem[];
+  // Sync group (video wall) — optional, chỉ dùng khi playlist là sync group
+  deviceId?: string | null;
+  isSyncGroup?: boolean;
+  syncLayout?: { videoWall?: { rows: number; cols: number } } | null;
+  clockOffset?: number;
 }
 
 /**
@@ -33,6 +44,10 @@ function AdPlayerScreen({
   isLandscape,
   isSleeping,
   playlist,
+  deviceId,
+  isSyncGroup,
+  syncLayout,
+  clockOffset = 0,
 }: AdPlayerScreenProps) {
   // === SINGLE render state — only updated when slide index changes ===
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -47,10 +62,79 @@ function AdPlayerScreen({
   const currentLoadedUrlRef = useRef("");
   const hasInitializedRef = useRef(false);
   const hasInteractedRef = useRef(Platform.OS !== "web");
+  const syncStartedAtRef = useRef<number | null>(null);
+  const syncMetaRef = useRef<SyncMeta | null>(null);
+  const periodicSyncTimerRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
+  const clockOffsetRef = useRef(clockOffset);
 
   // Keep refs in sync with latest props (cheap assignment, no re-render)
   playlistRef.current = playlist;
   isSleepingRef.current = isSleeping;
+  clockOffsetRef.current = clockOffset;
+
+  // === SYNC GROUP: load meta từ AsyncStorage + periodic re-sync mỗi 60s ===
+  useEffect(() => {
+    if (!isSyncGroup) return;
+
+    let cancelled = false;
+    (async () => {
+      const meta = await getLocalSyncMeta();
+      if (cancelled) return;
+      syncMetaRef.current = meta;
+      if (meta) {
+        // Cộng clockOffset để ra "server time" tương ứng tại local
+        const adjustedDeadline = meta.syncPlayDeadline - clockOffsetRef.current;
+        const delayMs = adjustedDeadline - Date.now();
+        console.log(
+          `[SyncGroup] Loaded meta: deadline in ${delayMs}ms (offset=${clockOffsetRef.current}ms)`,
+        );
+        // Lưu thời điểm bắt đầu sync (server time) để tính offset drift sau này
+        syncStartedAtRef.current = adjustedDeadline;
+      }
+    })();
+
+    // Periodic re-sync mỗi 60s
+    periodicSyncTimerRef.current = setInterval(async () => {
+      const meta = syncMetaRef.current;
+      if (!meta) return;
+      // Đọc thông tin server + device từ AsyncStorage
+      const [serverIp, serverPort, storedDeviceId, apiKey] = await Promise.all([
+        AsyncStorage.getItem("serverIp"),
+        AsyncStorage.getItem("serverPort"),
+        AsyncStorage.getItem("deviceId"),
+        AsyncStorage.getItem("apiKey"),
+      ]);
+      if (!serverIp || !serverPort || !storedDeviceId || !apiKey) return;
+
+      const refreshed = await fetchSyncTime(
+        serverIp,
+        serverPort,
+        storedDeviceId,
+        apiKey,
+        meta.playlistId,
+      );
+      if (refreshed && refreshed.syncPlayDeadline) {
+        const newMeta: SyncMeta = {
+          playlistId: meta.playlistId,
+          serverTime: refreshed.serverTime,
+          syncPlayDeadline: refreshed.syncPlayDeadline,
+        };
+        syncMetaRef.current = newMeta;
+        // Cập nhật clock offset
+        clockOffsetRef.current = refreshed.serverTime - Date.now();
+      }
+    }, 60_000);
+
+    return () => {
+      cancelled = true;
+      if (periodicSyncTimerRef.current) {
+        clearInterval(periodicSyncTimerRef.current);
+        periodicSyncTimerRef.current = null;
+      }
+    };
+  }, [isSyncGroup, deviceId]);
 
   // === Video player — stable instance from expo-video ===
   const player = useVideoPlayer(null as any, (p) => {
@@ -63,23 +147,67 @@ function AdPlayerScreen({
 
   // Safe helper to play video and catch browser autoplay blocking rejections
   const safePlay = useCallback((p: any) => {
+    const doPlay = () => {
+      try {
+        const playPromise = p.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch((err: any) => {
+            if (err.name === "AbortError") {
+              console.log(
+                "[Playback] Playback interrupted (AbortError) - safe to ignore.",
+              );
+            } else {
+              console.warn("[Playback] Autoplay block caught:", err.message);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("[Playback] safePlay error:", err);
+      }
+    };
+
+    // SYNC GROUP: nếu là item[0] và có deadline, đợi đến deadline rồi play
+    // (chỉ áp dụng cho item đầu tiên — sau đó mỗi device tự theo duration)
+    const meta = syncMetaRef.current;
+    const isFirstItem = currentIndexRef.current === 0;
+    if (meta && isFirstItem) {
+      const adjustedDeadline = meta.syncPlayDeadline - clockOffsetRef.current;
+      const delay = adjustedDeadline - Date.now();
+      if (delay > 0) {
+        console.log(
+          `[SyncGroup] Waiting ${delay}ms for sync deadline (item 0)`,
+        );
+        // Seek về 0 trước, rồi đợi
+        try {
+          p.currentTime = 0;
+        } catch (_) {
+          /* noop */
+        }
+        setTimeout(doPlay, delay);
+        return;
+      } else {
+        // Đã quá deadline — tính elapsed time để seek bù
+        const elapsedSec = Math.abs(delay) / 1000;
+        if (elapsedSec < 5) {
+          // Chỉ bù nếu lệch ít, tránh seek giữa chừng gây giật
+          try {
+            p.currentTime = elapsedSec;
+            console.log(
+              `[SyncGroup] Late by ${delay}ms, seeking to ${elapsedSec}s`,
+            );
+          } catch (_) {
+            /* noop */
+          }
+        }
+      }
+    }
+
     try {
       p.currentTime = 0;
-      const playPromise = p.play();
-      if (playPromise && typeof playPromise.catch === "function") {
-        playPromise.catch((err: any) => {
-          if (err.name === "AbortError") {
-            console.log(
-              "[Playback] Playback interrupted (AbortError) - safe to ignore.",
-            );
-          } else {
-            console.warn("[Playback] Autoplay block caught:", err.message);
-          }
-        });
-      }
-    } catch (err) {
-      console.warn("[Playback] safePlay error:", err);
+    } catch (_) {
+      /* noop */
     }
+    doPlay();
   }, []);
 
   const handleInteraction = useCallback(() => {

@@ -187,9 +187,15 @@ export class AuthService {
     return { message: 'Cập nhật mã bảo mật thiết bị thành công' };
   }
 
-  async updateLicenseLimit(userId: string, newLimit: number, requesterRole: string) {
+  async updateLicenseLimit(
+    userId: string,
+    newLimit: number,
+    requesterRole: string,
+  ) {
     if (requesterRole !== 'admin') {
-      throw new BadRequestException('Chỉ admin mới được thay đổi hạn mức license');
+      throw new BadRequestException(
+        'Chỉ admin mới được thay đổi hạn mức license',
+      );
     }
 
     const user = await this.prisma.user.findUnique({

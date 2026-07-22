@@ -373,7 +373,12 @@ export default function App() {
                   },
                 );
                 if (updatedPl !== null) {
-                  setPlaylist(updatedPl);
+                  setPlaylist(updatedPl.playlist);
+                  // Nếu sync group, lưu meta + offset
+                  if (updatedPl.syncMeta) {
+                    const offset = updatedPl.syncMeta.serverTime - Date.now();
+                    setClockOffset(offset);
+                  }
                   reportSyncProgress(100, "playing");
                 } else {
                   reportSyncProgress(0, "error");
@@ -474,6 +479,29 @@ export default function App() {
           const fetchedItems = data.items || [];
           const isSyncPl = !!data.isSyncGroup;
           const layout = data.syncLayout;
+
+          // Lưu sync meta cho video wall / sync group
+          if (
+            isSyncPl &&
+            data.syncPlayDeadline &&
+            data.serverTime &&
+            data.playlistId
+          ) {
+            const meta = {
+              playlistId: data.playlistId,
+              serverTime: data.serverTime,
+              syncPlayDeadline: data.syncPlayDeadline,
+            };
+            await AsyncStorage.setItem("local_sync_meta", JSON.stringify(meta));
+            // Tính offset giữa server và local clock
+            const offset = data.serverTime - Date.now();
+            setClockOffset(offset);
+            console.log(
+              `[SyncGroup] offset=${offset}ms deadline=${data.syncPlayDeadline} (delay=${data.syncPlayDeadline - Date.now()}ms)`,
+            );
+          } else if (!isSyncPl) {
+            await AsyncStorage.removeItem("local_sync_meta");
+          }
 
           // Ensure media directory exists
           const mediaDir = (FileSystem as any).documentDirectory + "media/";

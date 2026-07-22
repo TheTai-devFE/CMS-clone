@@ -49,6 +49,11 @@ export default function PlaylistPreviewModal({
   const elapsedPausedRef = useRef<number>(0); // Time elapsed before pausing
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoRefs = useRef<Record<number, HTMLVideoElement | null>>({});
+  // Video wall: a single master <video> (hidden) feeds all canvas tiles
+  // to keep frames perfectly in sync and avoid per-tile decode jitter.
+  const masterVideoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRefs = useRef<Record<number, HTMLCanvasElement | null>>({});
+  const rafIdRef = useRef<number | null>(null);
 
   // Get Aspect Ratio / Video Wall Config
   interface SyncLayoutConfig {
@@ -159,7 +164,7 @@ export default function PlaylistPreviewModal({
         clearInterval(progressIntervalRef.current);
 
       progressIntervalRef.current = setInterval(() => {
-        const primaryVideo = videoRefs.current[0];
+        const primaryVideo = masterVideoRef.current || videoRefs.current[0];
         if (primaryVideo && primaryVideo.duration) {
           const pct = (primaryVideo.currentTime / primaryVideo.duration) * 100;
           setProgress(pct);
@@ -213,6 +218,7 @@ export default function PlaylistPreviewModal({
     if (isPlaying) {
       setIsPlaying(false);
       if (isVideoWall) {
+        if (masterVideoRef.current) masterVideoRef.current.pause();
         Object.values(videoRefs.current).forEach((video) => {
           if (video) video.pause();
         });
@@ -228,6 +234,7 @@ export default function PlaylistPreviewModal({
     } else {
       setIsPlaying(true);
       if (isVideoWall) {
+        if (masterVideoRef.current) masterVideoRef.current.play().catch(() => {});
         Object.values(videoRefs.current).forEach((video) => {
           if (video) video.play().catch(() => {});
         });
@@ -238,6 +245,58 @@ export default function PlaylistPreviewModal({
       }
     }
   };
+
+  // Video wall: drive every canvas from the single master <video> using
+  // requestAnimationFrame so all tiles show the exact same frame.
+  useEffect(() => {
+    if (!isVideoWall) return;
+
+    const draw = () => {
+      const v = masterVideoRef.current;
+      if (v && v.readyState >= 2) {
+        const totalSlots = videoWallRows * videoWallCols;
+        const tileW = v.videoWidth / videoWallCols;
+        const tileH = v.videoHeight / videoWallRows;
+        for (let i = 0; i < totalSlots; i++) {
+          const canvas = canvasRefs.current[i];
+          if (!canvas) continue;
+          const rIdx = Math.floor(i / videoWallCols);
+          const cIdx = i % videoWallCols;
+          // Match canvas internal size to a single tile of the source video
+          // so drawing the source-rect maps 1:1 onto the canvas.
+          if (
+            canvas.width !== tileW ||
+            canvas.height !== tileH
+          ) {
+            canvas.width = tileW;
+            canvas.height = tileH;
+          }
+          const ctx = canvas.getContext("2d");
+          if (!ctx) continue;
+          ctx.drawImage(
+            v,
+            cIdx * tileW,
+            rIdx * tileH,
+            tileW,
+            tileH,
+            0,
+            0,
+            tileW,
+            tileH,
+          );
+        }
+      }
+      rafIdRef.current = requestAnimationFrame(draw);
+    };
+    rafIdRef.current = requestAnimationFrame(draw);
+
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
+  }, [isVideoWall, videoWallRows, videoWallCols, items]);
 
   if (!isOpen) return null;
 
@@ -284,7 +343,7 @@ export default function PlaylistPreviewModal({
             {isVideoWall ? (
               /* Video Wall Sync Grid Chassis Simulator */
               <div
-                className="grid gap-3 w-full p-4 bg-zinc-950 border border-zinc-800 rounded-3xl shadow-2xl max-w-4xl"
+                className="grid w-full gap-px p-4 bg-zinc-950 border border-zinc-800 rounded-3xl shadow-2xl max-w-4xl"
                 style={{
                   gridTemplateRows: `repeat(${videoWallRows}, minmax(0, 1fr))`,
                   gridTemplateColumns: `repeat(${videoWallCols}, minmax(0, 1fr))`,
@@ -299,55 +358,37 @@ export default function PlaylistPreviewModal({
                     return (
                       <div
                         key={slotIndex}
-                        className="relative bg-zinc-900 p-2 rounded-2xl border-2 border-zinc-800 flex flex-col items-center justify-center aspect-video overflow-hidden group hover:border-primary/50 transition-colors"
+                        className="relative bg-black border border-zinc-800 aspect-video overflow-hidden"
                       >
-                        <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden rounded-lg">
-                          <video
-                            ref={(el) => {
-                              videoRefs.current[slotIndex] = el;
-                            }}
-                            src={getFileUrl(item.media.fileUrl)}
-                            className="w-full h-full object-fill"
-                            autoPlay={isPlaying}
-                            muted
-                            loop
-                            onTimeUpdate={() => {
-                              // Sync other videos progress to index 0
-                              if (slotIndex === 0 && isPlaying) {
-                                const primaryTime =
-                                  videoRefs.current[0]?.currentTime;
-                                if (primaryTime !== undefined) {
-                                  Object.keys(videoRefs.current).forEach(
-                                    (k) => {
-                                      const idx = Number(k);
-                                      if (idx !== 0 && videoRefs.current[idx]) {
-                                        const diff = Math.abs(
-                                          (videoRefs.current[idx]
-                                            ?.currentTime || 0) - primaryTime,
-                                        );
-                                        if (
-                                          diff > 0.3 &&
-                                          videoRefs.current[idx]
-                                        ) {
-                                          videoRefs.current[idx]!.currentTime =
-                                            primaryTime;
-                                        }
-                                      }
-                                    },
-                                  );
-                                }
-                              }
-                            }}
-                            playsInline
-                          />
-                          <div className="absolute top-2 left-2 bg-black/60 text-white rounded px-1.5 py-0.5 text-[9px] font-bold z-20 backdrop-blur-xs select-none">
-                            Màn hình {rIdx + 1}x{cIdx + 1}
-                          </div>
+                        <canvas
+                          ref={(el) => {
+                            canvasRefs.current[slotIndex] = el;
+                          }}
+                          className="w-full h-full block"
+                        />
+                        <div className="absolute top-1 left-1 bg-black/60 text-white rounded px-1.5 py-0.5 text-[9px] font-bold z-20 backdrop-blur-xs select-none">
+                          Màn hình {rIdx + 1}x{cIdx + 1}
                         </div>
                       </div>
                     );
                   }),
                 )}
+                {/* Hidden master video feeds all canvas tiles so frames stay perfectly in sync */}
+                {(() => {
+                  const firstItem = items[0];
+                  if (!firstItem) return null;
+                  return (
+                    <video
+                      ref={masterVideoRef}
+                      src={getFileUrl(firstItem.media.fileUrl)}
+                      muted
+                      loop
+                      autoPlay={isPlaying}
+                      playsInline
+                      style={{ display: "none" }}
+                    />
+                  );
+                })()}
               </div>
             ) : (
               /* TV Border Chassis */

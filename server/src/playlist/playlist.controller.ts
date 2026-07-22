@@ -1,13 +1,13 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    Post,
-    Put,
-    Query,
-    UseGuards,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -37,6 +37,24 @@ export class PlaylistController {
     @Query('apiKey') apiKey: string,
   ) {
     return this.playlistService.getSyncPlaylistForDevice(deviceId, apiKey);
+  }
+
+  /**
+   * Endpoint re-sync thời gian cho sync group.
+   * Client gọi định kỳ (mỗi 30-60s) để lấy lại mốc syncPlayDeadline
+   * và tự seek lại nếu bị trôi frame so với các device khác.
+   */
+  @Get('api/player/sync-time')
+  async getSyncTime(
+    @Query('deviceId') deviceId: string,
+    @Query('apiKey') apiKey: string,
+    @Query('playlistId') playlistId: string,
+  ) {
+    return this.playlistService.getSyncTimeForDevice(
+      deviceId,
+      apiKey,
+      playlistId,
+    );
   }
 
   // ==========================================

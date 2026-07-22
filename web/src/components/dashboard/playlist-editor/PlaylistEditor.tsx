@@ -825,7 +825,7 @@ export default function PlaylistEditor({
                         }`}
                       >
                         <div className="flex items-center gap-2 max-w-[80%]">
-                          <div className="h-6 w-6 rounded overflow-hidden shrink-0 border border-border/40 bg-zinc-100 flex items-center justify-center">
+                          <div className="h-6 w-6 rounded overflow-hidden shrink-0 border border-border/40 bg-zinc-100 flex items-center justify-center relative">
                             {isMediaVideo ? (
                               <Film className="h-3.5 w-3.5 text-blue-500" />
                             ) : (

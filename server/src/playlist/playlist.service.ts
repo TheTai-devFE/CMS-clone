@@ -1,9 +1,9 @@
 import {
-    BadRequestException,
-    ForbiddenException,
-    Injectable,
-    NotFoundException,
-    UnauthorizedException,
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
@@ -267,7 +267,11 @@ export class PlaylistService {
       const syncKey = `device:sync:${deviceId}`;
       await this.redis.set(
         syncKey,
-        JSON.stringify({ status: 'idle', progress: 100, updatedAt: Date.now() }),
+        JSON.stringify({
+          status: 'idle',
+          progress: 100,
+          updatedAt: Date.now(),
+        }),
         3600,
       );
     }
@@ -281,7 +285,9 @@ export class PlaylistService {
   // SCHEDULING (LẬP LỊCH)
   // ==========================================
 
-  private getDeviceIdsFromSyncLayout(syncLayout: Record<string, unknown> | null | undefined): string[] {
+  private getDeviceIdsFromSyncLayout(
+    syncLayout: Record<string, unknown> | null | undefined,
+  ): string[] {
     if (!syncLayout) return [];
     const deviceIds = new Set<string>();
 
@@ -328,7 +334,9 @@ export class PlaylistService {
       if (dto.deviceIds && dto.deviceIds.length > 0) {
         deviceIds = dto.deviceIds;
       } else {
-        deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout as Record<string, unknown> | null | undefined);
+        deviceIds = this.getDeviceIdsFromSyncLayout(
+          playlist.syncLayout as Record<string, unknown> | null | undefined,
+        );
       }
     } else if (dto.templateId) {
       const template = await this.prisma.template.findUnique({
@@ -349,7 +357,10 @@ export class PlaylistService {
     }
 
     // Nếu là Lịch phát nhanh (Quick Publish), tự động gỡ các thiết bị này khỏi các lịch phát nhanh cũ
-    if (dto.scheduleName.startsWith('Publish Nhanh -') && deviceIds.length > 0) {
+    if (
+      dto.scheduleName.startsWith('Publish Nhanh -') &&
+      deviceIds.length > 0
+    ) {
       const oldDeviceSchedules = await this.prisma.deviceSchedule.findMany({
         where: {
           deviceId: { in: deviceIds },
@@ -370,7 +381,7 @@ export class PlaylistService {
         const scheduleIdsToUpdate = Array.from(
           new Set(oldDeviceSchedules.map((ds) => ds.scheduleId)),
         );
-        
+
         // 1. Xóa liên kết của thiết bị này khỏi các lịch phát nhanh cũ
         await this.prisma.deviceSchedule.deleteMany({
           where: {
@@ -385,9 +396,13 @@ export class PlaylistService {
             where: { scheduleId },
           });
           if (remainingCount === 0) {
-            await this.prisma.schedule.delete({
-              where: { id: scheduleId },
-            }).catch((err) => console.error('Lỗi khi xóa lịch trình cũ trống:', err));
+            await this.prisma.schedule
+              .delete({
+                where: { id: scheduleId },
+              })
+              .catch((err) =>
+                console.error('Lỗi khi xóa lịch trình cũ trống:', err),
+              );
           }
         }
       }
@@ -476,7 +491,9 @@ export class PlaylistService {
       if (dto.deviceIds && dto.deviceIds.length > 0) {
         deviceIds = dto.deviceIds;
       } else {
-        deviceIds = this.getDeviceIdsFromSyncLayout(playlist.syncLayout as Record<string, unknown> | null | undefined);
+        deviceIds = this.getDeviceIdsFromSyncLayout(
+          playlist.syncLayout as Record<string, unknown> | null | undefined,
+        );
       }
     } else if (dto.templateId) {
       const template = await this.prisma.template.findUnique({
@@ -557,7 +574,11 @@ export class PlaylistService {
       const syncKey = `device:sync:${deviceId}`;
       await this.redis.set(
         syncKey,
-        JSON.stringify({ status: 'idle', progress: 100, updatedAt: Date.now() }),
+        JSON.stringify({
+          status: 'idle',
+          progress: 100,
+          updatedAt: Date.now(),
+        }),
         3600,
       );
     }
@@ -591,7 +612,9 @@ export class PlaylistService {
 
     // 2. Lấy thời gian hiện tại của Server
     const now = new Date();
-    const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60 * 1000);
+    const localNow = new Date(
+      now.getTime() - now.getTimezoneOffset() * 60 * 1000,
+    );
     const todayString = localNow.toISOString().split('T')[0];
     const today = new Date(`${todayString}T12:00:00.000Z`);
 
@@ -653,26 +676,52 @@ export class PlaylistService {
     // Trả về cấu trúc tương thích tùy theo lịch là Playlist hay Template Layout
     if (activeSchedule.playlist) {
       const targetPlaylist = activeSchedule.playlist;
-      return {
+      const items = targetPlaylist.playlistItems.map((item) => ({
+        itemId: item.id,
+        mediaId: item.media.id,
+        fileName: item.media.fileName,
+        fileUrl: item.media.fileUrl, // Link tải tương đối
+        fileSize: item.media.fileSize.toString(),
+        mimeType: item.media.mimeType,
+        checksum: item.media.checksum,
+        sortOrder: item.sortOrder,
+        duration: item.duration,
+        transitionEffect: item.transitionEffect,
+      }));
+
+      // =====================================================
+      // SYNC GROUP: phát thời gian bắt đầu chuẩn từ server
+      // để nhiều thiết bị cùng phát đúng 1 frame tại 1 thời điểm
+      // =====================================================
+      const responseBody: Record<string, unknown> = {
         status: 'active',
         type: 'playlist',
         playlistId: targetPlaylist.id,
         playlistName: targetPlaylist.playlistName,
         isSyncGroup: targetPlaylist.isSyncGroup,
         syncLayout: targetPlaylist.syncLayout,
-        items: targetPlaylist.playlistItems.map((item) => ({
-          itemId: item.id,
-          mediaId: item.media.id,
-          fileName: item.media.fileName,
-          fileUrl: item.media.fileUrl, // Link tải tương đối
-          fileSize: item.media.fileSize.toString(),
-          mimeType: item.media.mimeType,
-          checksum: item.media.checksum,
-          sortOrder: item.sortOrder,
-          duration: item.duration,
-          transitionEffect: item.transitionEffect,
-        })),
+        items,
       };
+
+      if (targetPlaylist.isSyncGroup) {
+        // Cho client 2 giây chuẩn bị (buffer/preload video)
+        const SYNC_BUFFER_MS = 2000;
+        const serverTime = Date.now();
+        const syncPlayDeadline = serverTime + SYNC_BUFFER_MS;
+
+        // Lưu deadline vào Redis làm mốc cho tất cả device trong group
+        // (key theo playlistId, tự xoá sau 1 giờ để tránh rò rỉ)
+        await this.redis.set(
+          `sync:start:${targetPlaylist.id}`,
+          String(syncPlayDeadline),
+          3600,
+        );
+
+        responseBody.serverTime = serverTime;
+        responseBody.syncPlayDeadline = syncPlayDeadline;
+      }
+
+      return responseBody;
     } else if (activeSchedule.template) {
       const targetTemplate = activeSchedule.template;
       return {
@@ -701,6 +750,42 @@ export class PlaylistService {
       playlistId: null,
       playlistName: 'Default Playback',
       items: [],
+    };
+  }
+
+  /**
+   * Trả về mốc syncPlayDeadline cho device đang chạy sync group.
+   * Endpoint này được device gọi định kỳ (mỗi 30-60s) để tự điều chỉnh
+   * nếu trôi frame so với các device khác trong cùng group.
+   */
+  async getSyncTimeForDevice(
+    deviceId: string,
+    apiKey: string,
+    playlistId: string,
+  ) {
+    // 1. Xác thực thiết bị
+    const device = await this.prisma.device.findUnique({
+      where: { id: deviceId },
+    });
+    if (!device || device.apiKey !== apiKey) {
+      throw new UnauthorizedException('Thiết bị không hợp lệ hoặc sai API Key');
+    }
+
+    // 2. Đọc deadline đã lưu trong Redis (set bởi getSyncPlaylistForDevice)
+    const stored = await this.redis.get(`sync:start:${playlistId}`);
+    const serverTime = Date.now();
+
+    if (!stored) {
+      return {
+        serverTime,
+        syncPlayDeadline: null,
+        message: 'Chưa có mốc sync cho playlist này',
+      };
+    }
+
+    return {
+      serverTime,
+      syncPlayDeadline: parseInt(stored, 10),
     };
   }
 
