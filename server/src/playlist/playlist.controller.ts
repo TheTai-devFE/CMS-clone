@@ -39,6 +39,24 @@ export class PlaylistController {
     return this.playlistService.getSyncPlaylistForDevice(deviceId, apiKey);
   }
 
+  /**
+   * Endpoint re-sync thời gian cho sync group.
+   * Client gọi định kỳ (mỗi 30-60s) để lấy lại mốc syncPlayDeadline
+   * và tự seek lại nếu bị trôi frame so với các device khác.
+   */
+  @Get('api/player/sync-time')
+  async getSyncTime(
+    @Query('deviceId') deviceId: string,
+    @Query('apiKey') apiKey: string,
+    @Query('playlistId') playlistId: string,
+  ) {
+    return this.playlistService.getSyncTimeForDevice(
+      deviceId,
+      apiKey,
+      playlistId,
+    );
+  }
+
   // ==========================================
   // ENDPOINTS QUẢN LÝ PLAYLIST (YÊU CẦU AUTH)
   // ==========================================

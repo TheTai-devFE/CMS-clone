@@ -22,8 +22,20 @@ export interface SyncMediaItem {
 export interface PlayerPlaylistItem {
   type: 'image' | 'video' | 'pdf' | 'url';
   url: string; // Trỏ tới file cục bộ file://... hoặc URL online (nếu chạy web)
-  duration: number; // Thời lượng hiển thị (mili-giây)
+  duration: number; // Thời gian hiển thị (mili-giây)
   checksum: string;
+}
+
+/**
+ * Thông tin đồng bộ thời gian cho sync group (video wall).
+ * - serverTime: epoch ms hiện tại của server, dùng để tính offset với local clock
+ * - syncPlayDeadline: epoch ms mà tất cả device PHẢI bắt đầu phát item[0]
+ *   (server cấp 2 giây buffer cho client chuẩn bị)
+ */
+export interface SyncMeta {
+  playlistId: string;
+  serverTime: number;
+  syncPlayDeadline: number;
 }
 
 /**
@@ -85,7 +97,12 @@ function promiseWithTimeout<T>(
 }
 
 /**
+/**
  * Đồng bộ hóa danh sách phát và tải media từ CMS
+ *
+ * Trả về cả `syncMeta` (serverTime, syncPlayDeadline) cho các playlist
+ * thuộc sync group (video wall). Client dùng để đồng bộ thời điểm play
+ * giữa nhiều thiết bị, tránh giật frame.
  */
 export async function syncPlaylist(
   serverIp: string,
@@ -94,7 +111,7 @@ export async function syncPlaylist(
   apiKey: string,
   targetSyncHash: string,
   onProgress?: (progress: number) => void
-): Promise<PlayerPlaylistItem[] | null> {
+): Promise<{ playlist: PlayerPlaylistItem[]; syncMeta: SyncMeta | null } | null> {
   try {
     const url = `http://${serverIp}:${serverPort}/api/player/sync?deviceId=${deviceId}&apiKey=${apiKey}`;
     console.log(`Đang gọi API đồng bộ: ${url}`);
@@ -110,7 +127,7 @@ export async function syncPlaylist(
     }
     
     const syncData = await response.json();
-    
+
     // Nếu thiết bị chưa được duyệt hoặc không có lịch phát
     if (syncData.status === 'pending' || !syncData.items || syncData.items.length === 0) {
       console.log('Không có lịch phát hoạt động hoặc thiết bị chưa được duyệt.');
@@ -120,7 +137,35 @@ export async function syncPlaylist(
       }
       await AsyncStorage.setItem('local_playlist', JSON.stringify([]));
       await AsyncStorage.setItem('local_sync_hash', targetSyncHash);
-      return [];
+      // Xóa sync meta cũ vì playlist rỗng
+      await AsyncStorage.removeItem('local_sync_meta');
+      return { playlist: [], syncMeta: null };
+    }
+
+    // Parse sync meta cho video wall / sync group
+    // Server chỉ trả các trường này khi isSyncGroup=true
+    const syncMeta: SyncMeta | null =
+      syncData.isSyncGroup &&
+      syncData.syncPlayDeadline &&
+      syncData.serverTime &&
+      syncData.playlistId
+        ? {
+            playlistId: syncData.playlistId,
+            serverTime: syncData.serverTime,
+            syncPlayDeadline: syncData.syncPlayDeadline,
+          }
+        : null;
+
+    if (syncMeta) {
+      console.log(
+        `[SyncGroup] serverTime=${syncMeta.serverTime} deadline=${syncMeta.syncPlayDeadline} (delay=${syncMeta.syncPlayDeadline - Date.now()}ms)`,
+      );
+      await AsyncStorage.setItem(
+        'local_sync_meta',
+        JSON.stringify(syncMeta),
+      );
+    } else {
+      await AsyncStorage.removeItem('local_sync_meta');
     }
 
     const items: SyncMediaItem[] = syncData.items;
@@ -183,7 +228,7 @@ export async function syncPlaylist(
       
       await AsyncStorage.setItem('local_playlist', JSON.stringify(localPlaylist));
       await AsyncStorage.setItem('local_sync_hash', targetSyncHash);
-      return localPlaylist;
+      return { playlist: localPlaylist, syncMeta };
     }
 
     // Chạy trên môi trường Native (Android/iOS): Tải file cục bộ phục vụ caching offline
@@ -262,9 +307,9 @@ export async function syncPlaylist(
     // Lưu playlist cục bộ và syncHash vào AsyncStorage
     await AsyncStorage.setItem('local_playlist', JSON.stringify(localPlaylist));
     await AsyncStorage.setItem('local_sync_hash', targetSyncHash);
-    
+
     console.log('Đồng bộ danh sách phát thành công. Số lượng items:', localPlaylist.length);
-    return localPlaylist;
+    return { playlist: localPlaylist, syncMeta };
   } catch (err) {
     console.error('Lỗi trong quá trình đồng bộ playlist:', err);
     return null;
@@ -317,11 +362,47 @@ async function cleanOrphanedFiles(activeChecksums: string[]) {
       const checksum = file.split('.')[0];
       if (checksum && !activeChecksums.includes(checksum)) {
         const filePath = `${MEDIA_DIR}${file}`;
-        console.log('Xóa tệp tin mồ côi (không còn trong playlist):', file);
+        console.log('Xóa tệp tin mồ côi (không còn trong playlist):', filePath);
         await FileSystem.deleteAsync(filePath, { idempotent: true });
       }
     }
   } catch (err) {
     console.error('Lỗi khi dọn dẹp thư mục media cục bộ:', err);
+  }
+}
+
+/**
+ * Lấy sync meta đã cache cho sync group.
+ * Trả về null nếu playlist không thuộc sync group hoặc chưa sync.
+ */
+export async function getLocalSyncMeta(): Promise<SyncMeta | null> {
+  try {
+    const cached = await AsyncStorage.getItem('local_sync_meta');
+    if (!cached) return null;
+    return JSON.parse(cached) as SyncMeta;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Re-sync thời gian từ server (dùng cho periodic re-sync mỗi 30-60s).
+ * Trả về null nếu server không có mốc cho playlist này (chưa sync hoặc không phải sync group).
+ */
+export async function fetchSyncTime(
+  serverIp: string,
+  serverPort: string,
+  deviceId: string,
+  apiKey: string,
+  playlistId: string,
+): Promise<{ serverTime: number; syncPlayDeadline: number | null } | null> {
+  try {
+    const url = `http://${serverIp}:${serverPort}/api/player/sync-time?deviceId=${deviceId}&apiKey=${apiKey}&playlistId=${playlistId}`;
+    const response = await promiseWithTimeout(fetch(url), 5000, 'Sync-time timeout');
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (err) {
+    console.warn('[SyncTime] Không thể lấy mốc sync:', err);
+    return null;
   }
 }
