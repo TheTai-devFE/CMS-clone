@@ -16,7 +16,12 @@ async function bootstrap() {
   // Kích hoạt CORS cho frontend & app client
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',')
-    : ['http://localhost:3001'];
+    : [
+        'http://localhost:3001',
+        'http://localhost:8081',
+        'http://127.0.0.1:8081',
+        'exp://localhost:8081',
+      ];
   
   app.enableCors({
     origin: allowedOrigins,
