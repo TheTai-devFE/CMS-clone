@@ -9,6 +9,7 @@ import { DeviceModule } from './device/device.module';
 import { MediaModule } from './media/media.module';
 import { PlaylistModule } from './playlist/playlist.module';
 import { TemplateModule } from './template/template.module';
+import { SyncGateway } from './sync/sync.gateway';
 
 @Module({
   imports: [
@@ -22,6 +23,6 @@ import { TemplateModule } from './template/template.module';
     TemplateModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, SyncGateway],
 })
 export class AppModule {}

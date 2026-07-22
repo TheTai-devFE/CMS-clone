@@ -24,6 +24,8 @@ export interface PlayerPlaylistItem {
   url: string; // Trỏ tới file cục bộ file://... hoặc URL online (nếu chạy web)
   duration: number; // Thời gian hiển thị (mili-giây)
   checksum: string;
+  sortOrder?: number;
+  itemId?: string;
 }
 
 /**
@@ -220,6 +222,8 @@ export async function syncPlaylist(
           url: downloadUrl, // Trỏ thẳng tới link http://... của server
           duration: (item.duration || 10) * 1000,
           checksum: item.checksum,
+          sortOrder: item.sortOrder,
+          itemId: item.itemId,
         });
         
         count++;
@@ -295,6 +299,8 @@ export async function syncPlaylist(
         url: playUrl,
         duration: (item.duration || 10) * 1000,
         checksum: item.checksum,
+        sortOrder: item.sortOrder,
+        itemId: item.itemId,
       });
 
       processedCount++;

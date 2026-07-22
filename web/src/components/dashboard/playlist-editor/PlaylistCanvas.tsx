@@ -72,6 +72,18 @@ export default function PlaylistCanvas({
                   loop
                   playsInline
                 />
+              ) : media.mimeType === 'application/pdf' ? (
+                <iframe
+                  src={getFileUrl(media.fileUrl)}
+                  className="w-full h-full border-none bg-white"
+                  title="PDF Preview"
+                />
+              ) : media.mimeType === 'url' ? (
+                <iframe
+                  src={media.fileUrl}
+                  className="w-full h-full border-none bg-white"
+                  title="Web Page Preview"
+                />
               ) : (
                 <Image
                   src={getFileUrl(media.fileUrl)}
