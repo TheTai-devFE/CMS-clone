@@ -13,6 +13,7 @@ import { Roles } from './decorators/roles.decorator';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import type { CurrentUser as CurrentUserType } from './interfaces/current-user.interface';
@@ -78,5 +79,19 @@ export class AuthController {
       dto.licenseLimit,
       user.role,
     );
+  }
+
+  /**
+   * T2: Admin tạo user mới. Tự sinh password, trả về 1 lần.
+   * Sau đó admin cần copy và gửi cho user qua email thủ công.
+   */
+  @Post('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async createUser(
+    @Body() dto: CreateUserDto,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.authService.createUserByAdmin(dto, user.role);
   }
 }

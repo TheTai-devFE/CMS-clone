@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { useDashboard } from '@/app/dashboard/context/DashboardContext';
 import { api } from '@/utils/api';
 import AssignDeviceModal from '@/components/dashboard/AssignDeviceModal';
+import CreateUserModal from '@/components/dashboard/CreateUserModal';
+import PasswordRevealModal from '@/components/dashboard/PasswordRevealModal';
 import { usePendingDevices, useUsers } from '@/hooks/useApi';
 import AdminTab from '@/components/dashboard/AdminTab';
 
@@ -25,6 +27,18 @@ export default function AdminPageClient() {
   const [selectedDeviceForAssign, setSelectedDeviceForAssign] = useState<string | null>(null);
   const [targetUserIdForAssign, setTargetUserIdForAssign] = useState<string>('');
   const [actionLoading, setActionLoading] = useState(false);
+
+  // T2: Create user flow states
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
+  const [createdUser, setCreatedUser] = useState<{
+    id: string;
+    shortId: string;
+    username: string;
+    email: string;
+    role: string;
+    licenseLimit: number;
+    tempPassword: string;
+  } | null>(null);
 
   // Redirect non-admins if they accidentally access
   if (currentUser && currentUser.role !== 'admin') {
@@ -74,6 +88,23 @@ export default function AdminPageClient() {
     }
   };
 
+  // T2: handle user created → show password reveal
+  const handleUserCreated = (newUser: {
+    id: string;
+    shortId: string;
+    username: string;
+    email: string;
+    role: string;
+    licenseLimit: number;
+    tempPassword: string;
+  }) => {
+    setShowCreateUserModal(false);
+    setCreatedUser(newUser);
+    setSuccessMsg(`Đã tạo user ${newUser.email} thành công`);
+    // Refresh user list
+    mutateUsers();
+  };
+
   return (
     <>
       <AdminTab
@@ -81,6 +112,7 @@ export default function AdminPageClient() {
         users={users}
         handleOpenAssignModal={handleOpenAssignModal}
         onUsersChange={mutateUsers}
+        onOpenCreateUser={() => setShowCreateUserModal(true)}
       />
 
       <AssignDeviceModal
@@ -92,6 +124,23 @@ export default function AdminPageClient() {
         handleAssignDevice={handleAssignDevice}
         actionLoading={actionLoading}
       />
+
+      {showCreateUserModal && (
+        <CreateUserModal
+          onClose={() => setShowCreateUserModal(false)}
+          onCreated={handleUserCreated}
+        />
+      )}
+
+      {createdUser && (
+        <PasswordRevealModal
+          email={createdUser.email}
+          username={createdUser.username}
+          shortId={createdUser.shortId}
+          tempPassword={createdUser.tempPassword}
+          onClose={() => setCreatedUser(null)}
+        />
+      )}
     </>
   );
 }
