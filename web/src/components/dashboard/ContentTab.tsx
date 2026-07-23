@@ -12,8 +12,11 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
+  LayoutGrid,
+  Filter,
 } from 'lucide-react';
 import { getFileUrl } from '@/utils/api';
+import type { MediaTypeFilter } from '@/app/dashboard/content/ContentPageClient';
 
 interface MediaItem {
   id: string;
@@ -23,6 +26,15 @@ interface MediaItem {
   mimeType: string;
   checksum: string;
   createdAt: string;
+}
+
+interface MediaTypeCounts {
+  all: number;
+  image: number;
+  video: number;
+  pdf: number;
+  url: number;
+  slides: number;
 }
 
 interface ContentTabProps {
@@ -43,9 +55,58 @@ interface ContentTabProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   formatBytes: (bytes: string | number) => string;
   onOpenWebUrlModal: () => void;
+  // T3: Media type filter
+  mediaTypeFilter?: MediaTypeFilter;
+  onMediaTypeFilterChange?: (filter: MediaTypeFilter) => void;
+  mediaTypeCounts?: MediaTypeCounts;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 40];
+
+// T3: Cấu hình filter chip
+const FILTER_OPTIONS: Array<{
+  value: MediaTypeFilter;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  colorClass: string;
+  activeClass: string;
+}> = [
+  {
+    value: "all",
+    label: "Tất cả",
+    icon: LayoutGrid,
+    colorClass: "text-muted-foreground",
+    activeClass: "bg-primary text-primary-foreground border-primary",
+  },
+  {
+    value: "image",
+    label: "Hình ảnh",
+    icon: ImageIcon,
+    colorClass: "text-blue-500",
+    activeClass: "bg-blue-500 text-white border-blue-500",
+  },
+  {
+    value: "video",
+    label: "Video",
+    icon: Play,
+    colorClass: "text-purple-500",
+    activeClass: "bg-purple-500 text-white border-purple-500",
+  },
+  {
+    value: "pdf",
+    label: "PDF",
+    icon: FileText,
+    colorClass: "text-red-500",
+    activeClass: "bg-red-500 text-white border-red-500",
+  },
+  {
+    value: "url",
+    label: "Trang web",
+    icon: Globe,
+    colorClass: "text-emerald-500",
+    activeClass: "bg-emerald-500 text-white border-emerald-500",
+  },
+];
 
 export default function ContentTab({
   mediaList,
@@ -63,6 +124,9 @@ export default function ContentTab({
   fileInputRef,
   formatBytes,
   onOpenWebUrlModal,
+  mediaTypeFilter = "all",
+  onMediaTypeFilterChange,
+  mediaTypeCounts,
 }: ContentTabProps) {
   // mediaList is already the current page from server – no client-side slicing needed
   const safePage = Math.min(currentPage, totalPages);
@@ -107,16 +171,77 @@ export default function ContentTab({
       </CardHeader>
 
       <CardContent>
-        {mediaList.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 border border-dashed rounded-lg bg-muted/10 gap-3">
-            <ImageIcon className="h-12 w-12 text-muted-foreground/60" />
-            <div className="text-center">
-              <h3 className="font-semibold text-lg">Thư viện trống</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mt-1">Hãy tải tệp tin ảnh hoặc video MP4 đầu tiên lên hệ thống.</p>
+        {mediaList.length === 0 ? (() => {
+          const activeFilter = FILTER_OPTIONS.find((o) => o.value === mediaTypeFilter);
+          const EmptyIcon = activeFilter?.icon ?? ImageIcon;
+          const emptyTitle =
+            mediaTypeFilter === "all"
+              ? "Thư viện trống"
+              : `Không có ${activeFilter?.label.toLowerCase() ?? ""} trong trang này`;
+          const emptyDesc =
+            mediaTypeFilter === "all"
+              ? "Hãy tải tệp tin ảnh hoặc video MP4 đầu tiên lên hệ thống."
+              : "Thử chuyển sang bộ lọc khác hoặc tải lên tệp mới.";
+          return (
+            <div className="flex flex-col items-center justify-center py-12 border border-dashed rounded-lg bg-muted/10 gap-3">
+              <EmptyIcon
+                className={`h-12 w-12 ${activeFilter?.colorClass ?? "text-muted-foreground/60"}`}
+              />
+              <div className="text-center">
+                <h3 className="font-semibold text-lg">{emptyTitle}</h3>
+                <p className="text-sm text-muted-foreground max-w-sm mt-1">{emptyDesc}</p>
+                {mediaTypeFilter !== "all" && onMediaTypeFilterChange && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onMediaTypeFilterChange("all")}
+                    className="mt-3"
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5 mr-1.5" />
+                    Xem tất cả
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        ) : (
+          );
+        })() : (
           <>
+            {/* T3: Filter chips (Image / Video / PDF / Web) */}
+            {onMediaTypeFilterChange && (
+              <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-1">
+                <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0 mr-1" />
+                {FILTER_OPTIONS.map((opt) => {
+                  const Icon = opt.icon;
+                  const isActive = mediaTypeFilter === opt.value;
+                  const count = mediaTypeCounts?.[opt.value] ?? 0;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => onMediaTypeFilterChange(opt.value)}
+                      className={`h-8 px-3 border text-xs rounded-lg font-semibold transition-all duration-150 flex items-center gap-1.5 shrink-0 ${
+                        isActive
+                          ? opt.activeClass + " shadow-xs"
+                          : `bg-card border-border hover:bg-muted/40 ${opt.colorClass}`
+                      }`}
+                      aria-pressed={isActive}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {opt.label}
+                      <span
+                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold leading-none ${
+                          isActive
+                            ? "bg-white/20"
+                            : "bg-muted/60 text-muted-foreground"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Toolbar: tổng số + page size */}
             <div className="flex items-center justify-between mb-4 text-xs select-none">
               <span className="text-muted-foreground">
