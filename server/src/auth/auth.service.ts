@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -12,6 +13,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import { randomPassword } from '../common/password.util';
 
 @Injectable()
 export class AuthService {
@@ -221,5 +224,78 @@ export class AuthService {
     });
 
     return updated;
+  }
+
+  /**
+   * T2: Admin tạo user mới với mật khẩu tự sinh.
+   * Trả về tempPassword chỉ 1 LẦN DUY NHẤT qua response.
+   * Frontend PHẢI hiển thị modal để admin copy và gửi cho user qua email.
+   *
+   * @throws ForbiddenException nếu không phải admin
+   * @throws ConflictException nếu email/username đã tồn tại
+   */
+  async createUserByAdmin(
+    dto: CreateUserDto,
+    requesterRole: string,
+  ): Promise<{
+    user: {
+      id: string;
+      shortId: string;
+      username: string;
+      email: string;
+      role: string;
+      licenseLimit: number;
+      status: string;
+      createdAt: Date;
+    };
+    tempPassword: string;
+  }> {
+    if (requesterRole !== 'admin') {
+      throw new ForbiddenException('Chỉ admin mới có quyền tạo người dùng');
+    }
+
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ username: dto.username }, { email: dto.email }],
+      },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Tên đăng nhập hoặc email đã tồn tại');
+    }
+
+    // Sinh mật khẩu ngẫu nhiên
+    const tempPassword = randomPassword(12);
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    const userCount = await this.prisma.user.count();
+    const nextNum = userCount + 1;
+    const shortId = `USR-${String(nextNum).padStart(4, '0')}`;
+
+    const user = await this.prisma.user.create({
+      data: {
+        shortId,
+        username: dto.username,
+        email: dto.email,
+        passwordHash,
+        role: dto.role || 'user',
+        licenseLimit: dto.licenseLimit ?? 1,
+      },
+      select: {
+        id: true,
+        shortId: true,
+        username: true,
+        email: true,
+        role: true,
+        licenseLimit: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    // TODO T17: Gửi email credentials qua Resend sau khi webhook payment thành công.
+    // Hiện tại MVP: chỉ return cho admin copy thủ công.
+
+    return { user, tempPassword };
   }
 }

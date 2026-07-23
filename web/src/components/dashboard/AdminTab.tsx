@@ -10,7 +10,8 @@ import {
   CheckCircle2,
   Edit2,
   Save,
-  X
+  X,
+  UserPlus,
 } from 'lucide-react';
 import { api } from '@/utils/api';
 
@@ -38,13 +39,15 @@ interface AdminTabProps {
   users: User[];
   handleOpenAssignModal: (deviceId: string) => void;
   onUsersChange?: () => void;
+  onOpenCreateUser?: () => void;
 }
 
 export default function AdminTab({
   pendingDevices,
   users,
   handleOpenAssignModal,
-  onUsersChange
+  onUsersChange,
+  onOpenCreateUser,
 }: AdminTabProps) {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editLicenseValue, setEditLicenseValue] = useState<number>(0);
@@ -119,9 +122,20 @@ export default function AdminTab({
 
       {/* Users & License Limit Card */}
       <Card className="bg-card border-border shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-xl">Quản lý hạn mức License của Users</CardTitle>
-          <CardDescription>Theo dõi danh sách khách hàng và giới hạn thiết bị</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-xl">Quản lý hạn mức License của Users</CardTitle>
+            <CardDescription>Theo dõi danh sách khách hàng và giới hạn thiết bị</CardDescription>
+          </div>
+          {onOpenCreateUser && (
+            <Button
+              onClick={onOpenCreateUser}
+              className="bg-primary text-primary-foreground hover:bg-primary/95 shrink-0"
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Tạo User
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <Table>

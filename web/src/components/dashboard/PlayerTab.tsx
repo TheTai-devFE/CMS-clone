@@ -35,22 +35,19 @@ export default function PlayerTab({
   const { templates } = useTemplates();
 
   // Local state for table filter dropdowns
+  // T4: Bỏ approvalFilter — tất cả thiết bị ở Player page đã được duyệt.
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [approvalFilter, setApprovalFilter] = useState<string>("all");
 
   // Local state for batch selection
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
-  // Filter devices based on status and approval selections
-  const filteredDevices = devices.filter((device) => {
-    const matchesStatus =
-      statusFilter === "all" || device.status === statusFilter;
-    const matchesApproval =
-      approvalFilter === "all" || device.approvalStatus === approvalFilter;
-    return matchesStatus && matchesApproval;
-  });
+  // Filter devices theo status (online/offline). Approval đã bỏ vì user thường
+  // chỉ thấy thiết bị đã duyệt; thiết bị pending xử lý ở Admin Panel.
+  const filteredDevices = devices.filter(
+    (device) => statusFilter === "all" || device.status === statusFilter,
+  );
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -202,8 +199,6 @@ export default function PlayerTab({
         setSearchQuery={setSearchQuery}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
-        approvalFilter={approvalFilter}
-        setApprovalFilter={setApprovalFilter}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
       />

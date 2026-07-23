@@ -22,8 +22,11 @@ export interface SyncMediaItem {
 export interface PlayerPlaylistItem {
   type: 'image' | 'video' | 'pdf' | 'url';
   url: string; // Trỏ tới file cục bộ file://... hoặc URL online (nếu chạy web)
-  duration: number; // Thời gian hiển thị (mili-giây)
+  // LƯU Ý: duration từ backend lưu theo GIÂY (xem server/src/playlist/playlist.service.ts:148).
+  // Code player phải * 1000 trước khi dùng cho setTimeout. Video KHÔNG dùng duration.
+  duration: number; // Thời gian hiển thị (GIÂY — từ DB)
   checksum: string;
+  sortOrder?: number; // Thứ tự trong playlist, dùng cho video wall slot matching
 }
 
 /**

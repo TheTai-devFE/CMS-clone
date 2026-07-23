@@ -9,19 +9,23 @@ interface FilterBarProps {
   setSearchQuery: (query: string) => void;
   statusFilter: string;
   setStatusFilter: (status: string) => void;
-  approvalFilter: string;
-  setApprovalFilter: (status: string) => void;
   onRefresh: () => void;
   isRefreshing?: boolean;
 }
 
+/**
+ * T4: Bỏ filter "phê duyệt" ở Player page.
+ * Lý do: tất cả thiết bị hiển thị ở Player page đều đã được admin duyệt
+ * (thiết bị pending được xử lý ở Admin Panel). Filter này không còn ý nghĩa
+ * cho user thường — chỉ làm rối UI.
+ *
+ * Trước đây có dropdown "Phê duyệt: Tất cả / Đã duyệt / Chờ duyệt" — đã xoá.
+ */
 export default function FilterBar({
   searchQuery,
   setSearchQuery,
   statusFilter,
   setStatusFilter,
-  approvalFilter,
-  setApprovalFilter,
   onRefresh,
   isRefreshing = false
 }: FilterBarProps) {
@@ -39,7 +43,7 @@ export default function FilterBar({
         />
       </div>
 
-      {/* Dropdown filters and Refresh button on the Right */}
+      {/* Dropdown filter + Refresh button on the Right */}
       <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
         {/* Connection Status Filter */}
         <div className="relative">
@@ -51,20 +55,6 @@ export default function FilterBar({
             <option value="all">Trạng thái: Tất cả</option>
             <option value="online">Trực tuyến (Online)</option>
             <option value="offline">Ngoại tuyến (Offline)</option>
-          </select>
-          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-        </div>
-
-        {/* Approval Status Filter */}
-        <div className="relative">
-          <select
-            value={approvalFilter}
-            onChange={(e) => setApprovalFilter(e.target.value)}
-            className="appearance-none pl-3 pr-8 py-2 text-xs bg-muted/40 hover:bg-muted/65 border border-border/80 rounded-lg text-foreground focus:outline-hidden focus:border-primary transition-all cursor-pointer font-medium"
-          >
-            <option value="all">Phê duyệt: Tất cả</option>
-            <option value="approved">Đã duyệt</option>
-            <option value="pending">Chờ duyệt</option>
           </select>
           <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
         </div>
