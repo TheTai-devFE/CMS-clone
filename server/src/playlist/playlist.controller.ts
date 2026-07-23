@@ -15,6 +15,7 @@ import { AddPlaylistItemsDto } from './dto/add-playlist-items.dto';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdatePlaylistDto } from './dto/update-playlist.dto';
+import { PublishPlaylistDto } from './dto/publish-playlist.dto';
 import { PlaylistService } from './playlist.service';
 
 interface AuthUser {
@@ -109,6 +110,28 @@ export class PlaylistController {
   @UseGuards(JwtAuthGuard)
   async deletePlaylist(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.playlistService.deletePlaylist(id, user.id, user.role);
+  }
+
+  /**
+   * T5: Publish playlist tới danh sách device.
+   * Body: { devices: [{ deviceId, enabled }], scheduleName? }
+   * Sau khi publish, player sẽ pick up playlist ngay lập tức qua
+   * /api/player/sync (vì Schedule active mọi ngày trong tuần).
+   */
+  @Post('api/playlists/:id/publish')
+  @UseGuards(JwtAuthGuard)
+  async publishPlaylist(
+    @Param('id') id: string,
+    @Body() dto: PublishPlaylistDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.playlistService.publishPlaylist(
+      id,
+      user.id,
+      user.role,
+      dto.devices,
+      dto.scheduleName,
+    );
   }
 
   // ==========================================

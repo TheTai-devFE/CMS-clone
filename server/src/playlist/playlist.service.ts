@@ -317,6 +317,128 @@ export class PlaylistService {
     return Array.from(deviceIds);
   }
 
+  /**
+   * T5: Publish playlist tới danh sách device với on/off riêng biệt.
+   *
+   * Flow:
+   * 1. Validate playlist thuộc user + có items
+   * 2. Validate tất cả deviceId thuộc user + đã approved
+   * 3. Tạo Schedule mới với playlistId (overwrite Schedule "Publish Nhanh" cũ nếu có)
+   * 4. Tạo DeviceSchedule rows với enabled=true/false theo input
+   *
+   * Lưu ý: chỉ "publish" — KHÔNG ghi đè Schedule chính thức (có date/time/doW).
+   * Nếu user muốn lập lịch chính thức, dùng Schedule UI riêng.
+   *
+   * @throws NotFoundException nếu playlist không tồn tại / không thuộc user
+   * @throws BadRequestException nếu playlist rỗng hoặc device invalid
+   */
+  async publishPlaylist(
+    playlistId: string,
+    userId: string,
+    role: string,
+    devices: { deviceId: string; enabled: boolean }[],
+    scheduleNameOverride?: string,
+  ) {
+    // 1. Validate playlist
+    const playlist = await this.prisma.playlist.findUnique({
+      where: { id: playlistId },
+      include: {
+        playlistItems: { select: { id: true } },
+      },
+    });
+
+    if (!playlist) {
+      throw new NotFoundException('Không tìm thấy danh sách phát');
+    }
+
+    if (role !== 'admin' && playlist.userId !== userId) {
+      throw new ForbiddenException(
+        'Bạn không có quyền publish danh sách phát này',
+      );
+    }
+
+    if (playlist.playlistItems.length === 0) {
+      throw new BadRequestException(
+        'Playlist phải có ít nhất 1 slide trước khi publish',
+      );
+    }
+
+    // 2. Validate devices
+    const deviceIds = devices.map((d) => d.deviceId);
+    const validDevices = await this.prisma.device.findMany({
+      where: {
+        id: { in: deviceIds },
+        ...(role === 'admin' ? {} : { userId }),
+      },
+      select: { id: true, approvalStatus: true },
+    });
+
+    if (validDevices.length !== deviceIds.length) {
+      throw new BadRequestException(
+        'Một hoặc nhiều thiết bị không tồn tại hoặc không thuộc quyền của bạn',
+      );
+    }
+
+    const invalidApproval = validDevices.find(
+      (d) => d.approvalStatus !== 'approved',
+    );
+    if (invalidApproval) {
+      throw new BadRequestException(
+        `Thiết bị ${invalidApproval.id} chưa được admin duyệt`,
+      );
+    }
+
+    // 3. Xóa Schedule "Publish Nhanh" cũ (nếu có) cho playlist này
+    //    để tránh duplicate phát cùng playlist 2 lần.
+    const today = new Date();
+    const startOfYear = new Date(today.getFullYear(), 0, 1);
+    const endOfYear = new Date(today.getFullYear() + 2, 11, 31);
+
+    await this.prisma.schedule.deleteMany({
+      where: {
+        playlistId,
+        scheduleName: { startsWith: 'Publish Nhanh -' },
+        userId,
+      },
+    });
+
+    // 4. Tạo Schedule mới
+    const scheduleName =
+      scheduleNameOverride ||
+      `Publish Nhanh - ${playlist.playlistName} (${new Date().toISOString().slice(0, 16).replace('T', ' ')})`;
+
+    const schedule = await this.prisma.schedule.create({
+      data: {
+        userId,
+        scheduleName,
+        playlistId,
+        startDate: startOfYear,
+        endDate: endOfYear,
+        startTime: '00:00:00',
+        endTime: '23:59:59',
+        dayOfWeek: [0, 1, 2, 3, 4, 5, 6], // mọi ngày trong tuần
+        priority: 10, // ưu tiên cao hơn schedule thường
+        devices: {
+          create: devices.map((d) => ({
+            deviceId: d.deviceId,
+            enabled: d.enabled,
+          })),
+        },
+      },
+      include: {
+        devices: true,
+      },
+    });
+
+    return {
+      scheduleId: schedule.id,
+      scheduleName: schedule.scheduleName,
+      playlistId,
+      deviceCount: schedule.devices.length,
+      enabledCount: schedule.devices.filter((d) => d.enabled).length,
+    };
+  }
+
   async createSchedule(dto: CreateScheduleDto, userId: string) {
     let deviceIds: string[] = [];
 
@@ -631,7 +753,7 @@ export class PlaylistService {
     const activeSchedules = await this.prisma.schedule.findMany({
       where: {
         devices: {
-          some: { deviceId },
+          some: { deviceId, enabled: true }, // T5: chỉ pick up nếu device còn enabled
         },
         startDate: { lte: today },
         endDate: { gte: today },

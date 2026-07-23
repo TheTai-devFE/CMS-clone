@@ -164,6 +164,9 @@ model DeviceSchedule {
   device     Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   scheduleId String   @map("schedule_id") @db.Uuid
   schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  // T5: Per-device on/off toggle cho publish flow. Mặc định true.
+  // Khi false, device này sẽ KHÔNG nhận playlist từ schedule.
+  enabled    Boolean  @default(true) @map("enabled")
 
   @@id([deviceId, scheduleId])
   @@map("device_schedules")

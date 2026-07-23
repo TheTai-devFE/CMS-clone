@@ -1,4 +1,5 @@
 import { useVideoPlayer, VideoView } from "expo-video";
+import { WebView } from "react-native-webview";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -1010,10 +1011,30 @@ function AdPlayerScreen({
               />
             </View>
           ) : (
-            <View style={styles.fallbackContainer}>
-              <Text style={styles.fallbackText}>🌐 Đang hiển thị trang Web</Text>
-              <Text style={styles.fallbackSub}>{currentItem.url}</Text>
-            </View>
+            // T5: Native platform dùng react-native-webview
+            <WebView
+              source={{ uri: currentItem.url }}
+              style={
+                videoWallCrop
+                  ? {
+                      position: "absolute",
+                      width: videoWallCrop.mediaWidth as any,
+                      height: videoWallCrop.mediaHeight as any,
+                      left: videoWallCrop.left as any,
+                      top: videoWallCrop.top as any,
+                    }
+                  : { width: "100%", height: "100%", backgroundColor: "#000000" }
+              }
+              allowsFullscreenVideo
+              javaScriptEnabled
+              domStorageEnabled
+              // Không cho user navigate ra ngoài URL (giữ focus playlist)
+              originWhitelist={["*"]}
+              // Cache + offline: nếu đã load trước thì hiển thị ngay
+              cacheEnabled
+              // Ngăn zoom không mong muốn trên mobile
+              scalesPageToFit={false}
+            />
           )}
         </View>
       )}

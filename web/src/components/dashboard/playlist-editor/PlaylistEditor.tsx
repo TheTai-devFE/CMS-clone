@@ -13,7 +13,7 @@ interface PlaylistEditorProps {
   mediaList: MediaItem[];
   onClose: () => void;
   onSave: () => void;
-  onCreated?: (playlistId: string) => void;
+  onCreated?: (playlistId: string, playlistName: string) => void;
 }
 
 const RESOLUTION_OPTIONS = [
@@ -520,7 +520,7 @@ export default function PlaylistEditor({
       localStorage.removeItem("cms_playlist_draft");
       onSave();
       if (isNew && onCreated) {
-        onCreated(playlistId);
+        onCreated(playlistId, playlistName.trim());
       } else {
         onClose();
       }
