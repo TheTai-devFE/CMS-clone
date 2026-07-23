@@ -271,6 +271,8 @@ function AdPlayerScreen({
     p.loop = false;
     // Mute on Web by default to prevent autoplay blocking during initialization
     p.muted = Platform.OS === "web";
+    // Emit timeUpdate mỗi 0.5s — dùng làm fallback detect video end (T12 fix)
+    p.timeUpdateEventInterval = 0.5;
   });
   const playerRef = useRef(player);
   playerRef.current = player;
@@ -410,7 +412,8 @@ function AdPlayerScreen({
 
         // Tự động tua đến vị trí chuẩn tuyệt đối ngay lập tức khi bắt đầu load (chỉ với NTP)
         if (isSyncGroup && syncMode === "ntp") {
-          const durationMs = item.duration || 10000;
+          // T12 FIX: item.duration từ backend là GIÂY, cần * 1000 để ra ms
+          const durationMs = (item.duration || 10) * 1000;
           const nowServerTime = Date.now() + clockOffset;
           const targetPosMs = nowServerTime % durationMs;
           try {
@@ -442,53 +445,23 @@ function AdPlayerScreen({
         currentLoadedUrlRef.current = "";
       }
 
-      // Duration-based timer to advance to next slide (chỉ đặt nếu playlist có nhiều hơn 1 phần tử hoặc không phải video)
-      if (pl.length > 1 || item.type !== "video") {
-        let duration = item.duration || 10000;
-
-        if (item.type === "video") {
-          // Tạm thời đặt slide timer fallback cực lớn (10 phút) chờ lấy duration thực tế của video
-          duration = 600000;
-
-          let checkCount = 0;
-          checkDurationIntervalRef.current = setInterval(() => {
-            checkCount++;
-            try {
-              const actualDurationSec = p.duration;
-              if (actualDurationSec && actualDurationSec > 0) {
-                if (checkDurationIntervalRef.current) {
-                  clearInterval(checkDurationIntervalRef.current);
-                  checkDurationIntervalRef.current = null;
-                }
-                const actualDurationMs = actualDurationSec * 1000;
-                console.log(`[Playback] Đã phát hiện thời lượng thực tế của video: ${actualDurationSec}s. Cập nhật lại slide timer.`);
-                
-                // Xóa slide timer fallback và đặt lại slide timer chuẩn xác
-                if (slideTimerRef.current) {
-                  clearTimeout(slideTimerRef.current);
-                }
-                slideTimerRef.current = setTimeout(() => {
-                  goToNextRef.current();
-                }, actualDurationMs);
-              }
-            } catch (err) {
-              console.warn("[Playback] Lỗi kiểm tra duration video:", err);
-            }
-
-            if (checkCount > 80) { // Dừng kiểm tra sau 20s
-              if (checkDurationIntervalRef.current) {
-                clearInterval(checkDurationIntervalRef.current);
-                checkDurationIntervalRef.current = null;
-              }
-            }
-          }, 250);
-        }
-
+      // ============================================================
+      // T12 FIX: Bỏ duration polling phức tạp. Dùng player events
+      // (playToEnd + timeUpdate) làm primary để advance slide.
+      // Chỉ set slide timer cho non-video (image/PDF/url).
+      // ============================================================
+      if (item.type !== "video") {
+        // Backend lưu duration theo GIÂY (xem playlist.service.ts:148).
+        // Item.duration = 10 nghĩa là 10 giây, không phải 10ms.
+        // Nhân 1000 để chuyển sang milliseconds cho setTimeout.
+        const durationMs = (item.duration || 10) * 1000;
         slideTimerRef.current = setTimeout(() => {
           goToNextRef.current();
-        }, duration);
+        }, durationMs);
       } else {
-        console.log("[Playback] Playlist chỉ có 1 video. Kích hoạt chế độ lặp native, không đặt slide timer.");
+        // Video: KHÔNG dùng item.duration (đơn vị không đáng tin).
+        // Dùng playToEnd event + timeUpdate listener (xem useEffect bên dưới).
+        console.log(`[Playback] Video "${item.url}" — using player events for end detection`);
       }
     },
     [clearSlideTimer, isSyncGroup, clockOffset],
@@ -516,11 +489,19 @@ function AdPlayerScreen({
         isTransitioningRef.current = false;
         return;
       }
-      // Restart timer (chỉ dành cho ảnh/pdf/url)
-      slideTimerRef.current = setTimeout(() => {
-        isTransitioningRef.current = false;
-        goToNextRef.current();
-      }, item.duration || 10000);
+      // T12 FIX: Restart timer chỉ dành cho ảnh/pdf/url.
+      // Backend lưu duration theo GIÂY, cần * 1000 cho setTimeout.
+      // Video single-item thì dùng player.loop (đã set ở useEffect loop mode).
+      if (item.type !== "video") {
+        const durationMs = (item.duration || 10) * 1000;
+        slideTimerRef.current = setTimeout(() => {
+          isTransitioningRef.current = false;
+          goToNextRef.current();
+        }, durationMs);
+      } else {
+        // Video đơn lẻ: replay bằng safePlay (player.loop = true cũng đảm bảo loop)
+        safePlay(playerRef.current);
+      }
       isTransitioningRef.current = false;
       return;
     }
@@ -618,6 +599,38 @@ function AdPlayerScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Intentionally empty — player is stable, goToNextRef is a ref
 
+  // === T12 FIX: timeUpdate fallback — phát hiện video gần hết qua currentTime ===
+  // playToEnd event đôi khi không fire trên một số nền tảng (đặc biệt Web).
+  // timeUpdate polling mỗi 0.5s sẽ so sánh currentTime với duration,
+  // nếu trong vòng 0.5s cuối thì advance (backup detection).
+  useEffect(() => {
+    const p = playerRef.current;
+    const subscription = p.addListener("timeUpdate", ({ currentTime }) => {
+      try {
+        // Chỉ act nếu: video có duration, đang phát thật (currentTime > 0.5s),
+        // và còn cách cuối ≤ 0.5s
+        if (
+          p.duration > 0 &&
+          currentTime > 0.5 &&
+          currentTime >= p.duration - 0.5 &&
+          !isTransitioningRef.current
+        ) {
+          console.log(
+            `[Playback] timeUpdate detected end: ${currentTime.toFixed(2)}s / ${p.duration.toFixed(2)}s`,
+          );
+          clearSlideTimer();
+          goToNextRef.current();
+        }
+      } catch (err) {
+        console.warn("[Playback] timeUpdate error:", err);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   // === Effect: sleep state changes ===
   useEffect(() => {
     const p = playerRef.current;
@@ -637,11 +650,15 @@ function AdPlayerScreen({
         if (item.type === "video" && hasInteractedRef.current) {
           safePlay(p);
         }
-        // Restart duration timer
-        clearSlideTimer();
-        slideTimerRef.current = setTimeout(() => {
-          goToNextRef.current();
-        }, item.duration || 10000);
+        // T12 FIX: chỉ set timer cho non-video. Video dùng player events.
+        // Backend lưu duration theo GIÂY, cần * 1000 cho setTimeout.
+        if (item.type !== "video") {
+          clearSlideTimer();
+          const durationMs = (item.duration || 10) * 1000;
+          slideTimerRef.current = setTimeout(() => {
+            goToNextRef.current();
+          }, durationMs);
+        }
       }
     }
   }, [isSleeping, clearSlideTimer]);
