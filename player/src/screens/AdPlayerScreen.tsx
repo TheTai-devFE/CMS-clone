@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import io from "socket.io-client";
-import { colors } from "../utils/colors";
+import { colors } from "../theme/colors";
 import {
   fetchSyncTime,
   getLocalSyncMeta,

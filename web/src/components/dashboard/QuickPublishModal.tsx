@@ -38,42 +38,22 @@ export const QuickPublishModal = ({
         const approvedDevices = devices.filter((d) => d.approvalStatus === "approved");
         setDeviceList(approvedDevices);
 
-        // Thiết lập thiết bị mặc định được chọn dựa trên syncLayout
+        // Thiết lập thiết bị mặc định được chọn dựa trên syncLayout.targetDeviceId của playlist
         interface SyncLayoutConfig {
           targetDeviceId?: string;
-          deviceMapping?: Record<string, string | string[]>;
-          videoWall?: { rows: number; cols: number; sourceMediaId: string };
+          deviceMapping?: Record<string, string[]>;
         }
         const syncLayout = (playlist as { syncLayout?: SyncLayoutConfig }).syncLayout;
+        const defaultDeviceId = syncLayout?.targetDeviceId;
 
-        // Collect all device IDs from syncLayout (supports both single and Video Wall modes)
-        const autoDeviceIds = new Set<string>();
-
-        // Single device mode: targetDeviceId
-        if (syncLayout?.targetDeviceId && typeof syncLayout.targetDeviceId === 'string') {
-          autoDeviceIds.add(syncLayout.targetDeviceId);
-        }
-
-        // Video Wall / Sync Group mode: deviceMapping
-        if (syncLayout?.deviceMapping && typeof syncLayout.deviceMapping === 'object') {
-          for (const key in syncLayout.deviceMapping) {
-            const value = syncLayout.deviceMapping[key];
-            if (typeof value === 'string') {
-              autoDeviceIds.add(value);
-            } else if (Array.isArray(value)) {
-              value.forEach((id) => {
-                if (typeof id === 'string') autoDeviceIds.add(id);
-              });
-            }
+        if (defaultDeviceId) {
+          // Kiểm tra xem thiết bị này có nằm trong danh sách của user không
+          const hasDefault = approvedDevices.some((d) => d.id === defaultDeviceId);
+          if (hasDefault) {
+            setSelectedDeviceIds([defaultDeviceId]);
+          } else {
+            setSelectedDeviceIds([]);
           }
-        }
-
-        // Auto-select matched devices
-        if (autoDeviceIds.size > 0) {
-          const matchedIds = approvedDevices
-            .filter((d) => autoDeviceIds.has(d.id))
-            .map((d) => d.id);
-          setSelectedDeviceIds(matchedIds.length > 0 ? matchedIds : []);
         } else {
           setSelectedDeviceIds([]);
         }

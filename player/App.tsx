@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -8,14 +9,7 @@ import {
   Text,
   TouchableWithoutFeedback,
   View,
-  LogBox,
 } from "react-native";
-
-LogBox.ignoreLogs([
-  "shadow* style props are deprecated",
-  "TouchableWithoutFeedback is deprecated",
-  "Animated: `useNativeDriver` is not supported",
-]);
 
 // Theme & Custom components
 import BottomTabBar from "./src/components/BottomTabBar";
@@ -72,7 +66,6 @@ export default function App() {
   const [isSyncGroup, setIsSyncGroup] = useState(false);
   const [syncLayout, setSyncLayout] = useState<any>(null);
   const [clockOffset, setClockOffset] = useState(0);
-  const [syncMode, setSyncMode] = useState<"ntp" | "websocket" | "none">("none");
   const playlistRef = useRef<any[]>([]);
 
   useEffect(() => {
@@ -88,63 +81,11 @@ export default function App() {
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        let storedIp = await AsyncStorage.getItem("serverIp");
-        let storedPort = await AsyncStorage.getItem("serverPort");
-        let storedId = await AsyncStorage.getItem("deviceId");
-        let storedKey = await AsyncStorage.getItem("apiKey");
-        let storedName = await AsyncStorage.getItem("deviceName");
-
-        // Hỗ trợ ghi đè qua URL query parameter trên Web để giả lập nhiều màn hình
-        if (typeof window !== "undefined" && window.location) {
-          const urlParams = new URLSearchParams(window.location.search);
-          const urlDeviceId = urlParams.get("deviceId") || urlParams.get("deviceid");
-          const urlApiKey = urlParams.get("apiKey") || urlParams.get("apikey");
-          const urlDeviceName = urlParams.get("deviceName") || urlParams.get("devicename");
-          const urlServerIp = urlParams.get("serverIp") || urlParams.get("serverip") || urlParams.get("ip");
-          const urlServerPort = urlParams.get("serverPort") || urlParams.get("serverport") || urlParams.get("port");
-          const urlSyncMode = urlParams.get("syncMode") || urlParams.get("syncmode");
-          
-          if (urlDeviceId) {
-            storedId = urlDeviceId;
-            console.log(`[Web Simulator] Ghi đè deviceId từ URL: ${urlDeviceId}`);
-          }
-          if (urlApiKey) {
-            storedKey = urlApiKey;
-            console.log(`[Web Simulator] Ghi đè apiKey từ URL: ${urlApiKey}`);
-          }
-          if (urlDeviceName) {
-            storedName = urlDeviceName;
-            console.log(`[Web Simulator] Ghi đè deviceName từ URL: ${urlDeviceName}`);
-          }
-          if (urlServerIp) {
-            storedIp = urlServerIp;
-            console.log(`[Web Simulator] Ghi đè serverIp từ URL: ${urlServerIp}`);
-          }
-          if (urlServerPort) {
-            storedPort = urlServerPort;
-            console.log(`[Web Simulator] Ghi đè serverPort từ URL: ${urlServerPort}`);
-          }
-          
-          if (urlSyncMode === "websocket") {
-            setSyncMode("websocket");
-            console.log(`[Web Simulator] Đồng bộ: Sử dụng WebSockets (Master-Slave)`);
-          } else if (urlSyncMode === "ntp") {
-            setSyncMode("ntp");
-            console.log(`[Web Simulator] Đồng bộ: Sử dụng NTP Clock`);
-          } else {
-            setSyncMode("none");
-            console.log(`[Web Simulator] Đồng bộ: ĐÃ TẮT NTP (Chạy độc lập)`);
-          }
-
-          // Trên Web, nếu đang chạy local (localhost/127.0.0.1) thì tự động ưu tiên dùng hostname của trình duyệt làm serverIp
-          if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-            storedIp = window.location.hostname;
-            console.log(`[Web Simulator] Đang chạy localhost, tự động ưu tiên serverIp theo hostname: ${storedIp}`);
-          } else if (!storedIp && window.location.hostname) {
-            storedIp = window.location.hostname;
-            console.log(`[Web Simulator] Tự động cấu hình serverIp theo hostname: ${storedIp}`);
-          }
-        }
+        const storedIp = await AsyncStorage.getItem("serverIp");
+        const storedPort = await AsyncStorage.getItem("serverPort");
+        const storedId = await AsyncStorage.getItem("deviceId");
+        const storedKey = await AsyncStorage.getItem("apiKey");
+        const storedName = await AsyncStorage.getItem("deviceName");
 
         if (storedIp) setFormIp(storedIp);
         if (storedPort) setFormPort(storedPort);
@@ -153,12 +94,6 @@ export default function App() {
         if (storedName) {
           setFormName(storedName);
           setRegisteredDeviceName(storedName);
-        }
-
-        // Nếu có deviceId nhưng thiếu apiKey, tự động chuyển về màn hình đăng ký để liên kết lại
-        if (storedId && !storedKey) {
-          console.warn("[Register Check] Phát hiện có deviceId nhưng thiếu apiKey. Tự động chuyển về màn hình đăng ký.");
-          setActiveTab("register");
         }
 
         // Đọc cấu hình Menu Gesture
@@ -180,21 +115,6 @@ export default function App() {
         // Đọc playlist cục bộ đã lưu
         const localPl = await getLocalPlaylist();
         setPlaylist(localPl);
-
-        // Load sync group configurations
-        const storedIsSync = await AsyncStorage.getItem("is_sync_group");
-        setIsSyncGroup(storedIsSync === "true");
-
-        const storedSyncLayout = await AsyncStorage.getItem("sync_layout");
-        if (storedSyncLayout) {
-          try {
-            setSyncLayout(JSON.parse(storedSyncLayout));
-          } catch (_) {
-            setSyncLayout(null);
-          }
-        } else {
-          setSyncLayout(null);
-        }
       } catch (e) {
         console.error(
           "Lỗi khi tải cấu hình từ AsyncStorage hoặc xoay màn hình:",
@@ -322,12 +242,7 @@ export default function App() {
     let interval: any = null;
 
     const sendHeartbeat = async () => {
-      if (!deviceId) return;
-      if (!apiKey) {
-        console.warn("[Heartbeat] Có deviceId nhưng thiếu apiKey. Chuyển về màn hình đăng ký.");
-        setActiveTab("register");
-        return;
-      }
+      if (!deviceId || !apiKey) return;
 
       try {
         const response = await fetch(
@@ -502,15 +417,10 @@ export default function App() {
 
   // 1. NTP Time synchronization loop
   useEffect(() => {
-    if (syncMode !== "ntp") {
-      setClockOffset(0);
-      return;
-    }
-
     let interval: any = null;
 
     const syncTime = async () => {
-      if (!formIp || !formPort || !deviceId) return;
+      if (!formIp || !formPort) return;
       try {
         const startTime = Date.now();
         const response = await fetch(
@@ -539,12 +449,147 @@ export default function App() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [formIp, formPort, deviceId, syncMode]);
+  }, [formIp, formPort]);
 
-  // NOTE: Playlist sync is handled via Heartbeat-based syncHash detection (above).
-  // The heartbeat loop (10s interval) checks if syncHash changed → triggers syncPlaylist()
-  // from syncManager.ts which correctly handles Platform.OS, R2 URLs, isSyncGroup, and syncLayout.
-  // A separate polling sync loop was removed to eliminate race conditions and duplicate API calls.
+  // 2. Playlist fetching and caching loop
+  useEffect(() => {
+    let interval: any = null;
+    let isSyncing = false;
+
+    const syncPlaylist = async () => {
+      if (!deviceId || !apiKey || isSyncing) return;
+      isSyncing = true;
+
+      try {
+        const response = await fetch(
+          `http://${formIp}:${formPort}/api/player/sync?deviceId=${deviceId}&apiKey=${apiKey}`,
+        );
+        if (!response.ok) {
+          console.warn(
+            "Đồng bộ danh sách phát thất bại, status:",
+            response.status,
+          );
+          isSyncing = false;
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.status === "active" && data.type === "playlist") {
+          const fetchedItems = data.items || [];
+          const isSyncPl = !!data.isSyncGroup;
+          const layout = data.syncLayout;
+
+          // Lưu sync meta cho video wall / sync group
+          if (
+            isSyncPl &&
+            data.syncPlayDeadline &&
+            data.serverTime &&
+            data.playlistId
+          ) {
+            const meta = {
+              playlistId: data.playlistId,
+              serverTime: data.serverTime,
+              syncPlayDeadline: data.syncPlayDeadline,
+            };
+            await AsyncStorage.setItem("local_sync_meta", JSON.stringify(meta));
+            // Tính offset giữa server và local clock
+            const offset = data.serverTime - Date.now();
+            setClockOffset(offset);
+            console.log(
+              `[SyncGroup] offset=${offset}ms deadline=${data.syncPlayDeadline} (delay=${data.syncPlayDeadline - Date.now()}ms)`,
+            );
+          } else if (!isSyncPl) {
+            await AsyncStorage.removeItem("local_sync_meta");
+          }
+
+          // Ensure media directory exists
+          const mediaDir = (FileSystem as any).documentDirectory + "media/";
+          const dirInfo = await (FileSystem as any).getInfoAsync(mediaDir);
+          if (!dirInfo.exists) {
+            await (FileSystem as any).makeDirectoryAsync(mediaDir, {
+              intermediates: true,
+            });
+          }
+
+          // Cache all files
+          const offlineItems: any[] = [];
+          for (const item of fetchedItems) {
+            const cleanFileName = item.fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+            const localUri = mediaDir + item.checksum + "_" + cleanFileName;
+
+            try {
+              const fileInfo = await (FileSystem as any).getInfoAsync(localUri);
+              if (!fileInfo.exists) {
+                console.log(
+                  `[Cache Engine] Bắt đầu tải file: ${item.fileName}`,
+                );
+                const downloadUrl = `http://${formIp}:${formPort}${item.fileUrl}`;
+                await (FileSystem as any).downloadAsync(downloadUrl, localUri);
+                console.log(`[Cache Engine] Đã tải xong: ${item.fileName}`);
+              }
+
+              offlineItems.push({
+                type: item.mimeType.startsWith("video/") ? "video" : "image",
+                url: localUri,
+                duration: (item.duration || 10) * 1000,
+                sortOrder: item.sortOrder,
+                itemId: item.itemId,
+                fileName: item.fileName,
+              });
+            } catch (downloadErr) {
+              console.error(
+                `[Cache Engine] Lỗi tải file ${item.fileName}:`,
+                downloadErr,
+              );
+              // Fallback to online URL if download fails
+              offlineItems.push({
+                type: item.mimeType.startsWith("video/") ? "video" : "image",
+                url: `http://${formIp}:${formPort}${item.fileUrl}`,
+                duration: (item.duration || 10) * 1000,
+                sortOrder: item.sortOrder,
+                itemId: item.itemId,
+                fileName: item.fileName,
+              });
+            }
+          }
+
+          setIsSyncGroup(isSyncPl);
+          setSyncLayout(layout);
+
+          const hasChanged =
+            JSON.stringify(playlistRef.current) !==
+            JSON.stringify(offlineItems);
+          if (hasChanged) {
+            console.log(
+              `[Sync Engine] Cập nhật playlist mới với ${offlineItems.length} items (offline)`,
+            );
+            setPlaylist(offlineItems);
+          }
+        } else {
+          if (playlistRef.current.length > 0) {
+            setPlaylist([]);
+          }
+        }
+      } catch (err) {
+        console.warn("Lỗi kết nối khi đồng bộ danh sách phát:", err);
+      } finally {
+        isSyncing = false;
+      }
+    };
+
+    if (deviceId && apiKey) {
+      syncPlaylist();
+      // Sync every 30 seconds
+      interval = setInterval(syncPlaylist, 30000);
+    } else {
+      setPlaylist([]);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [deviceId, apiKey, formIp, formPort]);
 
   const handleSetFormIp = async (ip: string) => {
     setFormIp(ip);
@@ -713,7 +758,7 @@ export default function App() {
         {/* Dynamic content rendering based on activeTab */}
         <View style={styles.contentArea}>
           {activeTab === null ? (
-            (playlist.length > 0 && deviceId && apiKey) ? (
+            playlist.length > 0 ? (
               <AdPlayerScreen
                 isLandscape={isLandscape}
                 onRelaunchRequest={handleRelaunchRequest}
@@ -723,9 +768,6 @@ export default function App() {
                 isSyncGroup={isSyncGroup}
                 syncLayout={syncLayout}
                 clockOffset={clockOffset}
-                syncMode={syncMode}
-                serverIp={formIp}
-                serverPort={formPort}
               />
             ) : (
               <HomeScreen

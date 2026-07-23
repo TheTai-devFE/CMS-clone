@@ -26,8 +26,7 @@ export interface PlayerPlaylistItem {
   // Code player phải * 1000 trước khi dùng cho setTimeout. Video KHÔNG dùng duration.
   duration: number; // Thời gian hiển thị (GIÂY — từ DB)
   checksum: string;
-  sortOrder?: number;
-  itemId?: string;
+  sortOrder?: number; // Thứ tự trong playlist, dùng cho video wall slot matching
 }
 
 /**
@@ -224,8 +223,6 @@ export async function syncPlaylist(
           url: downloadUrl, // Trỏ thẳng tới link http://... của server
           duration: (item.duration || 10) * 1000,
           checksum: item.checksum,
-          sortOrder: item.sortOrder,
-          itemId: item.itemId,
         });
         
         count++;
@@ -301,8 +298,6 @@ export async function syncPlaylist(
         url: playUrl,
         duration: (item.duration || 10) * 1000,
         checksum: item.checksum,
-        sortOrder: item.sortOrder,
-        itemId: item.itemId,
       });
 
       processedCount++;

@@ -95,59 +95,6 @@ export default function EditDeviceModal({
                 className="bg-background border-input"
               />
             </div>
-
-            {/* Thông tin kết nối cho mô phỏng / debug */}
-            <div className="p-3 bg-muted/40 rounded-xl border border-border/80 space-y-2.5">
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mã ID Thiết Bị (Device ID)</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <input
-                    type="text"
-                    readOnly
-                    value={device.id}
-                    className="w-full text-xs font-mono bg-background border border-input rounded-lg px-2.5 py-1.5 select-all focus:outline-none"
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="h-8 text-[11px] font-medium shrink-0 rounded-lg px-3"
-                    onClick={() => {
-                      navigator.clipboard.writeText(device.id);
-                      alert('Đã sao chép Device ID!');
-                    }}
-                  >
-                    Sao chép
-                  </Button>
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mã khóa API (API Key)</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <input
-                    type="text"
-                    readOnly
-                    value={device.apiKey}
-                    className="w-full text-xs font-mono bg-background border border-input rounded-lg px-2.5 py-1.5 select-all focus:outline-none"
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="h-8 text-[11px] font-medium shrink-0 rounded-lg px-3"
-                    onClick={() => {
-                      navigator.clipboard.writeText(device.apiKey);
-                      alert('Đã sao chép API Key!');
-                    }}
-                  >
-                    Sao chép
-                  </Button>
-                </div>
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-normal mt-1">
-                💡 Sử dụng ID và API Key này truyền lên URL trình duyệt để chạy nhiều tab giả lập:
-                <br />
-                <code className="text-foreground font-mono select-all">?deviceId={device.id}&apiKey={device.apiKey}</code>
-              </p>
-            </div>
             
             <div className="flex items-center justify-between p-3 rounded-lg border border-border/85 bg-muted/20">
               <div className="space-y-0.5" style={{ marginRight: '16px' }}>
