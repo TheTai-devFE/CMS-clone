@@ -20,6 +20,8 @@ model User {
   role         String     @default("user") @db.VarChar(20) // 'admin', 'user'
   licenseLimit Int        @default(1) @map("license_limit")
   status       String     @default("active") @db.VarChar(20) // 'active', 'suspended'
+  // T6: Loại mua hàng. NULL = chưa xác định / admin. 'rent' = thuê bao. 'buy' = mua đứt.
+  purchaseType String?    @map("purchase_type") @db.VarChar(20) // 'rent' | 'buy' | null
   securityPassword String? @map("security_password") @db.VarChar(255)
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
@@ -29,8 +31,31 @@ model User {
   playlists    Playlist[]
   schedules    Schedule[]
   templates    Template[]
+  licenseAudits LicenseAudit[]
 
   @@map("users")
+}
+
+/// T6: Audit log cho mọi thay đổi licenseLimit / purchaseType.
+/// Dùng để admin truy vết "ai đổi license user X lúc nào, từ bao nhiêu sang bao nhiêu".
+model LicenseAudit {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // ID của admin thực hiện thay đổi
+  changedById   String?  @map("changed_by_id") @db.Uuid
+  // Loại thay đổi: 'license_limit', 'purchase_type'
+  action        String   @db.VarChar(30)
+  // Giá trị trước (null nếu là lần đầu)
+  oldValue      String?  @map("old_value") @db.VarChar(255)
+  // Giá trị sau
+  newValue      String   @map("new_value") @db.VarChar(255)
+  // Ghi chú của admin
+  note          String?  @db.VarChar(500)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("license_audits")
 }
 
 model Device {

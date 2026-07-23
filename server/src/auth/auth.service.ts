@@ -132,7 +132,9 @@ export class AuthService {
   }
 
   async getAllUsers() {
-    return this.prisma.user.findMany({
+    // T6: lấy thêm deviceCount để frontend hiển thị badge Đủ/Vượt/Thiếu.
+    // Query tách riêng (thay vì include) để tránh N+1 và giữ type đơn giản.
+    const users = await this.prisma.user.findMany({
       select: {
         id: true,
         shortId: true,
@@ -141,10 +143,26 @@ export class AuthService {
         role: true,
         licenseLimit: true,
         status: true,
+        purchaseType: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Đếm devices theo user (chỉ tính approved — pending không chiếm license)
+    const deviceCounts = await this.prisma.device.groupBy({
+      by: ['userId'],
+      where: { approvalStatus: 'approved', userId: { not: null } },
+      _count: { _all: true },
+    });
+    const countMap = new Map(
+      deviceCounts.map((d) => [d.userId!, d._count._all]),
+    );
+
+    return users.map((u) => ({
+      ...u,
+      deviceCount: countMap.get(u.id) ?? 0,
+    }));
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
@@ -194,6 +212,8 @@ export class AuthService {
     userId: string,
     newLimit: number,
     requesterRole: string,
+    requesterId?: string,
+    note?: string,
   ) {
     if (requesterRole !== 'admin') {
       throw new BadRequestException(
@@ -209,21 +229,42 @@ export class AuthService {
       throw new NotFoundException('Không tìm thấy người dùng');
     }
 
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: { licenseLimit: newLimit },
-      select: {
-        id: true,
-        shortId: true,
-        username: true,
-        email: true,
-        role: true,
-        licenseLimit: true,
-        status: true,
-      },
+    const oldLimit = user.licenseLimit;
+    const result = await this.prisma.$transaction(async (tx) => {
+      // 1. Update license
+      const updated = await tx.user.update({
+        where: { id: userId },
+        data: { licenseLimit: newLimit },
+        select: {
+          id: true,
+          shortId: true,
+          username: true,
+          email: true,
+          role: true,
+          licenseLimit: true,
+          status: true,
+          purchaseType: true,
+        },
+      });
+
+      // 2. T6: Ghi audit log
+      if (oldLimit !== newLimit) {
+        await tx.licenseAudit.create({
+          data: {
+            userId,
+            changedById: requesterId,
+            action: 'license_limit',
+            oldValue: String(oldLimit),
+            newValue: String(newLimit),
+            note: note?.slice(0, 500) || null,
+          },
+        });
+      }
+
+      return updated;
     });
 
-    return updated;
+    return result;
   }
 
   /**
@@ -280,6 +321,8 @@ export class AuthService {
         passwordHash,
         role: dto.role || 'user',
         licenseLimit: dto.licenseLimit ?? 1,
+        // T6: mặc định purchaseType = 'rent' (thuê bao). Admin có thể đổi sau.
+        purchaseType: 'rent',
       },
       select: {
         id: true,
@@ -289,6 +332,7 @@ export class AuthService {
         role: true,
         licenseLimit: true,
         status: true,
+        purchaseType: true,
         createdAt: true,
       },
     });
