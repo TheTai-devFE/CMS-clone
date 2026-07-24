@@ -9,6 +9,7 @@ import { DeviceModule } from './device/device.module';
 import { MediaModule } from './media/media.module';
 import { PlaylistModule } from './playlist/playlist.module';
 import { TemplateModule } from './template/template.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { TemplateModule } from './template/template.module';
     MediaModule,
     PlaylistModule,
     TemplateModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

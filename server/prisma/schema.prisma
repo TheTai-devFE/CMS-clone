@@ -32,8 +32,42 @@ model User {
   schedules    Schedule[]
   templates    Template[]
   licenseAudits LicenseAudit[]
+  orders        Order[]
 
   @@map("users")
+}
+
+model Order {
+  id              String               @id @default(uuid()) @db.Uuid
+  orderCode       BigInt               @unique @map("order_code")
+  userId          String               @map("user_id") @db.Uuid
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount          Int
+  licenseQuantity Int                  @map("license_quantity")
+  purchaseType    String               @map("purchase_type") @db.VarChar(20) // 'rent' | 'buy'
+  status          String               @default("PENDING") @db.VarChar(20) // 'PENDING', 'PAID', 'CANCELLED'
+  checkoutUrl     String?              @map("checkout_url") @db.VarChar(512)
+  paymentLinkResponse Json?            @map("payment_link_response")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  payments        PaymentTransaction[]
+
+  @@map("orders")
+}
+
+model PaymentTransaction {
+  id                  String    @id @default(uuid()) @db.Uuid
+  orderId             String    @map("order_id") @db.Uuid
+  order               Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reference           String?   @db.VarChar(255)
+  amount              Int
+  accountNumber       String?   @map("account_number") @db.VarChar(50)
+  transactionDateTime DateTime? @map("transaction_date_time")
+  webhookData         Json?     @map("webhook_data")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  @@map("payment_transactions")
 }
 
 /// T6: Audit log cho mọi thay đổi licenseLimit / purchaseType.

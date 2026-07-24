@@ -133,17 +133,41 @@ export default function KpiCards({
           <CreditCard className="h-4 w-4 text-muted-foreground" />
         </div>
 
-        <div className="my-3">
-          <span className="text-2xl font-bold tracking-tight text-foreground font-sans block">
-            {currentUser.role === 'admin' ? 'Không giới hạn' : `${currentUser.licenseLimit} máy`}
-          </span>
-          <span className="text-xs text-muted-foreground mt-0.5 block">
-            Màn hình được cấp phép
-          </span>
+        <div className="my-3 flex items-baseline justify-between">
+          <div>
+            <span className="text-2xl font-bold tracking-tight text-foreground font-sans block">
+              {currentUser.role === 'admin' ? 'Không giới hạn' : `${currentUser.licenseLimit} máy`}
+            </span>
+            <span className="text-xs text-muted-foreground mt-0.5 block">
+              Màn hình được cấp phép
+            </span>
+          </div>
+
+          {currentUser.role !== 'admin' && (
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  const event = new CustomEvent('open-payment-modal');
+                  window.dispatchEvent(event);
+                }
+              }}
+              className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-md text-xs font-semibold tracking-tight transition-all cursor-pointer"
+            >
+              + Nạp Slot PayOS
+            </button>
+          )}
         </div>
 
-        <div className="text-[11px] text-muted-foreground font-semibold">
-          Đã sử dụng: <span className="text-foreground font-bold font-mono">{devicesCount}</span> slot
+        <div className="text-[11px] text-muted-foreground font-semibold flex justify-between items-center">
+          <span>
+            Đã sử dụng: <span className="text-foreground font-bold font-mono">{devicesCount}</span> slot
+          </span>
+          {currentUser.purchaseType && (
+            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+              {currentUser.purchaseType}
+            </span>
+          )}
         </div>
       </div>
     </div>

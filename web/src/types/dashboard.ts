@@ -16,6 +16,7 @@ export interface User {
   role: "admin" | "user";
   licenseLimit: number;
   status: string;
+  purchaseType?: "rent" | "buy" | null;
   securityPassword?: string;
 }
 
