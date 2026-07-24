@@ -22,10 +22,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Activity } from "lucide-react";
+import { useEffect, useState } from "react";
+import { PaymentModal } from "@/components/ui/PaymentModal";
 
 export default function OverviewPageClient() {
   const router = useRouter();
   const { currentUser, searchQuery, formatBytes } = useDashboard();
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpenPayment = () => setIsPaymentOpen(true);
+    window.addEventListener('open-payment-modal', handleOpenPayment);
+    return () => window.removeEventListener('open-payment-modal', handleOpenPayment);
+  }, []);
 
   // SWR hooks for loading data with caching
   const { devices, isLoading: devicesLoading } = useDevices();
@@ -164,6 +173,11 @@ export default function OverviewPageClient() {
           </Card>
         </div>
       </div>
+
+      <PaymentModal
+        isOpen={isPaymentOpen}
+        onClose={() => setIsPaymentOpen(false)}
+      />
     </div>
   );
 }

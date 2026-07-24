@@ -28,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" suppressHydrationWarning>
+    <html lang="vi" className="scroll-smooth" suppressHydrationWarning>
       <body className={`${outfit.variable} ${jetbrainsMono.variable} ${outfit.className}`}>
         {children}
       </body>

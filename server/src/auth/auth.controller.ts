@@ -34,7 +34,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  async getProfile(@CurrentUser() user: CurrentUserType) {
+  getProfile(@CurrentUser() user: CurrentUserType) {
     return user;
   }
 
@@ -71,13 +71,15 @@ export class AuthController {
   @Roles('admin')
   async updateLicenseLimit(
     @Param('id') userId: string,
-    @Body() dto: { licenseLimit: number },
+    @Body() dto: { licenseLimit: number; note?: string },
     @CurrentUser() user: CurrentUserType,
   ) {
     return this.authService.updateLicenseLimit(
       userId,
       dto.licenseLimit,
       user.role,
+      user.id,
+      dto.note,
     );
   }
 

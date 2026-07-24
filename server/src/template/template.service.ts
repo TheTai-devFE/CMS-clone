@@ -101,7 +101,7 @@ export class TemplateService {
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Cập nhật thông tin cơ bản của Template
-      const updatedTemplate = await tx.template.update({
+      await tx.template.update({
         where: { id },
         data: {
           name: dto.name,

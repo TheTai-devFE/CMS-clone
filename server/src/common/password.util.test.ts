@@ -23,7 +23,11 @@ const p2 = randomPassword(16);
 test('Custom length respected', p2.length === 16, `got ${p2.length} chars`);
 
 const p3 = randomPassword(4);
-test('Minimum length enforced (input 4 → >= 8)', p3.length >= 8, `got ${p3.length} chars`);
+test(
+  'Minimum length enforced (input 4 → >= 8)',
+  p3.length >= 8,
+  `got ${p3.length} chars`,
+);
 
 // 2. Character variety
 const sample = randomPassword(12);
@@ -39,22 +43,31 @@ test('Contains symbol', hasSymbol, sample);
 // 3. No confusing characters
 const confusingCheck = randomPassword(100);
 const hasConfusing = /[0O1lI]/.test(confusingCheck);
-test('No confusing chars (0/O/1/l/I)', !hasConfusing,
-  hasConfusing ? `Found: ${confusingCheck.match(/[0O1lI]/g)?.join(',')}` : '');
+test(
+  'No confusing chars (0/O/1/l/I)',
+  !hasConfusing,
+  hasConfusing ? `Found: ${confusingCheck.match(/[0O1lI]/g)?.join(',')}` : '',
+);
 
 // 4. Uniqueness
 const passwords = new Set();
 for (let i = 0; i < 1000; i++) {
   passwords.add(randomPassword(12));
 }
-test('1000 passwords are all unique', passwords.size === 1000,
-  `got ${passwords.size} unique`);
+test(
+  '1000 passwords are all unique',
+  passwords.size === 1000,
+  `got ${passwords.size} unique`,
+);
 
 // 5. Entropy (estimate)
 const charset = 26 + 26 + 8 + 14; // 74 chars
 const entropy = 12 * Math.log2(charset);
-test('Min entropy for 12 chars >= 60 bits', entropy >= 60,
-  `~${entropy.toFixed(1)} bits`);
+test(
+  'Min entropy for 12 chars >= 60 bits',
+  entropy >= 60,
+  `~${entropy.toFixed(1)} bits`,
+);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

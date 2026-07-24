@@ -243,7 +243,9 @@ export class DeviceService {
       if (existingDataStr) {
         try {
           existingData = JSON.parse(existingDataStr);
-        } catch (_) {}
+        } catch {
+          // Ignore JSON parse error
+        }
       }
 
       const updatedData = {
@@ -572,7 +574,9 @@ export class DeviceService {
             syncStatus = syncData.status || 'idle';
             syncProgress =
               typeof syncData.progress === 'number' ? syncData.progress : 100;
-          } catch (_) {}
+          } catch {
+            // Ignore JSON parse error
+          }
         }
 
         return {
