@@ -1,164 +1,542 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { PaymentModal } from '@/components/ui/PaymentModal';
 
 export default function LandingPageClient() {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // Auto scroll for marquee or interactive effects
+  const toggleFaq = (index: number) => {
+    setOpenFaq(openFaq === index ? null : index);
+  };
 
   return (
-    <div style={styles.container}>
-      {/* Navigation Header */}
-      <header style={styles.navbar}>
-        <div style={styles.logoGroup}>
-          <div style={styles.logoIcon}>📺</div>
-          <span style={styles.logoText}>CDM Signage CMS</span>
+    <div className="bg-[#f9f9f7] font-sans text-[#1a1c1b] antialiased min-h-screen">
+      {/* Dynamic Material Symbols & Tailwind Link */}
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      />
+
+      {/* Desktop Navigation */}
+      <nav className="hidden md:flex fixed top-4 left-0 right-0 z-50 justify-between items-center px-8 max-w-[1440px] mx-auto">
+        <div className="flex items-center bg-white px-4 py-2 rounded-full shadow-md border border-[#c5c8bb]/40 gap-2">
+          <span className="font-bold text-[#4f6538] text-lg">CMS Digital Signage</span>
         </div>
-        <div style={styles.navLinks}>
-          <a href="#features" style={styles.navLink}>Tính Năng</a>
-          <a href="#pricing" style={styles.navLink}>Bảng Giá</a>
-          <a href="#faq" style={styles.navLink}>Trợ Giúp</a>
-          <Link href="/login" style={styles.loginBtn}>
-            Đăng Nhập Dashboard
+        <div className="flex items-center space-x-8 bg-white px-6 py-2 rounded-full shadow-md border border-[#c5c8bb]/40">
+          <a
+            className="text-sm font-medium text-[#44483e] hover:text-[#4f6538] transition-colors"
+            href="#features"
+          >
+            Tính Năng
+          </a>
+          <a
+            className="text-sm font-medium text-[#44483e] hover:text-[#4f6538] transition-colors"
+            href="#solutions"
+          >
+            Giải Pháp
+          </a>
+          <a
+            className="text-sm font-medium text-[#44483e] hover:text-[#4f6538] transition-colors"
+            href="#pricing"
+          >
+            Bảng Giá
+          </a>
+          <Link
+            className="text-sm font-medium text-[#4f6538] bg-transparent border border-[#4f6538] px-4 py-2 rounded-full hover:bg-[#4f6538]/10 transition-colors"
+            href="/login"
+          >
+            Đăng Nhập
           </Link>
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <section style={styles.hero}>
-        <div style={styles.badgeHero}>✨ Nền Tảng Digital Signage Thế Hệ Mới</div>
-        <h1 style={styles.heroTitle}>
-          Quản Lý Màn Hình Quảng Cáo <br />
-          <span style={styles.heroGradient}>Tập Trung & Realtime</span>
-        </h1>
-        <p style={styles.heroSub}>
-          Giải pháp SaaS và On-Premise tối ưu cho chuỗi cửa hàng, thương mại và doanh nghiệp. 
-          Hỗ trợ phát offline thông minh, lập lịch tự động và ghép màn hình đa thiết bị.
-        </p>
-
-        <div style={styles.ctaGroup}>
-          <button style={styles.primaryCta} onClick={() => setIsPaymentOpen(true)}>
-            ⚡ Đăng Ký Slot / Nạp License Ngay
+          <button
+            onClick={() => setIsPaymentOpen(true)}
+            className="bg-[#8ba370] hover:bg-[#4f6538] text-white px-6 py-2 rounded-full text-sm font-semibold transition-all active:scale-95 shadow-sm"
+          >
+            Mua Slot / Dùng Thử
           </button>
-          <Link href="/login" style={styles.secondaryCta}>
-            Dùng Thử Dashboard →
-          </Link>
         </div>
+      </nav>
 
-        {/* Dashboard Preview Mockup */}
-        <div style={styles.mockupContainer}>
-          <div style={styles.mockupHeader}>
-            <span style={{ ...styles.dot, backgroundColor: '#ff5f56' }} />
-            <span style={{ ...styles.dot, backgroundColor: '#ffbd2e' }} />
-            <span style={{ ...styles.dot, backgroundColor: '#27c93f' }} />
-            <span style={styles.mockupTitle}>https://cms.cdmsignage.vn/dashboard</span>
-          </div>
-          <div style={styles.mockupBody}>
-            <div style={styles.mockupGrid}>
-              <div style={styles.mockCard}>
-                <span style={styles.mockCardTitle}>Màn hình trực tuyến</span>
-                <span style={styles.mockCardVal}>12 / 12 Online</span>
-                <div style={styles.progressBar}><div style={{ ...styles.progressFill, width: '100%' }} /></div>
-              </div>
-              <div style={styles.mockCard}>
-                <span style={styles.mockCardTitle}>Tài nguyên Media</span>
-                <span style={styles.mockCardVal}>128 Files (4.2 GB)</span>
-                <div style={styles.progressBar}><div style={{ ...styles.progressFill, width: '65%', backgroundColor: '#0ea5e9' }} /></div>
-              </div>
-              <div style={styles.mockCard}>
-                <span style={styles.mockCardTitle}>Trạng thái Sync</span>
-                <span style={styles.mockCardVal}>Đã đồng bộ 100%</span>
-                <div style={styles.progressBar}><div style={{ ...styles.progressFill, width: '100%', backgroundColor: '#10b981' }} /></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Mobile Menu Trigger */}
+      <button
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        className="md:hidden fixed right-4 top-4 z-[100] w-12 h-12 bg-[#4f6538] text-white rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-transform"
+        aria-label="Toggle Menu"
+      >
+        <span className="material-symbols-outlined text-[28px]">
+          {isMobileMenuOpen ? 'close' : 'menu'}
+        </span>
+      </button>
 
-      {/* Features Grid */}
-      <section id="features" style={styles.section}>
-        <h2 style={styles.sectionTitle}>Tính Năng Đột Phá</h2>
-        <p style={styles.sectionSub}>Tất cả những gì bạn cần để điều hành hàng ngàn màn hình quảng cáo không bị gián đoạn.</p>
-
-        <div style={styles.featuresGrid}>
-          <div style={styles.featureCard}>
-            <div style={styles.featureIcon}>📡</div>
-            <h3 style={styles.featureTitle}>Offline Caching Smart</h3>
-            <p style={styles.featureDesc}>App Player tự động tải toàn bộ nội dung về bộ nhớ nội bộ. Phát hoàn toàn offline không gián đoạn dù mất mạng 4G/Wi-Fi.</p>
-          </div>
-
-          <div style={styles.featureCard}>
-            <div style={styles.featureIcon}>⚡</div>
-            <h3 style={styles.featureTitle}>PayOS VietQR Nạp Slot</h3>
-            <p style={styles.featureDesc}>Tích hợp cổng thanh toán VietQR PayOS tự động. Quét mã nạp slot màn hình nhận tiền trong 2 giây, cấp quyền tức thì.</p>
-          </div>
-
-          <div style={styles.featureCard}>
-            <div style={styles.featureIcon}>📅</div>
-            <h3 style={styles.featureTitle}>Lập Lịch Phát Linh Hoạt</h3>
-            <p style={styles.featureDesc}>Cấu hình khung giờ phát, ngày phát và lặp lại theo thứ trong tuần. Tự động chuyển đổi kịch bản quảng cáo.</p>
-          </div>
-
-          <div style={styles.featureCard}>
-            <div style={styles.featureIcon}>🖼️</div>
-            <h3 style={styles.featureTitle}>Multi-Device Sync</h3>
-            <p style={styles.featureDesc}>Thuật toán đồng bộ thời gian NTP cho phép ghép hàng loạt màn hình phát song song khớp từng mili-giây.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section id="pricing" style={styles.section}>
-        <h2 style={styles.sectionTitle}>Bảng Giá Dịch Vụ</h2>
-        <p style={styles.sectionSub}>Chi phí minh bạch, mở rộng không giới hạn theo quy mô kinh doanh của bạn.</p>
-
-        <div style={styles.pricingGrid}>
-          {/* Plan 1 */}
-          <div style={styles.pricingCard}>
-            <h3 style={styles.planTitle}>Gói Thuê Bao (Rent)</h3>
-            <div style={styles.planPriceBox}>
-              <span style={styles.priceNum}>99.000đ</span>
-              <span style={styles.pricePeriod}>/ tháng / màn hình</span>
-            </div>
-            <ul style={styles.planFeatures}>
-              <li>✓ Không phí khởi tạo ban đầu</li>
-              <li>✓ Cập nhật tính năng mới miễn phí</li>
-              <li>✓ Tự động hóa nạp slot qua VietQR</li>
-              <li>✓ Hỗ trợ kỹ thuật 24/7</li>
-            </ul>
-            <button style={styles.planBtn} onClick={() => setIsPaymentOpen(true)}>
-              Thanh Toán Qua PayOS
+      {/* Mobile Side Drawer & Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black/60 z-[80] transition-opacity md:hidden"
+        />
+      )}
+      <aside
+        className={`fixed top-0 right-0 z-[90] h-full w-[260px] bg-white shadow-2xl transition-transform duration-300 transform flex flex-col md:hidden ${
+          isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="p-6 flex flex-col h-full">
+          <div className="flex justify-between items-center mb-6 border-b border-[#e2e3e1] pb-3">
+            <span className="font-bold text-[#4f6538] text-lg">Menu</span>
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="material-symbols-outlined text-[#44483e]"
+            >
+              close
             </button>
           </div>
-
-          {/* Plan 2 */}
-          <div style={{ ...styles.pricingCard, borderColor: '#0d9488', backgroundColor: 'rgba(13, 148, 136, 0.05)' }}>
-            <div style={styles.popularBadge}>KHUYÊN DÙNG</div>
-            <h3 style={styles.planTitle}>Gói Mua Đứt (Buy)</h3>
-            <div style={styles.planPriceBox}>
-              <span style={styles.priceNum}>1.500.000đ</span>
-              <span style={styles.pricePeriod}>/ vĩnh viễn / màn hình</span>
-            </div>
-            <ul style={styles.planFeatures}>
-              <li>✓ Sở hữu vĩnh viễn không đóng phí tháng</li>
-              <li>✓ Đầy đủ tính năng Caching & Scheduling</li>
-              <li>✓ Tùy chọn On-Premise hoặc Cloud SaaS</li>
-              <li>✓ Thanh toán nhanh PayOS tự động cấp phép</li>
-            </ul>
-            <button style={{ ...styles.planBtn, backgroundColor: '#0d9488', color: '#fff' }} onClick={() => setIsPaymentOpen(true)}>
-              Mua Đứt Qua PayOS
+          <nav className="flex flex-col gap-3">
+            <a
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex items-center gap-3 p-2 text-[#1a1c1b] font-medium hover:bg-[#f4f4f2] rounded-lg transition-colors"
+              href="#features"
+            >
+              <span className="material-symbols-outlined text-[20px]">featured_play_list</span>
+              <span>Tính Năng</span>
+            </a>
+            <a
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex items-center gap-3 p-2 text-[#1a1c1b] font-medium hover:bg-[#f4f4f2] rounded-lg transition-colors"
+              href="#solutions"
+            >
+              <span className="material-symbols-outlined text-[20px]">lightbulb</span>
+              <span>Giải Pháp</span>
+            </a>
+            <a
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex items-center gap-3 p-2 text-[#1a1c1b] font-medium hover:bg-[#f4f4f2] rounded-lg transition-colors"
+              href="#pricing"
+            >
+              <span className="material-symbols-outlined text-[20px]">payments</span>
+              <span>Bảng Giá</span>
+            </a>
+          </nav>
+          <div className="mt-auto pt-6 flex flex-col gap-3">
+            <Link
+              href="/login"
+              className="w-full text-center bg-transparent border border-[#4f6538] text-[#4f6538] py-3 rounded-full font-bold text-sm shadow-sm active:scale-95 transition-transform"
+            >
+              Đăng Nhập
+            </Link>
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setIsPaymentOpen(true);
+              }}
+              className="w-full bg-[#8ba370] text-white py-3 rounded-full font-bold text-sm shadow-md active:scale-95 transition-transform"
+            >
+              Bắt Đầu Ngay
             </button>
           </div>
         </div>
-      </section>
+      </aside>
+
+      <main className="pt-24 md:pt-32 pb-24">
+        {/* Hero Section */}
+        <section className="relative pt-12 pb-16 overflow-hidden mb-12 max-w-[1440px] mx-auto px-6 text-center">
+          <div className="max-w-4xl mx-auto space-y-6 relative z-10">
+            <h1 className="text-3xl md:text-5xl font-extrabold text-[#1a1c1b] leading-tight tracking-tight">
+              Quản Lý Màn Hình Quảng Cáo<br />
+              <span className="bg-[#8ba370]/20 text-[#4f6538] px-6 py-2 rounded-2xl inline-block mt-3">
+                Thông Minh Từ Xa
+              </span>
+            </h1>
+            <p className="text-base md:text-lg text-[#44483e] max-w-3xl mx-auto leading-relaxed">
+              Giải pháp SaaS/On-Premise giúp bạn điều khiển hàng trăm màn hình tập trung, đồng bộ chính xác tới từng milisecond. Tối ưu hóa không gian hiển thị với công nghệ hiện đại.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 pt-4">
+              <button
+                onClick={() => setIsPaymentOpen(true)}
+                className="bg-[#4f6538] text-white font-semibold text-base px-8 py-4 rounded-xl hover:opacity-90 transition-all shadow-md active:scale-95"
+              >
+                ⚡ Mua Slot & Dùng Thử Ngay
+              </button>
+              <Link
+                href="/login"
+                className="bg-white border border-[#c5c8bb] text-[#1a1c1b] font-semibold text-base px-8 py-4 rounded-xl hover:bg-[#f4f4f2] transition-colors flex items-center gap-2 shadow-sm active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[22px] text-[#4f6538]">
+                  play_circle
+                </span>
+                Vào Dashboard
+              </Link>
+            </div>
+          </div>
+
+          {/* Glassmorphism Dashboard Preview Mockup */}
+          <div className="mt-14 relative max-w-5xl mx-auto">
+            <div className="bg-white/70 backdrop-blur-md rounded-3xl p-4 md:p-8 shadow-2xl border border-white/60 overflow-hidden">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                <div className="md:col-span-7 space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-xl font-bold text-[#1a1c1b]">CMS Monitoring Control</h3>
+                    <div className="bg-[#e2e3e1] px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#4f6538] animate-pulse"></span> 142 Screens Online
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="aspect-video rounded-xl overflow-hidden shadow-sm border border-[#c5c8bb]/30 bg-[#1a1c1b] flex items-center justify-center text-white relative">
+                      <img
+                        src="https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80"
+                        alt="Digital Signage Banner"
+                        className="w-full h-full object-cover opacity-80"
+                      />
+                      <span className="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[10px]">Main Lobby (4K)</span>
+                    </div>
+                    <div className="aspect-video rounded-xl border-2 border-dashed border-[#c5c8bb] flex flex-col items-center justify-center text-[#44483e] bg-[#f4f4f2] cursor-pointer hover:bg-[#e8e8e6] transition-colors">
+                      <span className="material-symbols-outlined text-[32px] mb-1 text-[#4f6538]">add_circle</span>
+                      <span className="text-xs font-semibold">Tạo Playlist Mới</span>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#c5c8bb]/30 flex items-center justify-between max-w-xs mx-auto md:mx-0">
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-[#4f6538]">sync</span>
+                      <div className="text-left">
+                        <div className="font-bold text-sm">Sync Latency</div>
+                        <div className="text-xs text-[#44483e]">&lt; 10ms (Realtime)</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vertical Tablet/Phone Preview */}
+                <div className="md:col-span-5 flex justify-center">
+                  <div className="relative bg-black rounded-[2.5rem] p-3 shadow-2xl border-4 border-[#dadad8] max-w-[280px]">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-4 bg-black rounded-b-xl z-20"></div>
+                    <div className="aspect-[3/4] rounded-[2rem] overflow-hidden relative bg-[#14161f]">
+                      <img
+                        src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=600&q=80"
+                        alt="Kiosk App Live Preview"
+                        className="w-full h-full object-cover opacity-90"
+                      />
+                      <div className="absolute bottom-4 left-3 right-3 bg-white/80 backdrop-blur-md p-3 rounded-xl flex items-center justify-between shadow-lg">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#4f6538] text-[20px]">sensors</span>
+                          <span className="text-xs font-bold text-[#1a1c1b]">Live Sync Player</span>
+                        </div>
+                        <span className="w-2 h-2 rounded-full bg-[#4f6538]"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Brand Logos / Social Proof */}
+        <section className="py-12 bg-[#f4f4f2] border-y border-[#c5c8bb]/40 overflow-hidden mb-16">
+          <div className="max-w-[1440px] mx-auto px-6 text-center">
+            <p className="font-semibold text-xs text-[#44483e] uppercase tracking-widest mb-6">
+              Hệ thống tin dùng bởi hơn 500+ doanh nghiệp & thương hiệu hàng đầu
+            </p>
+            <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-75 font-extrabold text-xl md:text-2xl text-[#75786d]">
+              <span>SAMSUNG</span>
+              <span>LG ELECTRONICS</span>
+              <span>PANASONIC</span>
+              <span>SONY SIGNAGE</span>
+              <span>VINCOM</span>
+              <span>AEON MALL</span>
+              <span>CGV CINEMA</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Solutions Comparison Section */}
+        <section className="py-12 max-w-[1440px] mx-auto px-6 mb-16" id="solutions">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl md:text-4xl font-bold text-[#1a1c1b] mb-3">
+              Tại Sao Bạn Nên Chọn CMS Digital Signage?
+            </h2>
+            <div className="w-20 h-1 bg-[#8ba370] mx-auto rounded-full"></div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="bg-[#e8e8e6] rounded-2xl p-8">
+              <h3 className="text-xl font-bold text-[#1a1c1b] mb-6 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#ba1a1a]">report_problem</span>
+                Vấn Đề Thường Gặp Khi Dùng Cách Cũ
+              </h3>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-[#ba1a1a] mt-0.5">close</span>
+                  <span className="text-[#44483e]">Khó khăn trong việc đồng bộ nội dung trên nhiều màn hình ở các chi nhánh khác nhau.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-[#ba1a1a] mt-0.5">close</span>
+                  <span className="text-[#44483e]">Phải chép USB thủ công, thiếu công cụ quản lý lịch phát tự động.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-[#ba1a1a] mt-0.5">close</span>
+                  <span className="text-[#44483e]">Chi phí bảo trì cao, màn hình bị đen/lỗi mà không hay biết từ xa.</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="bg-white rounded-2xl p-8 shadow-md border border-[#8ba370]/30">
+              <h3 className="text-xl font-bold text-[#4f6538] mb-6 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#4f6538]">verified</span>
+                Giải Pháp CMS Digital Signage
+              </h3>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-[#4f6538] mt-0.5">check_circle</span>
+                  <span className="text-[#1a1c1b] font-medium">Hệ thống đồng bộ chính xác tới từng milisecond cho hàng ngàn thiết bị.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-[#4f6538] mt-0.5">check_circle</span>
+                  <span className="text-[#1a1c1b] font-medium">Trình quản lý lịch chiếu thông minh, phát offline an toàn tuyệt đối.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-[#4f6538] mt-0.5">check_circle</span>
+                  <span className="text-[#1a1c1b] font-medium">Giám sát Heartbeat 30s liên tục, cảnh báo màn hình offline tức thì.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* Features 4-Column Grid */}
+        <section className="py-16 bg-[#f4f4f2] mb-16" id="features">
+          <div className="max-w-[1440px] mx-auto px-6">
+            <div className="text-center mb-12">
+              <h2 className="text-2xl md:text-4xl font-bold text-[#1a1c1b] mb-3">Tính Năng Nổi Bật</h2>
+              <p className="text-[#44483e] max-w-xl mx-auto">Nền tảng quản lý toàn diện đáp ứng mọi nhu cầu vận hành hệ thống màn hình quảng cáo.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white p-6 rounded-2xl border border-[#c5c8bb]/40 hover:shadow-md transition-shadow group">
+                <div className="w-12 h-12 bg-[#8ba370]/20 rounded-xl flex items-center justify-center text-[#4f6538] mb-4 group-hover:bg-[#4f6538] group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined">dashboard</span>
+                </div>
+                <h4 className="text-lg font-bold text-[#1a1c1b] mb-2">CMS Dashboard</h4>
+                <p className="text-sm text-[#44483e]">Giao diện quản trị trực quan, hỗ trợ kéo thả, tùy chỉnh bố cục và nội dung linh hoạt.</p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-[#c5c8bb]/40 hover:shadow-md transition-shadow group">
+                <div className="w-12 h-12 bg-[#8ba370]/20 rounded-xl flex items-center justify-center text-[#4f6538] mb-4 group-hover:bg-[#4f6538] group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined">aod</span>
+                </div>
+                <h4 className="text-lg font-bold text-[#1a1c1b] mb-2">Player App Mobile</h4>
+                <p className="text-sm text-[#44483e]">Ứng dụng hoạt động ổn định trên Android/Smart TV, hỗ trợ offline caching thông minh.</p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-[#c5c8bb]/40 hover:shadow-md transition-shadow group">
+                <div className="w-12 h-12 bg-[#8ba370]/20 rounded-xl flex items-center justify-center text-[#4f6538] mb-4 group-hover:bg-[#4f6538] group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined">dns</span>
+                </div>
+                <h4 className="text-lg font-bold text-[#1a1c1b] mb-2">PayOS Automatic Slot</h4>
+                <p className="text-sm text-[#44483e]">Xử lý thanh toán tự động qua mã QR VietQR PayOS, tự động mở rộng slot màn hình ngay tức khắc.</p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-[#c5c8bb]/40 hover:shadow-md transition-shadow group">
+                <div className="w-12 h-12 bg-[#8ba370]/20 rounded-xl flex items-center justify-center text-[#4f6538] mb-4 group-hover:bg-[#4f6538] group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined">perm_media</span>
+                </div>
+                <h4 className="text-lg font-bold text-[#1a1c1b] mb-2">Quản Lý Media 4K</h4>
+                <p className="text-sm text-[#44483e]">Hỗ trợ đa định dạng, phân giải 4K/8K, quản lý thư viện tập trung và kiểm tra MD5 checksum.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Process Steps */}
+        <section className="py-16 bg-white mb-16">
+          <div className="max-w-[1440px] mx-auto px-6">
+            <div className="text-center mb-12">
+              <h2 className="text-2xl md:text-4xl font-bold text-[#1a1c1b] mb-3">Quy Trình Triển Khai Nhanh Chóng</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              <div className="flex flex-col items-center text-center p-4">
+                <div className="w-12 h-12 rounded-full border-2 border-[#8ba370] bg-[#f9f9f7] text-[#4f6538] flex items-center justify-center font-bold text-xl mb-4">1</div>
+                <h5 className="font-bold text-[#1a1c1b] text-base mb-1">1. Khởi Chạy Player</h5>
+                <p className="text-xs text-[#44483e]">Cài đặt ứng dụng Player lên TV/Android Box.</p>
+              </div>
+
+              <div className="flex flex-col items-center text-center p-4">
+                <div className="w-12 h-12 rounded-full border-2 border-[#c5c8bb] bg-[#f9f9f7] text-[#75786d] flex items-center justify-center font-bold text-xl mb-4">2</div>
+                <h5 className="font-bold text-[#1a1c1b] text-base mb-1">2. Kích Hoạt License</h5>
+                <p className="text-xs text-[#44483e]">Quét QR Code thanh toán VietQR PayOS.</p>
+              </div>
+
+              <div className="flex flex-col items-center text-center p-4">
+                <div className="w-12 h-12 rounded-full border-2 border-[#c5c8bb] bg-[#f9f9f7] text-[#75786d] flex items-center justify-center font-bold text-xl mb-4">3</div>
+                <h5 className="font-bold text-[#1a1c1b] text-base mb-1">3. Tạo Playlist & Lịch</h5>
+                <p className="text-xs text-[#44483e]">Kéo thả nội dung và xếp lịch trình chiếu linh hoạt.</p>
+              </div>
+
+              <div className="flex flex-col items-center text-center p-4">
+                <div className="w-12 h-12 rounded-full border-2 border-[#c5c8bb] bg-[#f9f9f7] text-[#75786d] flex items-center justify-center font-bold text-xl mb-4">4</div>
+                <h5 className="font-bold text-[#1a1c1b] text-base mb-1">4. Trình Chiếu Tức Thì</h5>
+                <p className="text-xs text-[#44483e]">Hệ thống đồng bộ và tự động phát tức thì.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing Section */}
+        <section className="py-16 max-w-[1440px] mx-auto px-6 mb-16" id="pricing">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl md:text-4xl font-bold text-[#1a1c1b] mb-3">Bảng Giá Mua Slot / License</h2>
+            <p className="text-[#44483e] max-w-2xl mx-auto">Lựa chọn mô hình linh hoạt: Thuê theo tháng hoặc Mua sở hữu trọn đời.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Rent Plan */}
+            <div className="bg-white p-8 rounded-3xl flex flex-col border border-[#c5c8bb]/50 hover:shadow-xl transition-all duration-300">
+              <div className="mb-6">
+                <span className="bg-[#8ba370]/15 text-[#4f6538] px-3 py-1 rounded-full text-xs font-bold">MÔ HÌNH THUÊ BAO</span>
+                <h3 className="text-2xl font-bold text-[#1a1c1b] mt-3">Thuê Theo Màn Hình</h3>
+                <p className="text-sm text-[#44483e]">Phù hợp cho nhu cầu mở rộng linh hoạt theo tháng.</p>
+              </div>
+              <div className="mb-6">
+                <span className="text-4xl font-extrabold text-[#4f6538]">99.000đ</span>
+                <span className="text-sm text-[#44483e]"> / màn hình / tháng</span>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1 text-sm text-[#44483e]">
+                <li className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[#8ba370]">check_circle</span>
+                  Thanh toán linh hoạt theo từng slot
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[#8ba370]">check_circle</span>
+                  Hỗ trợ Media Full HD & 4K
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[#8ba370]">check_circle</span>
+                  Đồng bộ Realtime & Phát Offline
+                </li>
+              </ul>
+              <button
+                onClick={() => setIsPaymentOpen(true)}
+                className="w-full py-4 rounded-xl border border-[#4f6538] text-[#4f6538] font-semibold hover:bg-[#4f6538]/10 transition-colors"
+              >
+                ⚡ Nạp Slot Thuê Ngay
+              </button>
+            </div>
+
+            {/* Lifetime Buy Plan */}
+            <div className="bg-white p-8 rounded-3xl flex flex-col border-2 border-[#8ba370] relative shadow-xl">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#8ba370] text-white px-4 py-1 rounded-full text-xs font-bold">
+                TIẾT KIỆM NHẤT TRỌN ĐỜI
+              </div>
+              <div className="mb-6 mt-2">
+                <span className="bg-[#8ba370]/15 text-[#4f6538] px-3 py-1 rounded-full text-xs font-bold">MUA SỞ HỮU TRỌN ĐỜI</span>
+                <h3 className="text-2xl font-bold text-[#1a1c1b] mt-3">Mua Đứt Vĩnh Viễn</h3>
+                <p className="text-sm text-[#44483e]">Đầu tư một lần, sử dụng vĩnh viễn không phí duy trì.</p>
+              </div>
+              <div className="mb-6">
+                <span className="text-4xl font-extrabold text-[#4f6538]">1.500.000đ</span>
+                <span className="text-sm text-[#44483e]"> / màn hình (Trọn đời)</span>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1 text-sm text-[#44483e]">
+                <li className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[#8ba370]">check_circle</span>
+                  Sở hữu vĩnh viễn không hết hạn
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[#8ba370]">check_circle</span>
+                  Không phát sinh chi phí duy trì hàng tháng
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[#8ba370]">check_circle</span>
+                  Cập nhật tính năng phần mềm miễn phí
+                </li>
+              </ul>
+              <button
+                onClick={() => setIsPaymentOpen(true)}
+                className="w-full py-4 rounded-xl bg-[#8ba370] text-white font-semibold hover:bg-[#4f6538] transition-colors shadow-md"
+              >
+                🚀 Mua Slot Vĩnh Viễn (PayOS)
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ Accordion */}
+        <section className="py-16 max-w-3xl mx-auto px-6 mb-16" id="faq">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl md:text-4xl font-bold text-[#1a1c1b] mb-3">Câu Hỏi Thường Gặp</h2>
+          </div>
+          <div className="space-y-4">
+            {[
+              {
+                q: 'Tôi có thể quản lý nhiều loại màn hình khác nhau không?',
+                a: 'Có, hệ thống hỗ trợ quản lý đa dạng các loại màn hình (TV, màn hình chuyên dụng, LED) miễn là cài đặt được Player App (hỗ trợ Android và Smart TV).',
+              },
+              {
+                q: 'Sau khi thanh toán qua VietQR PayOS, slot màn hình được cấp như thế nào?',
+                a: 'Hệ thống tự động kích hoạt Webhook từ PayOS trong 2-5 giây và tự động cộng ngay hạn mức màn hình vào tài khoản của bạn trên Dashboard.',
+              },
+              {
+                q: 'Nếu rớt mạng Wi-Fi, màn hình có tiếp tục phát quảng cáo không?',
+                a: 'Có! Player App được trang bị tính năng offline caching thông minh, tự động tải nội dung về bộ nhớ thiết bị và phát lại theo kịch bản ngay cả khi mất mạng hoàn toàn.',
+              },
+            ].map((faq, idx) => (
+              <div key={idx} className="border-b border-[#c5c8bb]/50 pb-4">
+                <button
+                  onClick={() => toggleFaq(idx)}
+                  className="w-full flex justify-between items-center text-left py-3 font-semibold text-lg text-[#1a1c1b] hover:text-[#4f6538] transition-colors"
+                >
+                  <span>{faq.q}</span>
+                  <span
+                    className={`material-symbols-outlined transform transition-transform ${
+                      openFaq === idx ? 'rotate-180' : ''
+                    }`}
+                  >
+                    expand_more
+                  </span>
+                </button>
+                {openFaq === idx && (
+                  <p className="text-sm text-[#44483e] py-2 leading-relaxed">{faq.a}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
 
       {/* Footer */}
-      <footer style={styles.footer}>
-        <p>© 2026 CDM Digital Signage CMS. Tất cả quyền được bảo lưu.</p>
+      <footer className="bg-[#e8e8e6] w-full py-12 px-6 border-t border-[#c5c8bb]/40">
+        <div className="max-w-[1440px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="space-y-3">
+            <div className="text-xl font-bold text-[#4f6538]">CMS Digital Signage</div>
+            <p className="text-sm text-[#44483e]">
+              Giải pháp quản lý màn hình quảng cáo tập trung, chuyên nghiệp và hiệu quả.
+            </p>
+          </div>
+          <div>
+            <h5 className="font-bold text-[#1a1c1b] mb-3">Sản Phẩm</h5>
+            <ul className="space-y-2 text-sm text-[#44483e]">
+              <li><a href="#features" className="hover:text-[#4f6538]">Tính Năng</a></li>
+              <li><a href="#solutions" className="hover:text-[#4f6538]">Giải Pháp</a></li>
+              <li><a href="#pricing" className="hover:text-[#4f6538]">Bảng Giá Slot</a></li>
+            </ul>
+          </div>
+          <div>
+            <h5 className="font-bold text-[#1a1c1b] mb-3">Hỗ Trợ</h5>
+            <ul className="space-y-2 text-sm text-[#44483e]">
+              <li><Link href="/login" className="hover:text-[#4f6538]">Đăng Nhập Dashboard</Link></li>
+              <li><a href="#faq" className="hover:text-[#4f6538]">Trợ Giúp FAQ</a></li>
+            </ul>
+          </div>
+          <div>
+            <h5 className="font-bold text-[#1a1c1b] mb-3">Bản Quyền</h5>
+            <p className="text-xs text-[#44483e]">© 2026 CMS Digital Signage. All rights reserved.</p>
+          </div>
+        </div>
       </footer>
 
-      {/* Payment Modal */}
+      {/* PayOS Payment Modal Integration */}
       <PaymentModal
         isOpen={isPaymentOpen}
         onClose={() => setIsPaymentOpen(false)}
@@ -166,304 +544,3 @@ export default function LandingPageClient() {
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    backgroundColor: '#121214',
-    color: '#f5f5f7',
-    minHeight: '100vh',
-    fontFamily: 'Inter, system-ui, sans-serif',
-  },
-  navbar: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '20px 40px',
-    borderBottom: '1px solid #2c2c30',
-    backgroundColor: 'rgba(18, 18, 20, 0.8)',
-    backdropFilter: 'blur(12px)',
-    position: 'sticky',
-    top: 0,
-    zIndex: 100,
-  },
-  logoGroup: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  logoIcon: {
-    fontSize: '24px',
-  },
-  logoText: {
-    fontSize: '18px',
-    fontWeight: 700,
-    letterSpacing: '-0.5px',
-  },
-  navLinks: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '24px',
-  },
-  navLink: {
-    color: '#8e8e93',
-    textDecoration: 'none',
-    fontSize: '14px',
-    fontWeight: 500,
-  },
-  loginBtn: {
-    padding: '8px 18px',
-    borderRadius: '8px',
-    backgroundColor: '#242429',
-    border: '1px solid #3a3a3c',
-    color: '#f5f5f7',
-    textDecoration: 'none',
-    fontSize: '14px',
-    fontWeight: 600,
-  },
-  hero: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    textAlign: 'center',
-    padding: '80px 20px 60px 20px',
-    maxWidth: '1000px',
-    margin: '0 auto',
-  },
-  badgeHero: {
-    padding: '6px 16px',
-    borderRadius: '20px',
-    backgroundColor: 'rgba(13, 148, 136, 0.15)',
-    color: '#0d9488',
-    fontSize: '13px',
-    fontWeight: 600,
-    marginBottom: '20px',
-    border: '1px solid rgba(13, 148, 136, 0.3)',
-  },
-  heroTitle: {
-    fontSize: '52px',
-    fontWeight: 800,
-    lineHeight: '1.15',
-    letterSpacing: '-1.5px',
-    margin: '0 0 20px 0',
-  },
-  heroGradient: {
-    background: 'linear-gradient(135deg, #0d9488 0%, #38bdf8 100%)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-  },
-  heroSub: {
-    fontSize: '18px',
-    color: '#8e8e93',
-    maxWidth: '700px',
-    lineHeight: '1.6',
-    margin: '0 0 36px 0',
-  },
-  ctaGroup: {
-    display: 'flex',
-    gap: '16px',
-    marginBottom: '60px',
-  },
-  primaryCta: {
-    padding: '16px 32px',
-    borderRadius: '12px',
-    backgroundColor: '#0d9488',
-    color: '#ffffff',
-    fontSize: '16px',
-    fontWeight: 700,
-    border: 'none',
-    cursor: 'pointer',
-    boxShadow: '0 8px 24px rgba(13, 148, 136, 0.4)',
-  },
-  secondaryCta: {
-    padding: '16px 32px',
-    borderRadius: '12px',
-    backgroundColor: '#242429',
-    border: '1px solid #3a3a3c',
-    color: '#ffffff',
-    fontSize: '16px',
-    fontWeight: 600,
-    textDecoration: 'none',
-  },
-  mockupContainer: {
-    width: '100%',
-    maxWidth: '900px',
-    backgroundColor: '#1a1a1e',
-    borderRadius: '16px',
-    border: '1px solid #2c2c30',
-    overflow: 'hidden',
-    boxShadow: '0 25px 60px rgba(0, 0, 0, 0.6)',
-  },
-  mockupHeader: {
-    padding: '12px 16px',
-    backgroundColor: '#121214',
-    borderBottom: '1px solid #2c2c30',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  dot: {
-    width: '10px',
-    height: '10px',
-    borderRadius: '50%',
-  },
-  mockupTitle: {
-    fontSize: '12px',
-    color: '#636366',
-    marginLeft: '12px',
-    fontFamily: 'monospace',
-  },
-  mockupBody: {
-    padding: '24px',
-  },
-  mockupGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '16px',
-  },
-  mockCard: {
-    backgroundColor: '#242429',
-    padding: '16px',
-    borderRadius: '12px',
-    border: '1px solid #2c2c30',
-    textAlign: 'left',
-  },
-  mockCardTitle: {
-    fontSize: '12px',
-    color: '#8e8e93',
-    display: 'block',
-  },
-  mockCardVal: {
-    fontSize: '16px',
-    fontWeight: 700,
-    color: '#f5f5f7',
-    marginTop: '6px',
-    display: 'block',
-  },
-  progressBar: {
-    height: '6px',
-    width: '100%',
-    backgroundColor: '#121214',
-    borderRadius: '3px',
-    marginTop: '12px',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#0d9488',
-  },
-  section: {
-    padding: '80px 20px',
-    maxWidth: '1100px',
-    margin: '0 auto',
-    textAlign: 'center',
-  },
-  sectionTitle: {
-    fontSize: '36px',
-    fontWeight: 800,
-    margin: '0 0 12px 0',
-  },
-  sectionSub: {
-    fontSize: '16px',
-    color: '#8e8e93',
-    marginBottom: '48px',
-  },
-  featuresGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '24px',
-  },
-  featureCard: {
-    backgroundColor: '#1a1a1e',
-    border: '1px solid #2c2c30',
-    borderRadius: '16px',
-    padding: '32px',
-    textAlign: 'left',
-  },
-  featureIcon: {
-    fontSize: '32px',
-    marginBottom: '16px',
-  },
-  featureTitle: {
-    fontSize: '20px',
-    fontWeight: 700,
-    margin: '0 0 8px 0',
-  },
-  featureDesc: {
-    fontSize: '14px',
-    color: '#8e8e93',
-    lineHeight: '1.5',
-    margin: 0,
-  },
-  pricingGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '32px',
-    maxWidth: '850px',
-    margin: '0 auto',
-  },
-  pricingCard: {
-    backgroundColor: '#1a1a1e',
-    border: '1px solid #2c2c30',
-    borderRadius: '20px',
-    padding: '40px 32px',
-    textAlign: 'left',
-    position: 'relative',
-  },
-  popularBadge: {
-    position: 'absolute',
-    top: '-12px',
-    right: '24px',
-    backgroundColor: '#0d9488',
-    color: '#fff',
-    fontSize: '11px',
-    fontWeight: 700,
-    padding: '4px 12px',
-    borderRadius: '12px',
-  },
-  planTitle: {
-    fontSize: '22px',
-    fontWeight: 700,
-    margin: '0 0 16px 0',
-  },
-  planPriceBox: {
-    marginBottom: '24px',
-  },
-  priceNum: {
-    fontSize: '36px',
-    fontWeight: 800,
-    color: '#f5f5f7',
-  },
-  pricePeriod: {
-    fontSize: '14px',
-    color: '#8e8e93',
-    marginLeft: '8px',
-  },
-  planFeatures: {
-    listStyle: 'none',
-    padding: 0,
-    margin: '0 0 32px 0',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-    fontSize: '14px',
-    color: '#c7c7cc',
-  },
-  planBtn: {
-    width: '100%',
-    padding: '14px',
-    borderRadius: '12px',
-    border: '1px solid #3a3a3c',
-    backgroundColor: '#242429',
-    color: '#f5f5f7',
-    fontSize: '15px',
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  footer: {
-    borderTop: '1px solid #2c2c30',
-    padding: '32px',
-    textAlign: 'center',
-    color: '#636366',
-    fontSize: '14px',
-  },
-};

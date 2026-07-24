@@ -316,7 +316,9 @@ const styles: Record<string, React.CSSProperties> = {
   quickChip: {
     padding: '4px 10px',
     borderRadius: '6px',
-    border: '1px solid var(--border-color)',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: 'var(--border-color)',
     background: 'var(--surface-elevated)',
     color: 'var(--ink)',
     fontSize: '12px',

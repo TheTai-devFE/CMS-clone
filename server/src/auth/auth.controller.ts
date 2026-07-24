@@ -34,7 +34,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  async getProfile(@CurrentUser() user: CurrentUserType) {
+  getProfile(@CurrentUser() user: CurrentUserType) {
     return user;
   }
 

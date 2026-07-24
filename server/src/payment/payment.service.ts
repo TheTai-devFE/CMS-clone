@@ -1,6 +1,11 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-const PayOS = require('@payos/node');
+import { PayOS } from '@payos/node';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 
@@ -26,10 +31,12 @@ export class PaymentService {
     const checksumKey = this.configService.get<string>('PAYOS_CHECKSUM_KEY');
 
     if (clientId && apiKey && checksumKey) {
-      this.payOS = new PayOS(clientId, apiKey, checksumKey);
+      this.payOS = new PayOS({ clientId, apiKey, checksumKey });
       this.logger.log('PayOS initialized successfully');
     } else {
-      this.logger.warn('PayOS keys missing in environment variables. Running in mock mode.');
+      this.logger.warn(
+        'PayOS keys missing in environment variables. Running in mock mode.',
+      );
     }
   }
 
@@ -39,7 +46,10 @@ export class PaymentService {
     const amount = licenseQuantity * unitPrice;
 
     // Mã đơn hàng độc nhất dạng BigInt (timestamp 6 chữ số + random 3 chữ số)
-    const orderCode = Number(String(Date.now()).slice(-6) + String(Math.floor(100 + Math.random() * 900)));
+    const orderCode = Number(
+      String(Date.now()).slice(-6) +
+        String(Math.floor(100 + Math.random() * 900)),
+    );
 
     const order = await this.prisma.order.create({
       data: {
@@ -52,8 +62,12 @@ export class PaymentService {
       },
     });
 
-    const returnUrl = this.configService.get<string>('PAYOS_RETURN_URL') || 'http://localhost:3000/dashboard?payment=success';
-    const cancelUrl = this.configService.get<string>('PAYOS_CANCEL_URL') || 'http://localhost:3000/dashboard?payment=cancelled';
+    const returnUrl =
+      this.configService.get<string>('PAYOS_RETURN_URL') ||
+      'http://localhost:3000/dashboard?payment=success';
+    const cancelUrl =
+      this.configService.get<string>('PAYOS_CANCEL_URL') ||
+      'http://localhost:3000/dashboard?payment=cancelled';
 
     let checkoutUrl = '';
     let paymentLinkResponse: any = null;
@@ -67,11 +81,16 @@ export class PaymentService {
           returnUrl,
           cancelUrl,
         };
-        paymentLinkResponse = await this.payOS.createPaymentLink(body);
+        paymentLinkResponse = await this.payOS.paymentRequests.create(body);
         checkoutUrl = paymentLinkResponse.checkoutUrl;
       } catch (err: any) {
-        this.logger.error(`Error creating PayOS payment link: ${err.message}`, err.stack);
-        throw new BadRequestException(`Không thể tạo liên kết thanh toán PayOS: ${err.message}`);
+        this.logger.error(
+          `Error creating PayOS payment link: ${err.message}`,
+          err.stack,
+        );
+        throw new BadRequestException(
+          `Không thể tạo liên kết thanh toán PayOS: ${err.message}`,
+        );
       }
     } else {
       // Mock mode khi chưa cấu hình Key PayOS thực tế
@@ -97,15 +116,19 @@ export class PaymentService {
   }
 
   async handleWebhook(webhookBody: any) {
-    this.logger.log(`Received PayOS webhook payload: ${JSON.stringify(webhookBody)}`);
+    this.logger.log(
+      `Received PayOS webhook payload: ${JSON.stringify(webhookBody)}`,
+    );
 
     let verifiedData: any = webhookBody.data;
 
     if (this.payOS && webhookBody.signature) {
       try {
-        verifiedData = this.payOS.verifyPaymentWebhookData(webhookBody);
+        verifiedData = this.payOS.webhooks.verify(webhookBody);
       } catch (err: any) {
-        this.logger.error(`PayOS Webhook Signature verification failed: ${err.message}`);
+        this.logger.error(
+          `PayOS Webhook Signature verification failed: ${err.message}`,
+        );
         throw new BadRequestException('Chữ ký webhook không hợp lệ');
       }
     }
@@ -114,7 +137,14 @@ export class PaymentService {
       return { success: false, message: 'No webhook data' };
     }
 
-    const { orderCode, amount, reference, accountNumber, transactionDateTime, code } = verifiedData;
+    const {
+      orderCode,
+      amount,
+      reference,
+      accountNumber,
+      transactionDateTime,
+      code,
+    } = verifiedData;
 
     if (code !== '00' && webhookBody.success !== true) {
       this.logger.warn(`Payment not successful for orderCode ${orderCode}`);
@@ -151,7 +181,9 @@ export class PaymentService {
           reference: reference || null,
           amount: amount || order.amount,
           accountNumber: accountNumber || null,
-          transactionDateTime: transactionDateTime ? new Date(transactionDateTime) : new Date(),
+          transactionDateTime: transactionDateTime
+            ? new Date(transactionDateTime)
+            : new Date(),
           webhookData: webhookBody,
         },
       });
@@ -181,7 +213,9 @@ export class PaymentService {
       });
     });
 
-    this.logger.log(`Successfully upgraded user ${order.userId} license limit to ${order.user.licenseLimit + order.licenseQuantity}`);
+    this.logger.log(
+      `Successfully upgraded user ${order.userId} license limit to ${order.user.licenseLimit + order.licenseQuantity}`,
+    );
 
     return { success: true, orderCode: orderCode.toString() };
   }

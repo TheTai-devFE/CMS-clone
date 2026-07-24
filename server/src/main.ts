@@ -51,4 +51,4 @@ async function bootstrap() {
   console.log(`CMS Backend is running on: http://localhost:${port}`);
   console.log(`API Docs is available on: http://localhost:${port}/api/docs`);
 }
-bootstrap();
+void bootstrap();
