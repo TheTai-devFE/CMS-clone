@@ -13,120 +13,30 @@ import { CreatePairingCodeDto } from './dto/create-pairing-code.dto';
 import { ClaimDeviceDto } from './dto/claim-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 
+import { DeviceBatchService } from './device-batch.service';
+import { DeviceLogsService } from './device-logs.service';
+import { DevicePairingService } from './device-pairing.service';
+
 @Injectable()
 export class DeviceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly batchService: DeviceBatchService,
+    private readonly logsService: DeviceLogsService,
+    private readonly pairingService: DevicePairingService,
   ) {}
 
   async generatePairingCode(dto: CreatePairingCodeDto) {
-    // Sinh mã liên kết ngẫu nhiên 6 chữ số
-    const pairingCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const tempDeviceId = crypto.randomUUID();
-
-    const tempInfo = {
-      macAddress: dto.macAddress,
-      screenResolution: dto.screenResolution,
-      osVersion: dto.osVersion,
-      appVersion: dto.appVersion,
-      tempDeviceId,
-    };
-
-    // Lưu mã liên kết vào Redis (hết hạn sau 10 phút)
-    await this.redis.set(
-      `pairing_code:${pairingCode}`,
-      JSON.stringify(tempInfo),
-      600,
-    );
-    // Lưu trạng thái kết nối tạm thời
-    await this.redis.set(
-      `pairing_status:${tempDeviceId}`,
-      JSON.stringify({ status: 'pending' }),
-      600,
-    );
-
-    return {
-      pairingCode,
-      tempDeviceId,
-      expireAt: Date.now() + 600000,
-    };
+    return this.pairingService.generatePairingCode(dto);
   }
 
   async getPairingStatus(tempDeviceId: string) {
-    const statusStr = await this.redis.get(`pairing_status:${tempDeviceId}`);
-    if (!statusStr) {
-      return { status: 'expired' };
-    }
-    return JSON.parse(statusStr);
+    return this.pairingService.getPairingStatus(tempDeviceId);
   }
 
   async claimDevice(userId: string, dto: ClaimDeviceDto) {
-    const pairingCode = dto.pairingCode.trim();
-    const tempInfoStr = await this.redis.get(`pairing_code:${pairingCode}`);
-
-    if (!tempInfoStr) {
-      throw new BadRequestException(
-        'Mã liên kết không tồn tại hoặc đã hết hạn',
-      );
-    }
-
-    const tempInfo = JSON.parse(tempInfoStr);
-
-    // 1. Kiểm tra giới hạn license của User
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new NotFoundException('Không tìm thấy người dùng');
-    }
-
-    const assignedCount = await this.prisma.device.count({
-      where: { userId },
-    });
-
-    if (assignedCount >= user.licenseLimit) {
-      throw new BadRequestException(
-        `Vượt quá giới hạn bản quyền (Hạn mức: ${user.licenseLimit} thiết bị. Hiện tại đã gán: ${assignedCount} thiết bị)`,
-      );
-    }
-
-    // 2. Tạo thiết bị chính thức gán cho User
-    const apiKey = 'dev_' + crypto.randomBytes(24).toString('hex');
-    const device = await this.prisma.device.create({
-      data: {
-        userId,
-        deviceName: dto.deviceName,
-        apiKey,
-        macAddress: tempInfo.macAddress,
-        screenResolution: tempInfo.screenResolution,
-        osVersion: tempInfo.osVersion,
-        appVersion: tempInfo.appVersion,
-        status: 'offline',
-        approvalStatus: 'approved',
-      },
-    });
-
-    // 3. Cập nhật trạng thái liên kết trên Redis để Player đang polling nhận biết được
-    await this.redis.set(
-      `pairing_status:${tempInfo.tempDeviceId}`,
-      JSON.stringify({
-        status: 'linked',
-        apiKey,
-        deviceId: device.id,
-      }),
-      120, // 2 phút để player polling
-    );
-
-    // Xóa pairing code để không cho claim lại
-    await this.redis.del(`pairing_code:${pairingCode}`);
-
-    return {
-      success: true,
-      deviceId: device.id,
-      deviceName: device.deviceName,
-    };
+    return this.pairingService.claimDevice(userId, dto);
   }
 
   async register(dto: RegisterDeviceDto, ipAddress: string) {
@@ -474,84 +384,7 @@ export class DeviceService {
   }
 
   async getSystemLogs(user: { id: string; role: string }) {
-    // 1. Lấy danh sách thiết bị thuộc quyền quản lý của người dùng
-    let devices;
-    if (user.role === 'admin') {
-      devices = await this.prisma.device.findMany({
-        select: { id: true, deviceName: true },
-      });
-    } else {
-      devices = await this.prisma.device.findMany({
-        where: { userId: user.id },
-        select: { id: true, deviceName: true },
-      });
-    }
-
-    const deviceIds = devices.map((d) => d.id);
-    if (deviceIds.length === 0) {
-      return [];
-    }
-
-    // 2. Lấy HeartbeatLog mới nhất của các thiết bị này
-    const heartbeatLogs = await this.prisma.heartbeatLog.findMany({
-      where: {
-        deviceId: { in: deviceIds },
-      },
-      include: {
-        device: {
-          select: { deviceName: true },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 50,
-    });
-
-    // 3. Lấy PlaybackLog mới nhất của các thiết bị này
-    const playbackLogs = await this.prisma.playbackLog.findMany({
-      where: {
-        deviceId: { in: deviceIds },
-      },
-      include: {
-        device: {
-          select: { deviceName: true },
-        },
-        media: {
-          select: { fileName: true },
-        },
-      },
-      orderBy: {
-        startedAt: 'desc',
-      },
-      take: 50,
-    });
-
-    // 4. Định dạng và trộn các log lại
-    const formattedLogs = [
-      ...heartbeatLogs.map((log) => ({
-        id: `hb-${log.id}`,
-        deviceName: log.device.deviceName,
-        status: log.cpuUsage !== null ? 'Heartbeat' : 'Online',
-        detail: `CPU: ${log.cpuUsage ?? 0}% | Memory Free: ${log.freeMemoryMb ?? 0}MB`,
-        time: log.createdAt.toISOString(),
-      })),
-      ...playbackLogs.map((log) => ({
-        id: `pb-${log.id}`,
-        deviceName: log.device.deviceName,
-        status: 'Playback Success',
-        detail: `Đã phát file: ${log.media?.fileName ?? 'N/A'} (Thời lượng: ${log.durationPlayed ?? 0}s)`,
-        time: log.startedAt.toISOString(),
-      })),
-    ];
-
-    // Sắp xếp giảm dần theo thời gian
-    formattedLogs.sort(
-      (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime(),
-    );
-
-    // Trả về tối đa 100 log mới nhất
-    return formattedLogs.slice(0, 100);
+    return this.logsService.getSystemLogs(user);
   }
 
   // Helper function để đọc trạng thái realtime từ Redis cho danh sách thiết bị
@@ -591,22 +424,7 @@ export class DeviceService {
   }
 
   async batchReboot(user: { id: string; role: string }, deviceIds: string[]) {
-    const devices = await this.getAccessibleDevices(user, deviceIds);
-    for (const device of devices) {
-      await this.redis.set(
-        `device:command:${device.id}:reboot`,
-        JSON.stringify({
-          command: 'reboot',
-          timestamp: Date.now(),
-        }),
-        300,
-      );
-    }
-    return {
-      success: true,
-      count: devices.length,
-      message: `Đã gửi lệnh reboot tới ${devices.length} thiết bị`,
-    };
+    return this.batchService.batchReboot(user, deviceIds);
   }
 
   async batchVolume(
@@ -614,23 +432,7 @@ export class DeviceService {
     deviceIds: string[],
     volume: number,
   ) {
-    const devices = await this.getAccessibleDevices(user, deviceIds);
-    for (const device of devices) {
-      await this.redis.set(
-        `device:command:${device.id}:volume`,
-        JSON.stringify({
-          command: 'volume',
-          volume,
-          timestamp: Date.now(),
-        }),
-        300,
-      );
-    }
-    return {
-      success: true,
-      count: devices.length,
-      message: `Đã gửi lệnh điều chỉnh âm lượng (${volume}%) tới ${devices.length} thiết bị`,
-    };
+    return this.batchService.batchVolume(user, deviceIds, volume);
   }
 
   async batchInstallApk(
@@ -638,80 +440,20 @@ export class DeviceService {
     deviceIds: string[],
     apkUrl?: string,
   ) {
-    const devices = await this.getAccessibleDevices(user, deviceIds);
-    for (const device of devices) {
-      await this.redis.set(
-        `device:command:${device.id}:install-apk`,
-        JSON.stringify({
-          command: 'install-apk',
-          apkUrl,
-          timestamp: Date.now(),
-        }),
-        600,
-      );
-    }
-    return {
-      success: true,
-      count: devices.length,
-      message: `Đã gửi lệnh cài đặt APK tới ${devices.length} thiết bị`,
-    };
+    return this.batchService.batchInstallApk(user, deviceIds, apkUrl);
   }
 
   async batchUninstallApk(
     user: { id: string; role: string },
     deviceIds: string[],
   ) {
-    const devices = await this.getAccessibleDevices(user, deviceIds);
-    for (const device of devices) {
-      await this.redis.set(
-        `device:command:${device.id}:uninstall-apk`,
-        JSON.stringify({
-          command: 'uninstall-apk',
-          timestamp: Date.now(),
-        }),
-        300,
-      );
-    }
-    return {
-      success: true,
-      count: devices.length,
-      message: `Đã gửi lệnh gỡ APK tới ${devices.length} thiết bị`,
-    };
+    return this.batchService.batchUninstallApk(user, deviceIds);
   }
 
   async batchClearContent(
     user: { id: string; role: string },
     deviceIds: string[],
   ) {
-    const devices = await this.getAccessibleDevices(user, deviceIds);
-    for (const device of devices) {
-      await this.redis.set(
-        `device:command:${device.id}:clear-content`,
-        JSON.stringify({
-          command: 'clear-content',
-          timestamp: Date.now(),
-        }),
-        300,
-      );
-    }
-    return {
-      success: true,
-      count: devices.length,
-      message: `Đã gửi lệnh xóa nội dung tới ${devices.length} thiết bị`,
-    };
-  }
-
-  private async getAccessibleDevices(
-    user: { id: string; role: string },
-    deviceIds: string[],
-  ) {
-    if (user.role === 'admin') {
-      return this.prisma.device.findMany({
-        where: { id: { in: deviceIds } },
-      });
-    }
-    return this.prisma.device.findMany({
-      where: { id: { in: deviceIds }, userId: user.id },
-    });
+    return this.batchService.batchClearContent(user, deviceIds);
   }
 }

@@ -409,3 +409,29 @@ export async function fetchSyncTime(
     return null;
   }
 }
+
+/**
+ * T10/Bước 8: Kiểm tra cập nhật ứng dụng từ xa (OTA App Update)
+ */
+export async function checkAppVersion(
+  serverIp: string,
+  serverPort: string,
+  currentVersion = '1.0.0',
+): Promise<{
+  latestVersion: string;
+  minSupportedVersion: string;
+  apkUrl: string;
+  releaseNotes: string;
+  forceUpdate: boolean;
+} | null> {
+  try {
+    const protocol = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.protocol : 'http:';
+    const url = `${protocol}//${serverIp}:${serverPort}/api/app/version?currentVersion=${currentVersion}`;
+    const response = await promiseWithTimeout(fetch(url), 5000, 'App update timeout');
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (err) {
+    console.warn('[AppUpdate] Không thể kiểm tra phiên bản mới:', err);
+    return null;
+  }
+}

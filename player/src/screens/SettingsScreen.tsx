@@ -13,6 +13,7 @@ import { colors } from '../theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import ConfirmationModal from '../components/ConfirmationModal';
+import { SettingsSections } from '../components/SettingsSections';
 
 interface SettingsScreenProps {
   isLandscape: boolean;
@@ -262,180 +263,24 @@ export default function SettingsScreen({
             </View>
           </View>
 
-          {/* Section 3: Storage Config */}
-          <View style={[styles.sectionContainer, isLandscape && styles.sectionContainerLandscape]}>
-            <Text style={styles.sectionHeader}>QUẢN LÝ LƯU TRỮ & NỘI DUNG</Text>
-            <View style={styles.glassListCard}>
-              {/* Item: Storage Location */}
-              <View style={styles.settingsItem}>
-                <View style={styles.itemLeft}>
-                  <View style={styles.iconWrapper}>
-                    <Text style={styles.itemIcon}>💾</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.itemTitle}>Bộ nhớ ưu tiên</Text>
-                    <Text style={styles.itemSub}>Phân vùng tải media trình chiếu</Text>
-                  </View>
-                </View>
-                <View style={styles.segmentedContainer}>
-                  <TouchableOpacity
-                    style={[styles.segmentedButton, storageLocation === 'internal' && styles.segmentedButtonActive]}
-                    onPress={() => handleStorageChange('internal')}
-                  >
-                    <Text style={[styles.segmentedText, storageLocation === 'internal' && styles.segmentedTextActive]}>Trong</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.segmentedButton, storageLocation === 'tfcard' && styles.segmentedButtonActive]}
-                    onPress={() => handleStorageChange('tfcard')}
-                  >
-                    <Text style={[styles.segmentedText, storageLocation === 'tfcard' && styles.segmentedTextActive]}>Thẻ nhớ</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.segmentedButton, storageLocation === 'usb' && styles.segmentedButtonActive]}
-                    onPress={() => handleStorageChange('usb')}
-                  >
-                    <Text style={[styles.segmentedText, storageLocation === 'usb' && styles.segmentedTextActive]}>USB</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Item: Breakpoint Continuation */}
-              <View style={styles.settingsItem}>
-                <View style={styles.itemLeft}>
-                  <View style={styles.iconWrapper}>
-                    <Text style={styles.itemIcon}>⏯️</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.itemTitle}>Phát tiếp video dở dang</Text>
-                    <Text style={styles.itemSub}>Lưu tiến độ khi khởi động lại</Text>
-                  </View>
-                </View>
-                <CustomSwitch value={breakpointEnabled} onValueChange={handleBreakpointChange} />
-              </View>
-
-              {/* Item: Clear Program & Cache */}
-              <View style={[styles.settingsItem, { borderBottomWidth: 0 }]}>
-                <View style={styles.itemLeft}>
-                  <View style={styles.iconWrapper}>
-                    <Text style={styles.itemIcon}>🗑️</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.itemTitle}>Xóa chương trình phát</Text>
-                    <Text style={styles.itemSub}>Dọn sạch media & dừng trình chiếu</Text>
-                  </View>
-                </View>
-                <TouchableOpacity
-                  style={styles.btnClearCache}
-                  onPress={handleClearProgramAndCache}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.btnClearCacheText}>XÓA CHƯƠNG TRÌNH</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          {/* Section 4: USB Config */}
-          <View style={[styles.sectionContainer, isLandscape && styles.sectionContainerLandscape]}>
-            <Text style={styles.sectionHeader}>USB OFFLINE FALLBACK</Text>
-            <View style={styles.glassListCard}>
-              {/* Item: USB Offline Fallback */}
-              <View style={styles.settingsItem}>
-                <View style={styles.itemLeft}>
-                  <View style={styles.iconWrapper}>
-                    <Text style={styles.itemIcon}>🔌</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.itemTitle}>Chế độ phát USB Offline</Text>
-                    <Text style={styles.itemSub}>Đọc USB khi thiết bị mất Internet</Text>
-                  </View>
-                </View>
-                <CustomSwitch value={usbOfflineFallback} onValueChange={handleUsbFallbackChange} />
-              </View>
-
-              {/* Item: Alter USB Path */}
-              <View style={[styles.settingsItem, { borderBottomWidth: 0 }]}>
-                <View style={styles.itemLeft}>
-                  <View style={styles.iconWrapper}>
-                    <Text style={styles.itemIcon}>📁</Text>
-                  </View>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={styles.itemTitle}>Đường dẫn thư mục USB</Text>
-                    <Text style={styles.itemSub}>Thư mục chứa video/hình ảnh</Text>
-                  </View>
-                </View>
-                <TextInput
-                  style={styles.inputPath}
-                  value={usbPath}
-                  onChangeText={handleUsbPathChange}
-                  placeholder="/CDMedia"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
-            </View>
-          </View>
-
-          {/* Section 5: Sleep Schedule (CMS SYNC) */}
-          <View style={[styles.sectionContainer, isLandscape && styles.sectionContainerLandscape]}>
-            <Text style={styles.sectionHeader}>LỊCH NGHỈ MÀN HÌNH (CMS SYNC)</Text>
-            <View style={styles.glassListCard}>
-              <View style={[styles.settingsItem, { borderBottomWidth: 0 }]}>
-                <View style={styles.itemLeft}>
-                  <View style={styles.iconWrapper}>
-                    <Text style={styles.itemIcon}>😴</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.itemTitle}>Trạng thái tự động nghỉ</Text>
-                    <Text style={styles.itemSub}>
-                      {sleepScheduleEnabled 
-                        ? `Thiết lập nghỉ từ ${sleepStartTime} đến ${sleepEndTime}`
-                        : 'Lịch nghỉ hiện đang tắt'}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.badgeContainer}>
-                  <Text style={[
-                    styles.badgeTextSecurity,
-                    sleepScheduleEnabled ? styles.badgeTextSecurityActive : styles.badgeTextSecurityInactive
-                  ]}>
-                    {sleepScheduleEnabled ? 'ON' : 'OFF'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-            <Text style={styles.syncHintText}>* Cài đặt lịch nghỉ được cấu hình và đồng bộ tự động từ Web CMS.</Text>
-          </View>
-
-          {/* Section 6: Security Info */}
-          <View style={[styles.sectionContainer, isLandscape && styles.sectionContainerLandscape]}>
-            <Text style={styles.sectionHeader}>BẢO MẬT & ĐỒNG BỘ PIN</Text>
-            <View style={styles.glassListCard}>
-              <View style={[styles.settingsItem, { borderBottomWidth: 0 }]}>
-                <View style={styles.itemLeft}>
-                  <View style={styles.iconWrapper}>
-                    <Text style={styles.itemIcon}>🔐</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.itemTitle}>Mã PIN bảo mật thiết bị</Text>
-                    <Text style={styles.itemSub}>
-                      {securityUsePass 
-                        ? (securityPassVal === '0000' ? 'Đã kích hoạt PIN mặc định' : 'Đã kích hoạt PIN tài khoản') 
-                        : 'Không yêu cầu (Bấm Settings vào trực tiếp)'}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.badgeContainer}>
-                  <Text style={[
-                    styles.badgeTextSecurity,
-                    securityUsePass ? styles.badgeTextSecurityActive : styles.badgeTextSecurityInactive
-                  ]}>
-                    {securityUsePass ? `PIN: ${securityPassVal.replace(/./g, '*') || '0000'}` : 'OFF'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
+          <SettingsSections
+            isLandscape={isLandscape}
+            storageLocation={storageLocation}
+            breakpointEnabled={breakpointEnabled}
+            usbOfflineFallback={usbOfflineFallback}
+            usbPath={usbPath}
+            sleepScheduleEnabled={sleepScheduleEnabled}
+            sleepStartTime={sleepStartTime}
+            sleepEndTime={sleepEndTime}
+            securityUsePass={securityUsePass}
+            securityPassVal={securityPassVal}
+            onStorageChange={handleStorageChange}
+            onBreakpointChange={handleBreakpointChange}
+            onUsbFallbackChange={handleUsbFallbackChange}
+            onUsbPathChange={handleUsbPathChange}
+            onClearProgramAndCache={handleClearProgramAndCache}
+            CustomSwitch={CustomSwitch}
+          />
 
           {/* Section 7: Action Panel */}
           <View style={styles.dangerZoneContainer}>
@@ -558,14 +403,6 @@ const styles = StyleSheet.create({
   sectionContainer: {
     marginBottom: 28,
   },
-  sectionHeader: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.textMuted,
-    letterSpacing: 1.5,
-    marginLeft: 8,
-    marginBottom: 8,
-  },
   glassListCard: {
     width: '100%',
     backgroundColor: colors.glassBackground,
@@ -588,35 +425,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(15, 23, 42, 0.05)',
   },
-  itemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  iconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surfaceContainer,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  itemIcon: {
-    fontSize: 16,
-  },
-  itemTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  itemSub: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-    maxWidth: 240,
-  },
-  
-  // Custom Switch styling
   switchTrack: {
     width: 44,
     height: 24,
@@ -646,93 +454,6 @@ const styles = StyleSheet.create({
   },
   switchKnobInactive: {
     alignSelf: 'flex-start',
-  },
-
-  // Segmented control styling
-  segmentedContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: 8,
-    padding: 2,
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
-  },
-  segmentedButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-  },
-  segmentedButtonActive: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  segmentedText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-  },
-  segmentedTextActive: {
-    color: colors.primary,
-    fontWeight: '700',
-  },
-
-  // TextInput Path styling
-  inputPath: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    fontSize: 13,
-    color: colors.primary,
-    minWidth: 120,
-    textAlign: 'right',
-  },
-
-  // Clear cache styling
-  btnClearCache: {
-    backgroundColor: 'rgba(186, 26, 26, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(186, 26, 26, 0.15)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  btnClearCacheText: {
-    color: colors.error,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-
-  // Badge security styling
-  badgeContainer: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceContainer,
-  },
-  badgeTextSecurity: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  badgeTextSecurityActive: {
-    color: colors.secondary,
-  },
-  badgeTextSecurityInactive: {
-    color: colors.outline,
-  },
-  
-  syncHintText: {
-    fontSize: 10,
-    color: colors.textMuted,
-    fontStyle: 'italic',
-    marginTop: 6,
-    marginLeft: 8,
   },
 
   // Danger zone

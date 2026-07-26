@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { getHardwareId } from '../utils/deviceInfo';
 import ConfirmationModal from '../components/ConfirmationModal';
+import { RegisteredDeviceDashboard } from '../components/RegisteredDeviceDashboard';
+import { PairingStatusArea } from '../components/PairingStatusArea';
 
 interface RegisterScreenProps {
   isLandscape: boolean;
@@ -126,10 +128,11 @@ export default function RegisterScreen({
       setTempDeviceId(data.tempDeviceId);
       setExpireAt(data.expireAt);
       setPairingStatus('pending');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMsgText = err instanceof Error ? err.message : 'Không thể kết nối đến máy chủ CMS';
       console.error('Lỗi khi lấy pairing code:', err);
       setPairingStatus('error');
-      setErrorMsg(err.message || 'Không thể kết nối đến máy chủ CMS');
+      setErrorMsg(errorMsgText);
     }
   };
 
@@ -148,7 +151,7 @@ export default function RegisterScreen({
 
   // Polling check status
   useEffect(() => {
-    let interval: any = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     
     if (pairingStatus === 'pending' && tempDeviceId) {
       interval = setInterval(async () => {
@@ -180,68 +183,15 @@ export default function RegisterScreen({
     };
   }, [pairingStatus, tempDeviceId, expireAt]);
 
-  const renderPairingArea = () => {
-    switch (pairingStatus) {
-      case 'loading':
-        return (
-          <View style={styles.statusArea}>
-            <ActivityIndicator size="large" color="#00b894" />
-            <Text style={styles.statusSubText}>Đang tạo mã liên kết...</Text>
-          </View>
-        );
-      case 'expired':
-        return (
-          <View style={styles.statusArea}>
-            <Text style={styles.errorText}>Mã liên kết đã hết hạn</Text>
-            <TouchableOpacity style={styles.btnRetry} onPress={() => fetchPairingCode()}>
-              <Text style={styles.btnRetryText}>Lấy mã mới</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      case 'error':
-        return (
-          <View style={styles.statusArea}>
-            <Text style={styles.errorText}>{errorMsg}</Text>
-            <TouchableOpacity style={styles.btnRetry} onPress={() => fetchPairingCode()}>
-              <Text style={styles.btnRetryText}>Thử lại</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      case 'linked':
-        return (
-          <View style={styles.statusArea}>
-            <Text style={styles.successIcon}>✓</Text>
-            <Text style={styles.successText}>Đã kết nối thành công!</Text>
-          </View>
-        );
-      case 'pending':
-        return (
-          <View style={styles.pairingContainer}>
-            <Text style={[styles.pairingCodeLabel, isLandscape && styles.pairingCodeLabelLandscape]}>MÃ LIÊN KẾT THIẾT BỊ</Text>
-            <View style={[styles.codeWrapper, isLandscape && styles.codeWrapperLandscape]}>
-              {pairingCode.split('').map((char, index) => (
-                <View key={index} style={[styles.codeCharBox, isLandscape && styles.codeCharBoxLandscape]}>
-                  <Text style={[styles.codeCharText, isLandscape && styles.codeCharTextLandscape]}>{char}</Text>
-                </View>
-              ))}
-            </View>
-            <Text style={[styles.instructionText, isLandscape && styles.instructionTextLandscape]}>
-              Hãy nhập mã 6 số này vào mục "Thêm thiết bị" trên Web Dashboard để kết nối.
-            </Text>
-            <View style={[styles.waitingContainer, isLandscape && styles.waitingContainerLandscape]}>
-              <ActivityIndicator size="small" color="#00b894" style={{ marginRight: 8 }} />
-              <Text style={styles.waitingText}>Đang chờ kích hoạt từ Dashboard...</Text>
-            </View>
-          </View>
-        );
-      default:
-        return (
-          <View style={styles.statusArea}>
-            <Text style={styles.infoText}>Vui lòng nhập IP và Port của máy chủ</Text>
-          </View>
-        );
-    }
-  };
+  const renderPairingArea = () => (
+    <PairingStatusArea
+      pairingStatus={pairingStatus}
+      errorMsg={errorMsg}
+      pairingCode={pairingCode}
+      isLandscape={isLandscape}
+      onRetry={fetchPairingCode}
+    />
+  );
 
   const handleDisconnectWithConfirmation = () => {
     setShowConfirmDisconnect(true);
@@ -279,57 +229,14 @@ export default function RegisterScreen({
         >
           <View style={styles.registerContentWrapper}>
             {deviceId ? (
-              /* PREMIUM DEVICE DASHBOARD (ĐÃ LIÊN KẾT) */
-              <View style={[styles.dashboardCard, isLandscape && styles.dashboardCardLandscape]}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardIcon}>🖥️</Text>
-                  <View>
-                    <Text style={styles.cardTitle}>THIẾT BỊ ĐÃ KÍCH HOẠT</Text>
-                    <Text style={styles.cardSubtitle}>Màn hình quảng cáo sẵn sàng hoạt động</Text>
-                  </View>
-                </View>
-
-                <View style={[styles.cardDivider, isLandscape && styles.cardDividerLandscape]} />
-
-                <View style={[styles.infoGrid, isLandscape && styles.infoGridLandscape]}>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>TÊN MÀN HÌNH</Text>
-                    <Text style={styles.infoValue}>{deviceName || 'Màn hình CDM'}</Text>
-                  </View>
-
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>ĐỊA CHỈ MÁY CHỦ</Text>
-                    <Text style={styles.infoValueMono}>{formIp}:{formPort}</Text>
-                  </View>
-
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>MÃ THIẾT BỊ (UUID)</Text>
-                    <Text style={styles.infoValueMono} numberOfLines={1} ellipsizeMode="middle">
-                      {deviceId}
-                    </Text>
-                  </View>
-
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>TRẠNG THÁI LẬP LỊCH</Text>
-                    <Text style={styles.infoValueActive}>Chờ truyền tải danh sách phát...</Text>
-                  </View>
-                </View>
-
-                <View style={[styles.waitingFooter, isLandscape && styles.waitingFooterLandscape]}>
-                  <View style={styles.pulseDot} />
-                  <Text style={styles.footerText}>
-                    Đang lắng nghe tín hiệu từ Web Dashboard...
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.btnDisconnect}
-                  onPress={handleDisconnectWithConfirmation}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.btnDisconnectText}>Hủy liên kết thiết bị này</Text>
-                </TouchableOpacity>
-              </View>
+              <RegisteredDeviceDashboard
+                deviceName={deviceName}
+                formIp={formIp}
+                formPort={formPort}
+                deviceId={deviceId}
+                isLandscape={isLandscape}
+                onDisconnect={handleDisconnectWithConfirmation}
+              />
             ) : (
               /* FORM LIÊN KẾT THIẾT BỊ (CHƯA LIÊN KẾT) */
               <>
@@ -534,115 +441,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     marginVertical: 24,
   },
-  statusArea: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
-  },
-  statusSubText: {
-    color: '#8a99ad',
-    fontSize: 13,
-    marginTop: 12,
-  },
-  infoText: {
-    color: '#8a99ad',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  successIcon: {
-    fontSize: 48,
-    color: '#00b894',
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  successText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  btnRetry: {
-    backgroundColor: '#00b894',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    shadowColor: '#00b894',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  btnRetryText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  pairingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pairingCodeLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#00b894',
-    letterSpacing: 1.5,
-    marginBottom: 16,
-  },
-  codeWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 20,
-  },
-  codeCharBox: {
-    width: 44,
-    height: 54,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#00b894',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-  },
-  codeCharText: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  instructionText: {
-    fontSize: 13,
-    color: '#8a99ad',
-    textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  waitingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 184, 148, 0.05)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 184, 148, 0.1)',
-  },
-  waitingText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#00b894',
-  },
   inputGroup: {
     marginBottom: 22,
     position: 'relative',
@@ -674,165 +472,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#ffffff',
   },
-  textInputFocused: {
-    borderColor: '#00b894', // Emerald green border on focus
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    shadowColor: '#00b894',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  dashboardCard: {
-    width: '100%',
-    maxWidth: 580,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 24,
-    shadowColor: '#00b894',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.1,
-    shadowRadius: 24,
-    elevation: 6,
-  },
-  dashboardCardLandscape: {
-    maxWidth: 720,
-    padding: 28,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  cardIcon: {
-    fontSize: 32,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#00b894',
-    letterSpacing: 1.5,
-  },
-  cardSubtitle: {
-    fontSize: 12,
-    color: '#8a99ad',
-    marginTop: 2,
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginVertical: 20,
-  },
-  infoGrid: {
-    gap: 16,
-  },
-  infoItem: {
-    flexDirection: 'column',
-  },
-  infoLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#64748b',
-    letterSpacing: 1,
-  },
-  infoValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginTop: 4,
-  },
-  infoValueMono: {
-    fontSize: 14,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    color: '#cbd5e1',
-    marginTop: 4,
-    letterSpacing: 0.5,
-  },
-  infoValueActive: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#38bdf8', // Soft Sky Blue
-    marginTop: 4,
-  },
-  waitingFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 184, 148, 0.03)',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginTop: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 184, 148, 0.08)',
-  },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#00b894',
-    marginRight: 10,
-    opacity: 0.8,
-  },
-  footerText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#8a99ad',
-  },
-  screenHeaderLandscape: {
-    marginBottom: 10,
-  },
-  screenMainTitleLandscape: {
-    fontSize: 20,
-  },
-  screenSubTitleLandscape: {
-    fontSize: 11,
-    marginTop: 2,
-    lineHeight: 14,
-  },
-  glassFormCardLandscape: {
-    padding: 16,
-  },
-  dividerLandscape: {
-    marginVertical: 12,
-  },
-  pairingCodeLabelLandscape: {
-    fontSize: 10,
-    marginBottom: 8,
-  },
-  codeWrapperLandscape: {
-    marginBottom: 10,
-    gap: 6,
-  },
-  codeCharBoxLandscape: {
-    width: 38,
-    height: 46,
-    borderRadius: 8,
-  },
-  codeCharTextLandscape: {
-    fontSize: 22,
-  },
-  instructionTextLandscape: {
-    fontSize: 11,
-    lineHeight: 16,
-    marginBottom: 12,
-    paddingHorizontal: 8,
-  },
-  waitingContainerLandscape: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  cardDividerLandscape: {
-    marginVertical: 10,
-  },
-  infoGridLandscape: {
-    gap: 10,
-  },
-  waitingFooterLandscape: {
-    marginTop: 14,
-    paddingVertical: 6,
-  },
   btnConnect: {
     width: '100%',
     height: 48,
@@ -854,21 +493,5 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     backgroundColor: 'rgba(0, 184, 148, 0.5)',
-  },
-  btnDisconnect: {
-    marginTop: 16,
-    width: '100%',
-    height: 48,
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnDisconnectText: {
-    color: '#ef4444',
-    fontSize: 14,
-    fontWeight: '700',
   },
 });
