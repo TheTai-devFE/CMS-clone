@@ -32,7 +32,10 @@ interface AdPlayerScreenProps {
   // Sync group (video wall) — optional, chỉ dùng khi playlist là sync group
   deviceId?: string | null;
   isSyncGroup?: boolean;
-  syncLayout?: { videoWall?: { rows: number; cols: number } } | null;
+  syncLayout?: {
+    videoWall?: { rows: number; cols: number };
+    scaleMode?: "stretch" | "crop" | "fullscreen" | "original";
+  } | null;
   clockOffset?: number;
   syncMode?: "ntp" | "websocket" | "none";
   serverIp?: string;
@@ -352,6 +355,11 @@ function AdPlayerScreen({
         currentItem={currentItem}
         player={player}
         videoWallCrop={videoWallCrop}
+        scaleMode={
+          syncLayout?.scaleMode === "crop" || syncLayout?.scaleMode === "fullscreen"
+            ? "crop"
+            : "stretch"
+        }
       />
     </View>
   );

@@ -3,6 +3,7 @@
 import { useMedia } from "@/hooks/useApi";
 import PlaylistEditor from "@/components/dashboard/playlist-editor/PlaylistEditor";
 import PublishModal from "@/components/dashboard/PublishModal";
+import PublishScheduleModal from "@/components/dashboard/PublishScheduleModal";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -10,10 +11,16 @@ export default function NewPlaylistPage() {
   const router = useRouter();
   const { mediaList } = useMedia();
 
-  // T5: Mở PublishModal sau khi save playlist mới
+  // T5: Sau khi lưu playlist mới — "Đơn lẻ" mở PublishModal (chọn thiết bị),
+  // "Đồng bộ" bỏ qua bước chọn thiết bị và chuyển thẳng sang bước lập lịch.
   const [publishTarget, setPublishTarget] = useState<{
     id: string;
     name: string;
+  } | null>(null);
+  const [scheduleTarget, setScheduleTarget] = useState<{
+    id: string;
+    name: string;
+    deviceIds: string[];
   } | null>(null);
 
   return (
@@ -23,8 +30,13 @@ export default function NewPlaylistPage() {
         mediaList={mediaList}
         onClose={() => router.push("/dashboard/playlist")}
         onSave={() => router.push("/dashboard/playlist")}
-        onCreated={(playlistId, playlistName) => {
-          setPublishTarget({ id: playlistId, name: playlistName || "Playlist mới" });
+        onCreated={(playlistId, playlistName, isSyncGroup, deviceIds) => {
+          const name = playlistName || "Playlist mới";
+          if (isSyncGroup) {
+            setScheduleTarget({ id: playlistId, name, deviceIds });
+          } else {
+            setPublishTarget({ id: playlistId, name });
+          }
         }}
       />
 
@@ -38,6 +50,22 @@ export default function NewPlaylistPage() {
           }}
           onSuccess={() => {
             // Có thể thêm toast message ở đây nếu có context
+          }}
+        />
+      )}
+
+      {scheduleTarget && (
+        <PublishScheduleModal
+          playlistId={scheduleTarget.id}
+          playlistName={scheduleTarget.name}
+          deviceIds={scheduleTarget.deviceIds}
+          onClose={() => {
+            setScheduleTarget(null);
+            router.push("/dashboard/playlist");
+          }}
+          onSuccess={() => {
+            setScheduleTarget(null);
+            router.push("/dashboard/playlist");
           }}
         />
       )}

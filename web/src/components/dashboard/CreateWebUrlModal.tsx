@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Globe, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/utils/api';
+import { MediaItem } from '@/types/dashboard';
 
 interface CreateWebUrlModalProps {
   isOpen: boolean;
@@ -11,6 +12,9 @@ interface CreateWebUrlModalProps {
   onSuccess: () => void;
   setError: (msg: string) => void;
   setSuccessMsg: (msg: string) => void;
+  // Optional: receives the created Media record directly (e.g. to assign it to a playlist slide
+  // right away), without relying on a refetch of the media list.
+  onCreated?: (media: MediaItem) => void;
 }
 
 export default function CreateWebUrlModal({
@@ -18,7 +22,8 @@ export default function CreateWebUrlModal({
   onClose,
   onSuccess,
   setError,
-  setSuccessMsg
+  setSuccessMsg,
+  onCreated,
 }: CreateWebUrlModalProps) {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
@@ -59,11 +64,12 @@ export default function CreateWebUrlModal({
 
     setSubmitting(true);
     try {
-      await api.post('/api/media/url', {
+      const media = (await api.post('/api/media/url', {
         name: name.trim(),
         url: formattedUrl
-      });
+      })) as MediaItem;
       setSuccessMsg(`Đã liên kết trang web "${name}" thành công.`);
+      onCreated?.(media);
       onSuccess();
       handleClose();
     } catch (err: unknown) {

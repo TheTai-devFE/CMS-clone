@@ -33,6 +33,7 @@ export default function PlaylistCanvas({
 
   const media = activeSlide ? getMediaForSlide(activeSlide.mediaId) : null;
   const isVideo = media?.mimeType?.startsWith('video/');
+  const isWebEmbed = media?.mimeType === 'url';
   const objectFitClass = scaleMode === 'crop' ? 'object-cover' : 'object-fill';
 
   return (
@@ -62,7 +63,14 @@ export default function PlaylistCanvas({
         {activeSlide ? (
           media ? (
             <div className="absolute inset-0 w-full h-full z-10 flex items-center justify-center bg-black">
-              {isVideo ? (
+              {isWebEmbed ? (
+                <iframe
+                  key={media.id}
+                  src={media.fileUrl}
+                  className="w-full h-full border-0"
+                  title={media.fileName}
+                />
+              ) : isVideo ? (
                 <video
                   key={media.id} // Re-mount video when switching slides or media
                   src={getFileUrl(media.fileUrl)}

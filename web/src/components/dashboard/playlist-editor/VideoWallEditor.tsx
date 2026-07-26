@@ -1,6 +1,7 @@
 import React from "react";
 import { Device, MediaItem } from "@/types/dashboard";
 import { Film, Settings, Check } from "lucide-react";
+import { getFileUrl } from "@/utils/api";
 
 interface VideoWallEditorProps {
   videoWallRows: number;
@@ -27,6 +28,8 @@ export const VideoWallEditor: React.FC<VideoWallEditorProps> = ({
   videoWallSourceMediaId,
   setVideoWallSourceMediaId,
 }) => {
+  const selectedSourceMedia = mediaList.find((m) => m.id === videoWallSourceMediaId) || null;
+
   return (
     <div className="flex gap-4 items-start bg-card border border-border p-3 rounded-2xl shadow-sm w-full">
       <div className="flex-1 min-h-[500px] bg-muted/20 border border-border/40 rounded-xl p-6 flex flex-col justify-between space-y-4">
@@ -151,6 +154,27 @@ export const VideoWallEditor: React.FC<VideoWallEditorProps> = ({
             <label className="text-[10px] font-bold text-muted-foreground uppercase">
               Chọn Video nguồn *
             </label>
+
+            {/* Preview of the currently selected source video */}
+            <div className="w-full aspect-video rounded-lg overflow-hidden border border-border/60 bg-black flex items-center justify-center">
+              {selectedSourceMedia ? (
+                <video
+                  key={selectedSourceMedia.id}
+                  src={getFileUrl(selectedSourceMedia.fileUrl)}
+                  className="w-full h-full object-contain"
+                  controls
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                />
+              ) : (
+                <span className="text-[10px] text-muted-foreground italic px-2 text-center">
+                  Chọn 1 video bên dưới để xem trước
+                </span>
+              )}
+            </div>
+
             <div className="border border-border rounded-lg max-h-[200px] overflow-y-auto divide-y divide-border/60 bg-muted/10 pr-1 scrollbar-thin">
               {mediaList
                 .filter((media) => media.mimeType.startsWith("video/"))

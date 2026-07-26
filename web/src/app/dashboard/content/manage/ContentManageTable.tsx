@@ -282,9 +282,6 @@ export const ContentManageTable = (props: ContentManageTableProps) => {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5 font-normal">
-                    {pl.description || "Không có mô tả"}
-                  </p>
                 </div>
               </div>
 

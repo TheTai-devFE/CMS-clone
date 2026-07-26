@@ -23,7 +23,8 @@ import { Button } from "@/components/ui/button";
 // Modals
 import PlaylistEditor from "@/components/dashboard/playlist-editor/PlaylistEditor";
 import PlaylistPreviewModal from "@/components/dashboard/PlaylistPreviewModal";
-import { QuickPublishModal } from "@/components/dashboard/QuickPublishModal";
+import PublishModal from "@/components/dashboard/PublishModal";
+import PublishScheduleModal from "@/components/dashboard/PublishScheduleModal";
 import { ScheduleModal } from "@/components/dashboard/schedule/ScheduleModal";
 import { ContentManageTable } from "./ContentManageTable";
 
@@ -47,9 +48,23 @@ export default function ContentManageClient() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewPlaylist, setPreviewPlaylist] = useState<Playlist | null>(null);
 
-  // Quick Publish state
+  // Publish modal state (row action "Publish")
   const [isPublishOpen, setIsPublishOpen] = useState(false);
   const [publishPlaylist, setPublishPlaylist] = useState<Playlist | null>(null);
+
+  // Publish modal state (shown right after saving a playlist in the editor, "Đơn lẻ" mode)
+  const [postSaveTarget, setPostSaveTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  // Schedule modal state (shown right after saving a playlist in the editor, "Đồng bộ" mode —
+  // sync-group playlists skip device selection and go straight to the schedule step)
+  const [postSaveScheduleTarget, setPostSaveScheduleTarget] = useState<{
+    id: string;
+    name: string;
+    deviceIds: string[];
+  } | null>(null);
 
   // Schedule Modal state
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
@@ -145,10 +160,9 @@ export default function ContentManageClient() {
     if (!playlists) return [];
     return playlists.filter((pl) => {
       // 1. Search text filter
-      const matchesSearch =
-        pl.playlistName.toLowerCase().includes(appliedSearch.toLowerCase()) ||
-        (pl.description &&
-          pl.description.toLowerCase().includes(appliedSearch.toLowerCase()));
+      const matchesSearch = pl.playlistName
+        .toLowerCase()
+        .includes(appliedSearch.toLowerCase());
 
       // 2. Sync type filter
       const matchesType =
@@ -234,14 +248,57 @@ export default function ContentManageClient() {
   // Render Editor Mode
   if (isEditorOpen) {
     return (
-      <PlaylistEditor
-        editingPlaylist={editingPlaylist}
-        mediaList={mediaList}
-        onClose={() => setIsEditorOpen(false)}
-        onSave={() => {
-          mutatePlaylists();
-        }}
-      />
+      <>
+        <PlaylistEditor
+          editingPlaylist={editingPlaylist}
+          mediaList={mediaList}
+          onClose={() => setIsEditorOpen(false)}
+          onSave={() => {
+            mutatePlaylists();
+            setIsEditorOpen(false);
+          }}
+          onCreated={(playlistId, playlistName, isSyncGroup, deviceIds) => {
+            mutatePlaylists();
+            const name = playlistName || editingPlaylist?.playlistName || "Playlist";
+            if (isSyncGroup) {
+              setPostSaveScheduleTarget({ id: playlistId, name, deviceIds });
+            } else {
+              setPostSaveTarget({ id: playlistId, name });
+            }
+          }}
+        />
+
+        {postSaveTarget && (
+          <PublishModal
+            playlistId={postSaveTarget.id}
+            playlistName={postSaveTarget.name}
+            onClose={() => {
+              setPostSaveTarget(null);
+              setIsEditorOpen(false);
+            }}
+            onSuccess={() => {
+              mutatePlaylists();
+            }}
+          />
+        )}
+
+        {postSaveScheduleTarget && (
+          <PublishScheduleModal
+            playlistId={postSaveScheduleTarget.id}
+            playlistName={postSaveScheduleTarget.name}
+            deviceIds={postSaveScheduleTarget.deviceIds}
+            onClose={() => {
+              setPostSaveScheduleTarget(null);
+              setIsEditorOpen(false);
+            }}
+            onSuccess={() => {
+              mutateSchedules();
+              setPostSaveScheduleTarget(null);
+              setIsEditorOpen(false);
+            }}
+          />
+        )}
+      </>
     );
   }
 
@@ -376,20 +433,20 @@ export default function ContentManageClient() {
         }}
       />
 
-      {/* Quick publish modal */}
-      <QuickPublishModal
-        playlist={publishPlaylist}
-        isOpen={isPublishOpen}
-        onClose={() => {
-          setIsPublishOpen(false);
-          setPublishPlaylist(null);
-        }}
-        onSuccess={() => {
-          alert(
-            "Đã gửi lệnh phát lên thiết bị thành công! Thiết bị sẽ tự động tải file và trình chiếu."
-          );
-        }}
-      />
+      {/* Publish modal (row action) */}
+      {isPublishOpen && publishPlaylist && (
+        <PublishModal
+          playlistId={publishPlaylist.id}
+          playlistName={publishPlaylist.playlistName}
+          onClose={() => {
+            setIsPublishOpen(false);
+            setPublishPlaylist(null);
+          }}
+          onSuccess={() => {
+            mutatePlaylists();
+          }}
+        />
+      )}
 
       {/* Playlist Schedule Modal */}
       {isScheduleOpen && schedulePlaylist && (

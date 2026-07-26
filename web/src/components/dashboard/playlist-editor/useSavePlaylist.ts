@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Playlist, MediaItem } from "@/types/dashboard";
+import { Playlist } from "@/types/dashboard";
 import { api } from "@/utils/api";
 import { PlaylistItemData } from "./PlaylistSidebar";
 
@@ -16,10 +16,14 @@ interface SavePlaylistParams {
   videoWallSourceMediaId: string;
   videoWallMapping: Record<string, string>;
   slides: PlaylistItemData[];
-  mediaList: MediaItem[];
   setErrorMsg: (msg: string | null) => void;
   onSave: () => void;
-  onCreated?: (id: string, name: string) => void;
+  onCreated?: (
+    id: string,
+    name: string,
+    isSyncGroup: boolean,
+    deviceIds: string[],
+  ) => void;
 }
 
 export function useSavePlaylist() {
@@ -38,7 +42,6 @@ export function useSavePlaylist() {
     videoWallSourceMediaId,
     videoWallMapping,
     slides,
-    mediaList,
     setErrorMsg,
     onSave,
     onCreated,
@@ -79,10 +82,12 @@ export function useSavePlaylist() {
 
     try {
       let savedPlaylistId = editingPlaylist?.id;
+      // Devices already assigned during editing (Video Wall Simulator mapping, or per-slide
+      // device targeting for a regular sync group) — surfaced back to the caller so the
+      // post-save schedule step can pre-fill "Thiết bị liên kết" instead of asking again.
+      let syncDeviceIds: string[] = [];
 
       if (isVideoWallMode) {
-        const sourceMedia = mediaList.find((m) => m.id === videoWallSourceMediaId);
-
         const deviceMappingPayload: Record<string, string[]> = {};
         for (let r = 0; r < videoWallRows; r++) {
           for (let c = 0; c < videoWallCols; c++) {
@@ -93,6 +98,8 @@ export function useSavePlaylist() {
             }
           }
         }
+
+        syncDeviceIds = Array.from(new Set(Object.values(deviceMappingPayload).flat()));
 
         const syncLayoutConfig = {
           width: selectedOption.width,
@@ -122,30 +129,9 @@ export function useSavePlaylist() {
           savedPlaylistId = res.id;
         }
 
-        if (savedPlaylistId && sourceMedia) {
-          const videoWallItems = [];
-          for (let r = 0; r < videoWallRows; r++) {
-            for (let c = 0; c < videoWallCols; c++) {
-              const slotIdx = r * videoWallCols + c + 1;
-              videoWallItems.push({
-                mediaId: sourceMedia.id,
-                duration: 10,
-                sortOrder: slotIdx,
-                transitionEffect: "none",
-              });
-            }
-          }
-
-          await api.post(`/api/playlists/${savedPlaylistId}/video-wall-slice`, {
-            sourceMediaId: sourceMedia.id,
-            rows: videoWallRows,
-            cols: videoWallCols,
-          });
-
-          await api.post(`/api/playlists/${savedPlaylistId}/items/batch`, {
-            items: videoWallItems,
-          });
-        }
+        // No further API call needed here: the backend already slices the source video
+        // and creates the sliced PlaylistItems itself, inside createPlaylist/updatePlaylist,
+        // whenever isSyncGroup + syncLayout.videoWall are present in the payload above.
       } else {
         const deviceMappingPayload: Record<string, string[]> = {};
         if (isSyncGroup) {
@@ -155,6 +141,10 @@ export function useSavePlaylist() {
               deviceMappingPayload[sortOrder.toString()] = slide.targetDeviceIds;
             }
           });
+        }
+
+        if (isSyncGroup) {
+          syncDeviceIds = Array.from(new Set(Object.values(deviceMappingPayload).flat()));
         }
 
         const syncLayoutConfig = {
@@ -190,7 +180,7 @@ export function useSavePlaylist() {
             transitionEffect: "none",
           }));
 
-          await api.post(`/api/playlists/${savedPlaylistId}/items/batch`, {
+          await api.post(`/api/playlists/${savedPlaylistId}/items`, {
             items: itemsPayload,
           });
         }
@@ -198,8 +188,10 @@ export function useSavePlaylist() {
 
       localStorage.removeItem("cms_playlist_draft");
 
-      if (!editingPlaylist && savedPlaylistId && onCreated) {
-        onCreated(savedPlaylistId, playlistName);
+      // Always route to the publish step after a successful save (new or edit) when the
+      // caller wants it; callers that don't care about publishing just pass onSave only.
+      if (savedPlaylistId && onCreated) {
+        onCreated(savedPlaylistId, playlistName, isVideoWallMode || isSyncGroup, syncDeviceIds);
       } else {
         onSave();
       }

@@ -49,7 +49,6 @@ export default function ResourceTab({ playlists, fetchData }: ResourceTabProps) 
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead>Tên Playlist</TableHead>
-                  <TableHead>Mô tả</TableHead>
                   <TableHead>Kiểu đồng bộ</TableHead>
                   <TableHead>Ngày tạo</TableHead>
                 </TableRow>
@@ -58,7 +57,6 @@ export default function ResourceTab({ playlists, fetchData }: ResourceTabProps) 
                 {playlists.map((pl) => (
                   <TableRow key={pl.id} className="border-border hover:bg-muted/30">
                     <TableCell className="font-semibold text-primary">{pl.playlistName}</TableCell>
-                    <TableCell className="max-w-[300px] truncate text-muted-foreground">{pl.description || '—'}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={`border-none font-medium ${
                         pl.isSyncGroup ? 'bg-indigo-500/10 text-indigo-500' : 'bg-emerald-500/10 text-emerald-500'

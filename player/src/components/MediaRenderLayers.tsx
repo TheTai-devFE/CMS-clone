@@ -13,12 +13,14 @@ interface MediaRenderLayersProps {
     left: string;
     top: string;
   } | null;
+  scaleMode?: "stretch" | "crop";
 }
 
 export const MediaRenderLayers: React.FC<MediaRenderLayersProps> = ({
   currentItem,
   player,
   videoWallCrop,
+  scaleMode = "stretch",
 }) => {
   const cropStyle = videoWallCrop
     ? {
@@ -30,6 +32,13 @@ export const MediaRenderLayers: React.FC<MediaRenderLayersProps> = ({
       }
     : { width: "100%" as const, height: "100%" as const };
 
+  // Video Wall slots always crop to fill their grid cell; otherwise honor the playlist's scaleMode.
+  // Note: RN <Image> and expo-video's <VideoView> use different enum values for the
+  // "distort to fill" mode ("stretch" vs "fill") — cover/contain are shared.
+  const isCrop = videoWallCrop || scaleMode === "crop";
+  const imageResizeMode = isCrop ? "cover" : "stretch";
+  const videoContentFit = isCrop ? "cover" : "fill";
+
   return (
     <View style={styles.mediaContainer}>
       {currentItem.type === "image" && (
@@ -37,7 +46,7 @@ export const MediaRenderLayers: React.FC<MediaRenderLayersProps> = ({
           <Image
             source={{ uri: currentItem.url }}
             style={styles.media}
-            resizeMode={videoWallCrop ? "cover" : "contain"}
+            resizeMode={imageResizeMode}
           />
         </View>
       )}
@@ -48,7 +57,7 @@ export const MediaRenderLayers: React.FC<MediaRenderLayersProps> = ({
             player={player}
             style={styles.media}
             nativeControls={false}
-            contentFit={videoWallCrop ? "cover" : "contain"}
+            contentFit={videoContentFit}
           />
         </View>
       )}

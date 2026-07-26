@@ -19,8 +19,7 @@ export default function ResourcePageClient() {
 
   // Filter playlists based on search query
   const filteredPlaylists = playlists.filter(pl =>
-    pl.playlistName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (pl.description && pl.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    pl.playlistName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (

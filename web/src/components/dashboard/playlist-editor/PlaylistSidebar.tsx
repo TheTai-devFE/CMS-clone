@@ -29,6 +29,7 @@ interface PlaylistSidebarProps {
   onAddSlide: () => void;
   onDeleteSlide: (id: string) => void;
   onMoveSlide: (index: number, direction: "up" | "down") => void;
+  onUpdateSlideDuration: (id: string, duration: number) => void;
 }
 
 export default function PlaylistSidebar({
@@ -39,6 +40,7 @@ export default function PlaylistSidebar({
   onAddSlide,
   onDeleteSlide,
   onMoveSlide,
+  onUpdateSlideDuration,
 }: PlaylistSidebarProps) {
   // Find media object by id
   const getMediaForSlide = (mediaId: string | null) => {
@@ -109,9 +111,32 @@ export default function PlaylistSidebar({
                   {index + 1}
                 </div>
 
-                {/* Duration Badge (Bottom-right) */}
-                <div className="absolute bottom-1.5 right-1.5 bg-black/60 text-white rounded-md h-5 px-1.5 flex items-center justify-center text-[10px] font-mono z-10 backdrop-blur-xs">
-                  {slide.duration}s
+                {/* Duration Control (Bottom-right) */}
+                <div
+                  className="absolute bottom-1.5 right-1.5 z-10"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {isVideo ? (
+                    <div className="bg-black/60 text-white rounded-md h-5 px-1.5 flex items-center justify-center text-[10px] italic backdrop-blur-xs">
+                      Tự động
+                    </div>
+                  ) : (
+                    <div className="flex items-center bg-black/60 text-white rounded-md h-5 pl-1.5 pr-1 backdrop-blur-xs">
+                      <input
+                        type="number"
+                        min="1"
+                        value={slide.duration}
+                        onChange={(e) =>
+                          onUpdateSlideDuration(
+                            slide.id,
+                            Math.max(1, parseInt(e.target.value) || 1),
+                          )
+                        }
+                        className="w-7 bg-transparent text-[10px] font-mono text-white text-right focus:outline-none"
+                      />
+                      <span className="text-[10px] font-mono">s</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Hover Quick Action Panel */}

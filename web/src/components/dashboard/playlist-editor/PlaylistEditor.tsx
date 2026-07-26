@@ -1,8 +1,7 @@
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
 import { MediaItem, Playlist, Device } from "@/types/dashboard";
-import { api, getFileUrl } from "@/utils/api";
-import { ChevronLeft, Clock, Film, Layers, Loader2, Search, Check, Settings } from "lucide-react";
+import { api } from "@/utils/api";
+import { ChevronLeft, Layers, Loader2, Globe } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import PlaylistCanvas from "./PlaylistCanvas";
@@ -10,6 +9,7 @@ import PlaylistSidebar, { PlaylistItemData } from "./PlaylistSidebar";
 import { PlaylistConfigHeader } from "./PlaylistConfigHeader";
 import { VideoWallEditor } from "./VideoWallEditor";
 import { PlaylistMediaLibrary } from "./PlaylistMediaLibrary";
+import CreateWebUrlModal from "../CreateWebUrlModal";
 import { usePlaylistDraft } from "./usePlaylistDraft";
 import { useSavePlaylist } from "./useSavePlaylist";
 
@@ -18,7 +18,12 @@ interface PlaylistEditorProps {
   mediaList: MediaItem[];
   onClose: () => void;
   onSave: () => void;
-  onCreated?: (playlistId: string, playlistName: string) => void;
+  onCreated?: (
+    playlistId: string,
+    playlistName: string,
+    isSyncGroup: boolean,
+    deviceIds: string[],
+  ) => void;
 }
 
 const RESOLUTION_OPTIONS = [
@@ -96,6 +101,16 @@ export default function PlaylistEditor({
   // Media list filter/search state
   const [mediaSearchQuery, setMediaSearchQuery] = useState("");
   const [mediaFilterType, setMediaFilterType] = useState<"all" | "image" | "video">("all");
+
+  // Web-embed media items created directly from the editor (via the standalone "Nhúng Web"
+  // button, not through the Media library) — kept locally so a slide can reference them
+  // immediately without waiting on the parent's media list to refetch.
+  const [embeddedMediaList, setEmbeddedMediaList] = useState<MediaItem[]>([]);
+  const [isWebEmbedModalOpen, setIsWebEmbedModalOpen] = useState(false);
+  const allMedia = [
+    ...mediaList,
+    ...embeddedMediaList.filter((m) => !mediaList.some((x) => x.id === m.id)),
+  ];
 
   const filteredMedia = mediaList.filter((media) => {
     const matchesSearch = media.fileName.toLowerCase().includes(mediaSearchQuery.toLowerCase());
@@ -242,18 +257,34 @@ export default function PlaylistEditor({
     setSlides(updatedSlides);
   };
 
-  // Update active slide duration
-  const handleUpdateSlideDuration = (duration: number) => {
-    if (!activeSlideId) return;
+  // Update a slide's duration
+  const handleUpdateSlideDuration = (slideId: string, duration: number) => {
     setSlides((prev) =>
-      prev.map((s) => (s.id === activeSlideId ? { ...s, duration } : s)),
+      prev.map((s) => (s.id === slideId ? { ...s, duration } : s)),
     );
+  };
+
+  // Add a new slide for a web-embed Media item just created via the standalone "Nhúng Web" button
+  const handleWebEmbedCreated = (media: MediaItem) => {
+    setEmbeddedMediaList((prev) => [...prev, media]);
+    const tempId = `temp-slide-${Date.now()}`;
+    const newSlide: PlaylistItemData = {
+      id: tempId,
+      mediaId: media.id,
+      duration: 15,
+      fileName: media.fileName,
+      fileUrl: media.fileUrl,
+      mimeType: media.mimeType,
+    };
+    setSlides((prev) => [...prev, newSlide]);
+    setActiveSlideId(tempId);
+    setIsWebEmbedModalOpen(false);
   };
 
   // Assign media to active slide
   const handleAssignMediaToSlide = (mediaId: string) => {
     if (!activeSlideId) return;
-    const media = mediaList.find((m) => m.id === mediaId);
+    const media = allMedia.find((m) => m.id === mediaId);
     if (!media) return;
 
     setSlides((prev) =>
@@ -274,7 +305,6 @@ export default function PlaylistEditor({
   const { isSaving, handleSavePlaylist } = useSavePlaylist();
 
   const activeSlide = slides.find((s) => s.id === activeSlideId) || null;
-  const activeSlideIndex = slides.findIndex((s) => s.id === activeSlideId);
 
   return (
     <div className="space-y-4">
@@ -317,7 +347,6 @@ export default function PlaylistEditor({
                 videoWallSourceMediaId,
                 videoWallMapping,
                 slides,
-                mediaList,
                 setErrorMsg,
                 onSave,
                 onCreated,
@@ -375,45 +404,42 @@ export default function PlaylistEditor({
         </div>
       )}
 
+      {/* Config header — always visible so the user can switch back out of Video Wall mode */}
+      <PlaylistConfigHeader
+        playlistName={playlistName}
+        setPlaylistName={setPlaylistName}
+        selectedResValue={selectedResValue}
+        setSelectedResValue={setSelectedResValue}
+        resolutionOptions={RESOLUTION_OPTIONS}
+        isSyncGroup={isSyncGroup}
+        setIsSyncGroup={setIsSyncGroup}
+        isVideoWallMode={isVideoWallMode}
+        setIsVideoWallMode={setIsVideoWallMode}
+        scaleMode={scaleMode}
+        setScaleMode={setScaleMode}
+      />
+
       {/* PPTX Editor Workspace */}
       {!isVideoWallMode && (
         <div className="space-y-4">
-          <PlaylistConfigHeader
-            playlistName={playlistName}
-            setPlaylistName={setPlaylistName}
-            selectedResValue={selectedResValue}
-            setSelectedResValue={setSelectedResValue}
-            resolutionOptions={RESOLUTION_OPTIONS}
-            isSyncGroup={isSyncGroup}
-            setIsSyncGroup={setIsSyncGroup}
-            isVideoWallMode={isVideoWallMode}
-            setIsVideoWallMode={setIsVideoWallMode}
-            scaleMode={scaleMode}
-            setScaleMode={setScaleMode}
-            playlistDesc={playlistDesc}
-            setPlaylistDesc={setPlaylistDesc}
-            activeSlide={activeSlide}
-            activeSlideIndex={activeSlideIndex}
-            handleUpdateSlideDuration={handleUpdateSlideDuration}
-          />
-
           {/* Bottom: Workspace (Sidebar + Canvas | Media List) */}
           <div className="flex gap-4 items-start bg-card border border-border p-3 rounded-2xl shadow-sm w-full">
             {/* Left: Slide Sidebar */}
             <PlaylistSidebar
               slides={slides}
               activeSlideId={activeSlideId}
-              mediaList={mediaList}
+              mediaList={allMedia}
               onSelectSlide={setActiveSlideId}
               onAddSlide={handleAddSlide}
               onDeleteSlide={handleDeleteSlide}
               onMoveSlide={handleMoveSlide}
+              onUpdateSlideDuration={handleUpdateSlideDuration}
             />
 
             {/* Center: Slide Canvas Simulator */}
             <PlaylistCanvas
               activeSlide={activeSlide}
-              mediaList={mediaList}
+              mediaList={allMedia}
               canvasWidth={canvasWidth}
               canvasHeight={canvasHeight}
               scaleFactor={scaleFactor}
@@ -421,18 +447,37 @@ export default function PlaylistEditor({
               scaleMode={scaleMode}
             />
 
-            <PlaylistMediaLibrary
-              mediaSearchQuery={mediaSearchQuery}
-              setMediaSearchQuery={setMediaSearchQuery}
-              mediaFilterType={mediaFilterType}
-              setMediaFilterType={setMediaFilterType}
-              filteredMedia={filteredMedia}
-              activeSlideMediaId={activeSlide?.mediaId}
-              handleAssignMediaToSlide={handleAssignMediaToSlide}
-            />
+            <div className="w-72 shrink-0 flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsWebEmbedModalOpen(true)}
+                className="w-full text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5"
+              >
+                <Globe className="h-4 w-4" /> Nhúng Web
+              </Button>
+              <PlaylistMediaLibrary
+                mediaSearchQuery={mediaSearchQuery}
+                setMediaSearchQuery={setMediaSearchQuery}
+                mediaFilterType={mediaFilterType}
+                setMediaFilterType={setMediaFilterType}
+                filteredMedia={filteredMedia}
+                activeSlideMediaId={activeSlide?.mediaId}
+                handleAssignMediaToSlide={handleAssignMediaToSlide}
+              />
+            </div>
           </div>
         </div>
       )}
+
+      <CreateWebUrlModal
+        isOpen={isWebEmbedModalOpen}
+        onClose={() => setIsWebEmbedModalOpen(false)}
+        onSuccess={() => {}}
+        onCreated={handleWebEmbedCreated}
+        setError={setErrorMsg}
+        setSuccessMsg={() => {}}
+      />
 
       {/* Video Wall Mode */}
       {isVideoWallMode && (

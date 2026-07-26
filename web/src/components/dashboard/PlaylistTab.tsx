@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -16,7 +15,8 @@ import { Playlist } from "@/types/dashboard";
 import PlaylistEditor from "./playlist-editor/PlaylistEditor";
 import PlaylistPreviewModal from "./PlaylistPreviewModal";
 import { useDashboard } from "@/app/dashboard/context/DashboardContext";
-import { QuickPublishModal } from "./QuickPublishModal";
+import PublishModal from "./PublishModal";
+import PublishScheduleModal from "./PublishScheduleModal";
 
 interface PlaylistTabProps {
   playlists: Playlist[];
@@ -38,9 +38,17 @@ export default function PlaylistTab({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewPlaylist, setPreviewPlaylist] = useState<Playlist | null>(null);
 
-  // Quick Publish modal states
+  // Publish modal states ("Đơn lẻ" playlists — choose devices)
   const [isPublishOpen, setIsPublishOpen] = useState(false);
   const [publishPlaylist, setPublishPlaylist] = useState<Playlist | null>(null);
+
+  // Schedule modal states ("Đồng bộ" playlists — skip device selection, go straight to schedule)
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [scheduleTarget, setScheduleTarget] = useState<{
+    id: string;
+    playlistName: string;
+    deviceIds: string[];
+  } | null>(null);
 
   const handleOpenCreate = () => {
     setEditingPlaylist(null);
@@ -89,11 +97,18 @@ export default function PlaylistTab({
         onSave={() => {
           fetchPlaylistsData();
         }}
-        onCreated={(playlistId) => {
+        onCreated={(playlistId, playlistName, isSyncGroup, deviceIds) => {
           fetchPlaylistsData();
-          const created = playlists.find((p) => p.id === playlistId) || { id: playlistId, playlistName: "Playlist mới" } as Playlist;
-          setPublishPlaylist(created);
-          setIsPublishOpen(true);
+          const name = playlistName || "Playlist mới";
+          if (isSyncGroup) {
+            setScheduleTarget({ id: playlistId, playlistName: name, deviceIds });
+            setIsScheduleOpen(true);
+          } else {
+            const created = { id: playlistId, playlistName: name } as Playlist;
+            setPublishPlaylist(created);
+            setIsPublishOpen(true);
+          }
+          setIsEditorOpen(false);
         }}
       />
     );
@@ -132,9 +147,6 @@ export default function PlaylistTab({
                     title={pl.playlistName}>
                     {pl.playlistName}
                   </CardTitle>
-                  <CardDescription className="text-[10px] truncate max-w-[155px]">
-                    {pl.description || "Không có mô tả"}
-                  </CardDescription>
                 </div>
                 {pl.isSyncGroup && (
                   <Badge
@@ -232,20 +244,38 @@ export default function PlaylistTab({
         }}
       />
 
-      {/* Quick publish modal */}
-      <QuickPublishModal
-        playlist={publishPlaylist}
-        isOpen={isPublishOpen}
-        onClose={() => {
-          setIsPublishOpen(false);
-          setPublishPlaylist(null);
-        }}
-        onSuccess={() => {
-          alert(
-            "Đã gửi lệnh phát lên thiết bị thành công! Thiết bị sẽ tự động tải file và trình chiếu.",
-          );
-        }}
-      />
+      {/* Publish modal */}
+      {isPublishOpen && publishPlaylist && (
+        <PublishModal
+          playlistId={publishPlaylist.id}
+          playlistName={publishPlaylist.playlistName}
+          onClose={() => {
+            setIsPublishOpen(false);
+            setPublishPlaylist(null);
+          }}
+          onSuccess={() => {
+            fetchPlaylistsData();
+          }}
+        />
+      )}
+
+      {/* Schedule modal (sync-group playlists skip device selection) */}
+      {isScheduleOpen && scheduleTarget && (
+        <PublishScheduleModal
+          playlistId={scheduleTarget.id}
+          playlistName={scheduleTarget.playlistName}
+          deviceIds={scheduleTarget.deviceIds}
+          onClose={() => {
+            setIsScheduleOpen(false);
+            setScheduleTarget(null);
+          }}
+          onSuccess={() => {
+            fetchPlaylistsData();
+            setIsScheduleOpen(false);
+            setScheduleTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 }

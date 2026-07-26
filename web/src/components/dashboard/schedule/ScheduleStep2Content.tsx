@@ -89,9 +89,6 @@ export const ScheduleStep2Content: React.FC<ScheduleStep2ContentProps> = ({
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
-                      {pl.description || "Không có mô tả"}
-                    </p>
                   </div>
                   <div className="flex items-center justify-between text-[9px] text-muted-foreground border-t border-border/30 pt-2 shrink-0">
                     <span className="bg-muted px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase text-muted-foreground">

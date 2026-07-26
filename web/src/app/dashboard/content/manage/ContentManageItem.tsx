@@ -111,12 +111,6 @@ export const ContentManageItem = ({
             </Badge>
           )}
         </div>
-        <div
-          className="text-[10px] text-muted-foreground truncate mt-0.5 font-normal"
-          title={pl.description || "Không có mô tả"}
-        >
-          {pl.description || "Không có mô tả"}
-        </div>
       </td>
 
       {/* Column 3: Linked Screen Names */}

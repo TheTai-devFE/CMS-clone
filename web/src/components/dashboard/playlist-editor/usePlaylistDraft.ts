@@ -52,7 +52,7 @@ export function usePlaylistDraft({ editingPlaylist }: UsePlaylistDraftProps) {
         interface SyncLayoutConfig {
           width?: number;
           height?: number;
-          scaleMode?: "stretch" | "crop";
+          scaleMode?: "stretch" | "crop" | "fullscreen" | "original";
           deviceMapping?: Record<string, string[]>;
           videoWall?: {
             rows: number;
@@ -66,7 +66,11 @@ export function usePlaylistDraft({ editingPlaylist }: UsePlaylistDraftProps) {
         } else {
           setSelectedResValue("1920*1080");
         }
-        setScaleMode(syncLayout?.scaleMode || "stretch");
+        // "crop"/"fullscreen" (object-cover) both crop-to-fill without distortion, so they
+        // map to "crop"; anything else (including legacy "original"/letterbox) falls back
+        // to the default "stretch".
+        const rawScaleMode = syncLayout?.scaleMode;
+        setScaleMode(rawScaleMode === "crop" || rawScaleMode === "fullscreen" ? "crop" : "stretch");
 
         if (syncLayout?.videoWall) {
           setIsVideoWallMode(true);

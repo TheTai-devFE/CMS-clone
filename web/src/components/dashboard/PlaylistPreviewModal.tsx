@@ -59,7 +59,7 @@ export default function PlaylistPreviewModal({
   // Get Aspect Ratio / Video Wall Config
   interface SyncLayoutConfig {
     aspectRatio?: string;
-    scaleMode?: "stretch" | "crop";
+    scaleMode?: "fullscreen" | "original" | "stretch" | "crop";
     videoWall?: {
       rows: number;
       cols: number;
@@ -72,8 +72,9 @@ export default function PlaylistPreviewModal({
   const isVideoWall = !!syncLayout?.videoWall;
   const videoWallRows = syncLayout?.videoWall?.rows || 1;
   const videoWallCols = syncLayout?.videoWall?.cols || 1;
-  const scaleMode = syncLayout?.scaleMode || "stretch";
-  const objectFitClass = scaleMode === "crop" ? "object-cover" : "object-fill";
+  const rawScaleMode = syncLayout?.scaleMode;
+  const objectFitClass =
+    rawScaleMode === "crop" || rawScaleMode === "fullscreen" ? "object-cover" : "object-fill";
 
   const getAspectRatioStyle = () => {
     if (syncLayout?.aspectRatio === "9:16") {
@@ -112,6 +113,7 @@ export default function PlaylistPreviewModal({
 
   const currentItem = items[currentIndex] || null;
   const isVideo = currentItem?.media?.mimeType?.startsWith("video/");
+  const isWebEmbed = currentItem?.media?.mimeType === "url";
   const slideDurationMs = (currentItem?.duration || 10) * 1000;
 
   // Handle slide transitions
@@ -365,7 +367,14 @@ export default function PlaylistPreviewModal({
                 {/* Screen Content */}
                 <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden rounded-xl">
                   {currentItem &&
-                    (isVideo ? (
+                    (isWebEmbed ? (
+                      <iframe
+                        key={currentItem.id}
+                        src={currentItem.media.fileUrl}
+                        className="w-full h-full border-0"
+                        title={currentItem.media.fileName}
+                      />
+                    ) : isVideo ? (
                       <video
                         ref={videoRef}
                         key={currentItem.id} // re-mount video when slide index changes

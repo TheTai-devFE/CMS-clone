@@ -18,8 +18,12 @@ import {
 } from "lucide-react";
 import { api } from "@/utils/api";
 import { Playlist, Schedule, Template } from "@/types/dashboard";
-import { ScheduleStep1Time } from "./ScheduleStep1Time";
+import { ScheduleStep1Time, ScheduleTimeMode } from "./ScheduleStep1Time";
 import { ScheduleStep2Content } from "./ScheduleStep2Content";
+
+function formatDate(date: Date) {
+  return date.toISOString().split("T")[0];
+}
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -33,6 +37,7 @@ interface ScheduleModalProps {
 
 interface ScheduleFormValues {
   scheduleName: string;
+  scheduleMode: ScheduleTimeMode;
   startDate: string;
   endDate: string;
   startTime: string;
@@ -56,6 +61,11 @@ export const ScheduleModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Suy luận chế độ ban đầu từ lịch trình đang sửa (nếu có): đã chọn đủ 7 ngày trong tuần
+  // thì xem như đang ở chế độ "Khoảng ngày hoạt động", ngược lại là "Ngày trong tuần".
+  const initialDays = schedule?.dayOfWeek || [1, 2, 3, 4, 5, 6, 0];
+  const initialMode: ScheduleTimeMode = initialDays.length >= 7 ? "dateRange" : "daysOfWeek";
+
   const {
     register,
     handleSubmit,
@@ -67,6 +77,7 @@ export const ScheduleModal = ({
   } = useForm<ScheduleFormValues>({
     defaultValues: {
       scheduleName: schedule?.scheduleName || "",
+      scheduleMode: initialMode,
       startDate: schedule?.startDate
         ? new Date(schedule.startDate).toISOString().split("T")[0]
         : "",
@@ -75,7 +86,7 @@ export const ScheduleModal = ({
         : "",
       startTime: schedule?.startTime || "00:00:00",
       endTime: schedule?.endTime || "23:59:59",
-      selectedDays: schedule?.dayOfWeek || [1, 2, 3, 4, 5, 6, 0],
+      selectedDays: initialDays,
       scheduleType: schedule?.templateId ? "template" : "playlist",
       selectedPlaylistId: schedule?.playlistId || "",
       selectedTemplateId: schedule?.templateId || "",
@@ -86,6 +97,7 @@ export const ScheduleModal = ({
   const selectedPlaylistId = watch("selectedPlaylistId");
   const selectedTemplateId = watch("selectedTemplateId");
   const selectedDays = watch("selectedDays");
+  const scheduleMode = watch("scheduleMode");
 
   if (!isOpen) return null;
 
@@ -94,6 +106,21 @@ export const ScheduleModal = ({
       ? selectedDays.filter((d) => d !== day)
       : [...selectedDays, day];
     setValue("selectedDays", newDays);
+  };
+
+  const handleChangeScheduleMode = (mode: ScheduleTimeMode) => {
+    setValue("scheduleMode", mode);
+    if (mode === "dateRange") {
+      setValue("selectedDays", [0, 1, 2, 3, 4, 5, 6]);
+    } else {
+      // "Ngày trong tuần": không giới hạn ngày kết thúc — mở khoảng ngày hoạt động
+      // ra rất xa (ẩn khỏi UI) để lịch trình lặp lại vô thời hạn theo các ngày đã chọn.
+      const today = new Date();
+      const farFuture = new Date(today);
+      farFuture.setFullYear(today.getFullYear() + 10);
+      setValue("startDate", formatDate(today));
+      setValue("endDate", formatDate(farFuture));
+    }
   };
 
   const handleNextStep = async () => {
@@ -141,10 +168,10 @@ export const ScheduleModal = ({
           data.startTime.includes(":") && data.startTime.split(":").length === 2
             ? `${data.startTime}:00`
             : data.startTime,
-        endTime:
-          data.endTime.includes(":") && data.endTime.split(":").length === 2
-            ? `${data.endTime}:59`
-            : data.endTime,
+        // Không có giờ kết thúc trong ngày — phát liên tục tới hết ngày cuối cùng của
+        // khoảng thời gian đã chọn (endDate ở chế độ "Khoảng ngày", hoặc vô thời hạn ở
+        // chế độ "Ngày trong tuần").
+        endTime: "23:59:59",
         dayOfWeek: data.selectedDays,
       };
 
@@ -241,6 +268,8 @@ export const ScheduleModal = ({
               errors={errors}
               selectedDays={selectedDays}
               handleToggleDay={handleToggleDay}
+              scheduleMode={scheduleMode}
+              onChangeScheduleMode={handleChangeScheduleMode}
             />
           )}
 
