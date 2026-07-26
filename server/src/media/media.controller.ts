@@ -76,7 +76,10 @@ export class MediaController {
   }
 
   @Delete(':id')
-  async deleteMedia(@Param('id') id: string, @CurrentUser() user: any) {
+  async deleteMedia(
+    @Param('id') id: string,
+    @CurrentUser() user: CurrentUserType,
+  ) {
     return this.mediaService.deleteMedia(id, user.id, user.role);
   }
 }

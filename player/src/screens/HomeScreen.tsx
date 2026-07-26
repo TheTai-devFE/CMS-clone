@@ -23,6 +23,8 @@ export default function HomeScreen({
   const isLinked = !!deviceId;
   const [hardwareId, setHardwareId] = useState<string>('Đang tải...');
   const [ipAddress, setIpAddress] = useState<string>('Đang tải...');
+  const [brandName, setBrandName] = useState<string>('CDM SIGNAGE');
+  const [splashUrl, setSplashUrl] = useState<string>('');
 
   useEffect(() => {
     let isMounted = true;
@@ -34,11 +36,30 @@ export default function HomeScreen({
         setIpAddress(ip);
       }
     };
+
+    const fetchConfig = async () => {
+      try {
+        const protocol = Platform.OS === "web" && typeof window !== "undefined" ? window.location.protocol : "http:";
+        const baseUrl = `${protocol}//${serverIp}:${serverPort}`;
+        const res = await fetch(`${baseUrl}/api/config`);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data) {
+            if (data.brandName) setBrandName(data.brandName.toUpperCase());
+            if (data.splashUrl) setSplashUrl(data.splashUrl);
+          }
+        }
+      } catch (e) {
+        // Silently fallback to default brand
+      }
+    };
+
     fetchDeviceInfo();
+    fetchConfig();
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [serverIp, serverPort]);
 
   return (
     <View style={styles.container}>

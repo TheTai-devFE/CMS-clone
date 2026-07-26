@@ -20,7 +20,7 @@ const PRICE_PER_UNIT = {
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
-  private payOS: any = null;
+  private payOS: PayOS | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -70,7 +70,7 @@ export class PaymentService {
       'http://localhost:3000/dashboard?payment=cancelled';
 
     let checkoutUrl = '';
-    let paymentLinkResponse: any = null;
+    let paymentLinkResponse: Record<string, unknown> | null = null;
 
     if (this.payOS) {
       try {
@@ -81,15 +81,16 @@ export class PaymentService {
           returnUrl,
           cancelUrl,
         };
-        paymentLinkResponse = await this.payOS.paymentRequests.create(body);
-        checkoutUrl = paymentLinkResponse.checkoutUrl;
-      } catch (err: any) {
+        const resp = (await this.payOS.paymentRequests.create(body)) as { checkoutUrl?: string };
+        paymentLinkResponse = resp as unknown as Record<string, unknown>;
+        checkoutUrl = resp.checkoutUrl || '';
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
         this.logger.error(
-          `Error creating PayOS payment link: ${err.message}`,
-          err.stack,
+          `Error creating PayOS payment link: ${errorMsg}`,
         );
         throw new BadRequestException(
-          `Không thể tạo liên kết thanh toán PayOS: ${err.message}`,
+          `Không thể tạo liên kết thanh toán PayOS: ${errorMsg}`,
         );
       }
     } else {
@@ -101,7 +102,7 @@ export class PaymentService {
       where: { id: order.id },
       data: {
         checkoutUrl,
-        paymentLinkResponse: paymentLinkResponse || {},
+        paymentLinkResponse: (paymentLinkResponse || {}) as Record<string, string | number | boolean>,
       },
     });
 
@@ -115,19 +116,21 @@ export class PaymentService {
     };
   }
 
-  async handleWebhook(webhookBody: any) {
+  async handleWebhook(webhookBody: Record<string, unknown>) {
     this.logger.log(
       `Received PayOS webhook payload: ${JSON.stringify(webhookBody)}`,
     );
 
-    let verifiedData: any = webhookBody.data;
+    let verifiedData: Record<string, any> | null = (webhookBody.data as Record<string, any>) || null;
 
     if (this.payOS && webhookBody.signature) {
       try {
-        verifiedData = this.payOS.webhooks.verify(webhookBody);
-      } catch (err: any) {
+        const result = await this.payOS.webhooks.verify(webhookBody as any);
+        verifiedData = result as Record<string, any>;
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
         this.logger.error(
-          `PayOS Webhook Signature verification failed: ${err.message}`,
+          `PayOS Webhook Signature verification failed: ${errorMsg}`,
         );
         throw new BadRequestException('Chữ ký webhook không hợp lệ');
       }
@@ -137,14 +140,12 @@ export class PaymentService {
       return { success: false, message: 'No webhook data' };
     }
 
-    const {
-      orderCode,
-      amount,
-      reference,
-      accountNumber,
-      transactionDateTime,
-      code,
-    } = verifiedData;
+    const orderCode = String(verifiedData.orderCode || '');
+    const amount = Number(verifiedData.amount || 0);
+    const reference = verifiedData.reference ? String(verifiedData.reference) : null;
+    const accountNumber = verifiedData.accountNumber ? String(verifiedData.accountNumber) : null;
+    const transactionDateTime = verifiedData.transactionDateTime;
+    const code = String(verifiedData.code || '');
 
     if (code !== '00' && webhookBody.success !== true) {
       this.logger.warn(`Payment not successful for orderCode ${orderCode}`);
@@ -178,13 +179,13 @@ export class PaymentService {
       await tx.paymentTransaction.create({
         data: {
           orderId: order.id,
-          reference: reference || null,
+          reference,
           amount: amount || order.amount,
-          accountNumber: accountNumber || null,
+          accountNumber,
           transactionDateTime: transactionDateTime
-            ? new Date(transactionDateTime)
+            ? new Date(transactionDateTime as string | number | Date)
             : new Date(),
-          webhookData: webhookBody,
+          webhookData: (webhookBody || {}) as Record<string, string | number | boolean>,
         },
       });
 
@@ -217,7 +218,29 @@ export class PaymentService {
       `Successfully upgraded user ${order.userId} license limit to ${order.user.licenseLimit + order.licenseQuantity}`,
     );
 
-    return { success: true, orderCode: orderCode.toString() };
+    return { success: true, orderCode };
+  }
+
+  async getAllOrders() {
+    const orders = await this.prisma.order.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            shortId: true,
+            username: true,
+            email: true,
+          },
+        },
+        payments: true,
+      },
+    });
+
+    return orders.map((o) => ({
+      ...o,
+      orderCode: o.orderCode.toString(),
+    }));
   }
 
   async getUserOrders(userId: string) {

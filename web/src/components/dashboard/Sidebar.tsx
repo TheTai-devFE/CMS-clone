@@ -11,7 +11,9 @@ import {
   FileText,
   Database,
   Calendar,
-  ListVideo
+  ListVideo,
+  CreditCard,
+  Settings
 } from "lucide-react";
   
 import { User, DashboardTab } from "@/types/dashboard";
@@ -111,17 +113,43 @@ export default function Sidebar({ currentUser }: SidebarProps) {
         </Link>
 
         {currentUser.role === "admin" && (
-          <Link
-            href="/dashboard/admin"
-            className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-150 text-sm rounded-lg ${
-              isActive("/dashboard/admin")
-                ? "bg-primary text-primary-foreground font-semibold shadow-sm shadow-primary/10"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-            }`}
-          >
-            <Users className="size-5 shrink-0" />
-            <span>Admin Panel</span>
-          </Link>
+          <>
+            <Link
+              href="/dashboard/admin"
+              className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-150 text-sm rounded-lg ${
+                isActive("/dashboard/admin")
+                  ? "bg-primary text-primary-foreground font-semibold shadow-sm shadow-primary/10"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              <Users className="size-5 shrink-0" />
+              <span>Admin Panel</span>
+            </Link>
+
+            <Link
+              href="/dashboard/payment"
+              className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-150 text-sm rounded-lg ${
+                isActive("/dashboard/payment")
+                  ? "bg-primary text-primary-foreground font-semibold shadow-sm shadow-primary/10"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              <CreditCard className="size-5 shrink-0" />
+              <span>Thanh toán</span>
+            </Link>
+
+            <Link
+              href="/dashboard/settings"
+              className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-150 text-sm rounded-lg ${
+                isActive("/dashboard/settings")
+                  ? "bg-primary text-primary-foreground font-semibold shadow-sm shadow-primary/10"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              <Settings className="size-5 shrink-0" />
+              <span>Cấu hình</span>
+            </Link>
+          </>
         )}
 
         <Link

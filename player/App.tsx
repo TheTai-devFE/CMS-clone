@@ -24,6 +24,7 @@ import NetworkScreen from "./src/screens/NetworkScreen";
 import RegisterScreen from "./src/screens/RegisterScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import { getLocalPlaylist, syncPlaylist } from "./src/utils/syncManager";
+import { usePlayerHeartbeatSync } from "./src/hooks/usePlayerHeartbeatSync";
 
 export default function App() {
   // activeTab: null means running AdPlayerScreen, else showing configuring screens
@@ -236,188 +237,27 @@ export default function App() {
     },
     [deviceId, apiKey, formIp, formPort],
   );
-
-  // Heartbeat loop when device is registered
-  useEffect(() => {
-    let interval: any = null;
-
-    const sendHeartbeat = async () => {
-      if (!deviceId || !apiKey) return;
-
-      try {
-        const response = await fetch(
-          `http://${formIp}:${formPort}/api/player/heartbeat`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              deviceId,
-              apiKey,
-              cpuUsage: Math.floor(Math.random() * 15) + 5, // Mock CPU 5% - 20%
-              freeMemoryMb: Math.floor(Math.random() * 200) + 400, // Mock Free RAM 400MB - 600MB
-            }),
-          },
-        );
-
-        if (!response.ok) {
-          console.warn("Gửi heartbeat thất bại, status:", response.status);
-          if (response.status === 401) {
-            console.error(
-              "Thiết bị bị từ chối bởi Server (401). Tiến hành đăng xuất...",
-            );
-            await handleLogout();
-          }
-        } else {
-          console.log("Gửi heartbeat thành công");
-          const data = await response.json();
-          if (data) {
-            // Đồng bộ tên thiết bị từ Server
-            if (data.deviceName) {
-              setRegisteredDeviceName(data.deviceName);
-              setFormName(data.deviceName);
-              await AsyncStorage.setItem("deviceName", data.deviceName);
-            }
-
-            await AsyncStorage.setItem(
-              "security_use_pass",
-              data.useSecurityPassword ? "true" : "false",
-            );
-            if (data.securityPassword) {
-              await AsyncStorage.setItem(
-                "security_pass_val",
-                data.securityPassword,
-              );
-            } else if (data.useSecurityPassword) {
-              // Fallback mã PIN mặc định là '0000' nếu admin chưa cấu hình PIN trong profile
-              await AsyncStorage.setItem("security_pass_val", "0000");
-            } else {
-              await AsyncStorage.removeItem("security_pass_val");
-            }
-
-            // Đồng bộ cấu hình Sleep từ Heartbeat
-            const serverSleepEnabled = !!data.sleepScheduleEnabled;
-            const serverSleepStart = data.sleepStartTime || "22:00";
-            const serverSleepEnd = data.sleepEndTime || "06:00";
-
-            setSleepScheduleEnabled(serverSleepEnabled);
-            setSleepStartTime(serverSleepStart);
-            setSleepEndTime(serverSleepEnd);
-
-            await AsyncStorage.setItem(
-              "sleep_schedule_enabled",
-              serverSleepEnabled ? "true" : "false",
-            );
-            await AsyncStorage.setItem("sleep_start_time", serverSleepStart);
-            await AsyncStorage.setItem("sleep_end_time", serverSleepEnd);
-
-            // Xử lý kiểm tra và đồng bộ hóa Playlist dựa trên syncHash
-            const serverHash = data.syncHash || "empty";
-            const localHash =
-              (await AsyncStorage.getItem("local_sync_hash")) || "empty";
-            const ignoredHash =
-              (await AsyncStorage.getItem("ignored_sync_hash")) || "";
-
-            // Nếu server hash thay đổi khác với ignoredHash, xóa ignoredHash để nhận chương trình mới
-            if (
-              serverHash !== "empty" &&
-              serverHash !== ignoredHash &&
-              ignoredHash !== ""
-            ) {
-              await AsyncStorage.removeItem("ignored_sync_hash");
-              console.log(
-                `[Sync] Phát hiện syncHash mới từ CMS: ${serverHash}. Đã xóa ignored_sync_hash.`,
-              );
-            }
-
-            const activeIgnoredHash =
-              (await AsyncStorage.getItem("ignored_sync_hash")) || "";
-
-            if (
-              serverHash !== localHash &&
-              serverHash !== activeIgnoredHash &&
-              !isSyncingRef.current
-            ) {
-              console.log(
-                `[Sync] Phát hiện syncHash thay đổi: Server=${serverHash}, Local=${localHash}. Bắt đầu đồng bộ ngầm...`,
-              );
-              isSyncingRef.current = true;
-              setSyncProgress(0);
-              reportSyncProgress(0, "syncing");
-
-              // Watchdog: Tự động giải phóng trạng thái sync nếu bị treo quá 3 phút (180s)
-              const watchdogTimer = setTimeout(() => {
-                if (isSyncingRef.current) {
-                  console.warn(
-                    "[Sync] Watchdog: Đồng bộ playlist chạy quá 3 phút, tự động giải phóng khóa.",
-                  );
-                  isSyncingRef.current = false;
-                  setSyncProgress(null);
-                  reportSyncProgress(0, "error");
-                }
-              }, 180000);
-
-              try {
-                const updatedPl = await syncPlaylist(
-                  formIp,
-                  formPort,
-                  deviceId,
-                  apiKey,
-                  serverHash,
-                  (progress) => {
-                    setSyncProgress(progress);
-                    if (progress < 100) {
-                      reportSyncProgress(progress, "syncing");
-                    }
-                  },
-                );
-                if (updatedPl !== null) {
-                  setPlaylist(updatedPl.playlist);
-                  // Nếu sync group, lưu meta + offset
-                  if (updatedPl.syncMeta) {
-                    const offset = updatedPl.syncMeta.serverTime - Date.now();
-                    setClockOffset(offset);
-                  }
-                  reportSyncProgress(100, "playing");
-                } else {
-                  reportSyncProgress(0, "error");
-                }
-              } catch (syncErr) {
-                console.error(
-                  "[Sync] Lỗi khi tải và lưu cache playlist:",
-                  syncErr,
-                );
-                reportSyncProgress(0, "error");
-              } finally {
-                clearTimeout(watchdogTimer);
-                isSyncingRef.current = false;
-                // Đợi 1 giây để thanh loading đạt 100% hiển thị mượt mà
-                setTimeout(() => {
-                  setSyncProgress(null);
-                }, 1000);
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("Lỗi kết nối khi gửi heartbeat:", err);
-      }
-    };
-
-    if (deviceId && apiKey) {
-      sendHeartbeat();
-      interval = setInterval(sendHeartbeat, 10000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [deviceId, apiKey, formIp, formPort]);
+  // Heartbeat loop & sync handling custom hook
+  usePlayerHeartbeatSync({
+    deviceId,
+    apiKey,
+    formIp,
+    formPort,
+    handleLogout,
+    setRegisteredDeviceName,
+    setFormName,
+    setSleepScheduleEnabled,
+    setSleepStartTime,
+    setSleepEndTime,
+    setPlaylist,
+    setClockOffset,
+    setSyncProgress,
+    reportSyncProgress,
+  });
 
   // 1. NTP Time synchronization loop
   useEffect(() => {
-    let interval: any = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
 
     const syncTime = async () => {
       if (!formIp || !formPort) return;
@@ -453,7 +293,7 @@ export default function App() {
 
   // 2. Playlist fetching and caching loop
   useEffect(() => {
-    let interval: any = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     let isSyncing = false;
 
     const syncPlaylist = async () => {
@@ -504,16 +344,16 @@ export default function App() {
           }
 
           // Ensure media directory exists
-          const mediaDir = (FileSystem as any).documentDirectory + "media/";
-          const dirInfo = await (FileSystem as any).getInfoAsync(mediaDir);
+          const mediaDir = (FileSystem as Record<string, any>).documentDirectory + "media/";
+          const dirInfo = await (FileSystem as Record<string, any>).getInfoAsync(mediaDir);
           if (!dirInfo.exists) {
-            await (FileSystem as any).makeDirectoryAsync(mediaDir, {
+            await (FileSystem as Record<string, any>).makeDirectoryAsync(mediaDir, {
               intermediates: true,
             });
           }
 
           // Cache all files
-          const offlineItems: any[] = [];
+          const offlineItems: PlayerPlaylistItem[] = [];
           for (const item of fetchedItems) {
             const cleanFileName = item.fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
             const localUri = mediaDir + item.checksum + "_" + cleanFileName;

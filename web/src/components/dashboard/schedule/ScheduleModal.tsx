@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { api } from "@/utils/api";
 import { Playlist, Schedule, Template } from "@/types/dashboard";
+import { ScheduleStep1Time } from "./ScheduleStep1Time";
+import { ScheduleStep2Content } from "./ScheduleStep2Content";
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -234,278 +236,24 @@ export const ScheduleModal = ({
         <div className="flex-1 overflow-y-auto p-6">
           {/* STEP 1: Thiết lập thời gian chạy */}
           {currentStep === 1 && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Tên lịch trình */}
-                <div className="space-y-1.5 md:col-span-2">
-                  <label className="text-xs font-semibold text-foreground">
-                    Tên Lịch Trình Phát *
-                  </label>
-                  <Input
-                    placeholder="Nhập tên lịch trình phát..."
-                    {...register("scheduleName", { required: "Vui lòng nhập tên lịch trình" })}
-                    className="rounded-xl border-border/80 focus:border-emerald-500/50 focus:ring-emerald-500/5 py-4 transition-all text-xs font-medium"
-                  />
-                  {errors.scheduleName && (
-                    <p className="text-red-500 text-[10px] mt-1 font-medium">{errors.scheduleName.message}</p>
-                  )}
-                </div>
-
-                {/* Khoảng ngày chạy */}
-                <div className="space-y-3 p-4 border border-border/60 rounded-2xl bg-muted/10">
-                  <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    Khoảng ngày hoạt động
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">
-                        Từ ngày *
-                      </label>
-                      <input
-                        type="date"
-                        {...register("startDate", { required: "Vui lòng chọn ngày bắt đầu" })}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all font-medium"
-                      />
-                      {errors.startDate && (
-                        <p className="text-red-500 text-[9px] mt-1 font-medium">{errors.startDate.message}</p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">
-                        Đến ngày *
-                      </label>
-                      <input
-                        type="date"
-                        {...register("endDate", { required: "Vui lòng chọn ngày kết thúc" })}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all font-medium"
-                      />
-                      {errors.endDate && (
-                        <p className="text-red-500 text-[9px] mt-1 font-medium">{errors.endDate.message}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Khung giờ chạy */}
-                <div className="space-y-3 p-4 border border-border/60 rounded-2xl bg-muted/10">
-                  <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    Khung giờ phát trong ngày
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">
-                        Giờ bắt đầu
-                      </label>
-                      <input
-                        type="time"
-                        step="1"
-                        {...register("startTime")}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all font-medium"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">
-                        Giờ kết thúc
-                      </label>
-                      <input
-                        type="time"
-                        step="1"
-                        {...register("endTime")}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all font-medium"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Ngày trong tuần */}
-                <div className="space-y-2 md:col-span-2 p-4 border border-border/60 rounded-2xl bg-muted/10">
-                  <label className="text-xs font-semibold text-foreground block">
-                    Các ngày áp dụng trong tuần
-                  </label>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {[
-                      { label: "Thứ 2", val: 1 },
-                      { label: "Thứ 3", val: 2 },
-                      { label: "Thứ 4", val: 3 },
-                      { label: "Thứ 5", val: 4 },
-                      { label: "Thứ 6", val: 5 },
-                      { label: "Thứ 7", val: 6 },
-                      { label: "Chủ Nhật", val: 0 },
-                    ].map((day) => {
-                      const isSelected = selectedDays.includes(day.val);
-                      return (
-                        <button
-                          type="button"
-                          key={day.val}
-                          onClick={() => handleToggleDay(day.val)}
-                          className={`px-3 py-2 rounded-xl border text-xs font-medium transition-all duration-150 ${
-                            isSelected
-                              ? "bg-emerald-600 border-emerald-600 text-white shadow-sm font-semibold"
-                              : "bg-background border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-                          }`}
-                        >
-                          {day.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ScheduleStep1Time
+              register={register}
+              errors={errors}
+              selectedDays={selectedDays}
+              handleToggleDay={handleToggleDay}
+            />
           )}
 
           {/* STEP 2: Chọn Playlist phát */}
           {currentStep === 2 && (
-            <div className="space-y-6">
-              {/* Loại nội dung */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-foreground block">
-                  Kiểu nội dung phát
-                </label>
-                <div className="flex border border-border/80 p-1 bg-muted/30 rounded-xl w-fit gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setValue("scheduleType", "playlist");
-                      setValue("selectedTemplateId", "");
-                    }}
-                    className={`text-xs px-4 py-2 rounded-lg font-medium transition-all ${
-                      scheduleType === "playlist"
-                        ? "bg-white text-foreground shadow-sm"
-                        : "text-muted-foreground hover:bg-muted/40"
-                    }`}
-                  >
-                    Danh sách phát (Playlist)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setValue("scheduleType", "template");
-                      setValue("selectedPlaylistId", "");
-                    }}
-                    className={`text-xs px-4 py-2 rounded-lg font-medium transition-all ${
-                      scheduleType === "template"
-                        ? "bg-white text-foreground shadow-sm"
-                        : "text-muted-foreground hover:bg-muted/40"
-                    }`}
-                  >
-                    Bố cục hiển thị (Template)
-                  </button>
-                </div>
-              </div>
-
-              {/* Danh sách Playlist Card Grid */}
-              {scheduleType === "playlist" ? (
-                <div className="space-y-2.5">
-                  <label className="text-xs font-semibold text-foreground block">
-                    Chọn Playlist muốn gán lịch phát *
-                  </label>
-                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-h-[350px] overflow-y-auto pr-1">
-                    {playlists.map((pl) => {
-                      const isSelected = selectedPlaylistId === pl.id;
-                      return (
-                        <div
-                          key={pl.id}
-                          onClick={() => setValue("selectedPlaylistId", pl.id)}
-                          className={`p-4.5 border rounded-2xl cursor-pointer transition-all duration-200 flex flex-col justify-between h-[130px] relative overflow-hidden group ${
-                            isSelected
-                              ? "border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500/50 shadow-sm"
-                              : "border-border/60 bg-card/50 hover:border-border hover:bg-muted/30"
-                          }`}
-                        >
-                          <div className="space-y-1">
-                            <div className="flex justify-between items-start">
-                              <h5 className="text-xs font-semibold text-foreground truncate max-w-[85%]">
-                                {pl.playlistName}
-                              </h5>
-                              {isSelected && (
-                                <span className="h-4.5 w-4.5 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-sm">
-                                  <Check className="h-3 w-3" />
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
-                              {pl.description || "Không có mô tả"}
-                            </p>
-                          </div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground border-t border-border/30 pt-2 shrink-0">
-                            <span className="bg-muted px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase text-muted-foreground">
-                              {pl.isSyncGroup ? "Đồng bộ" : "Đơn lẻ"}
-                            </span>
-                            <span>
-                              {new Date(pl.createdAt).toLocaleDateString("vi-VN")}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {playlists.length === 0 && (
-                      <div className="col-span-full py-16 border border-dashed border-border/60 rounded-2xl bg-muted/5 flex flex-col items-center justify-center gap-2">
-                        <Layers className="h-6 w-6 text-muted-foreground/30" />
-                        <p className="text-xs text-muted-foreground italic">
-                          Chưa có Playlist nào.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                /* Danh sách Bố cục layout Card Grid */
-                <div className="space-y-2.5">
-                  <label className="text-xs font-semibold text-foreground block">
-                    Chọn Bố cục hiển thị muốn gán lịch phát *
-                  </label>
-                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-h-[350px] overflow-y-auto pr-1">
-                    {templates.map((tpl) => {
-                      const isSelected = selectedTemplateId === tpl.id;
-                      return (
-                        <div
-                          key={tpl.id}
-                          onClick={() => setValue("selectedTemplateId", tpl.id)}
-                          className={`p-4.5 border rounded-2xl cursor-pointer transition-all duration-200 flex flex-col justify-between h-[130px] relative overflow-hidden group ${
-                            isSelected
-                              ? "border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500/50 shadow-sm"
-                              : "border-border/60 bg-card/50 hover:border-border hover:bg-muted/30"
-                          }`}
-                        >
-                          <div className="space-y-1">
-                            <div className="flex justify-between items-start">
-                              <h5 className="text-xs font-semibold text-foreground truncate max-w-[85%]">
-                                {tpl.name}
-                              </h5>
-                              {isSelected && (
-                                <span className="h-4.5 w-4.5 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-sm">
-                                  <Check className="h-3 w-3" />
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                              Kích thước: {tpl.width}x{tpl.height}
-                            </p>
-                          </div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground border-t border-border/30 pt-2 shrink-0">
-                            <span className="bg-muted px-1.5 py-0.5 rounded text-[8px] font-semibold text-muted-foreground">
-                              {tpl.zones?.length ?? 0} Vùng
-                            </span>
-                            <span className="capitalize">{tpl.orientation}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {templates.length === 0 && (
-                      <div className="col-span-full py-16 border border-dashed border-border/60 rounded-2xl bg-muted/5 flex flex-col items-center justify-center gap-2">
-                        <Layout className="h-6 w-6 text-muted-foreground/30" />
-                        <p className="text-xs text-muted-foreground italic">
-                          Chưa có Bố cục hiển thị nào.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            <ScheduleStep2Content
+              scheduleType={scheduleType}
+              selectedPlaylistId={selectedPlaylistId}
+              selectedTemplateId={selectedTemplateId}
+              playlists={playlists}
+              templates={templates}
+              setValue={setValue}
+            />
           )}
         </div>
 

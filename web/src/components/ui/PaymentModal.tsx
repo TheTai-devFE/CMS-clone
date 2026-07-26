@@ -40,8 +40,9 @@ export function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModalProps) 
         checkoutUrl: res.checkoutUrl,
       });
       if (onSuccess) onSuccess();
-    } catch (err: any) {
-      setError(err.message || 'Khởi tạo đơn hàng thất bại');
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Không thể tạo liên kết thanh toán";
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

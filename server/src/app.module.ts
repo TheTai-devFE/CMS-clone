@@ -10,6 +10,9 @@ import { MediaModule } from './media/media.module';
 import { PlaylistModule } from './playlist/playlist.module';
 import { TemplateModule } from './template/template.module';
 import { PaymentModule } from './payment/payment.module';
+import { AppConfigModule } from './config/config.module';
+import { LicenseModule } from './license/license.module';
+import { AppUpdateController } from './config/app-update.controller';
 
 @Module({
   imports: [
@@ -22,8 +25,10 @@ import { PaymentModule } from './payment/payment.module';
     PlaylistModule,
     TemplateModule,
     PaymentModule,
+    AppConfigModule,
+    LicenseModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, AppUpdateController],
   providers: [AppService],
 })
 export class AppModule {}

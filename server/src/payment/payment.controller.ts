@@ -5,11 +5,12 @@ import {
   Body,
   Param,
   UseGuards,
-  Req,
 } from '@nestjs/common';
 import { PaymentService } from './payment.service';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { CurrentUser as CurrentUserType } from '../auth/interfaces/current-user.interface';
 
 @Controller('api/payment')
 export class PaymentController {
@@ -17,24 +18,33 @@ export class PaymentController {
 
   @UseGuards(JwtAuthGuard)
   @Post('create-checkout')
-  async createCheckout(@Req() req: any, @Body() dto: CreateCheckoutDto) {
-    return this.paymentService.createCheckout(req.user.id, dto);
+  async createCheckout(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: CreateCheckoutDto,
+  ) {
+    return this.paymentService.createCheckout(user.id, dto);
   }
 
   @Post('webhook')
-  async handleWebhook(@Body() body: any) {
+  async handleWebhook(@Body() body: Record<string, unknown>) {
     return this.paymentService.handleWebhook(body);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('orders')
-  async getUserOrders(@Req() req: any) {
-    return this.paymentService.getUserOrders(req.user.id);
+  async getUserOrders(@CurrentUser() user: CurrentUserType) {
+    if (user.role === 'admin') {
+      return this.paymentService.getAllOrders();
+    }
+    return this.paymentService.getUserOrders(user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('orders/:orderCode')
-  async getOrderByCode(@Req() req: any, @Param('orderCode') orderCode: string) {
-    return this.paymentService.getOrderByCode(req.user.id, orderCode);
+  async getOrderByCode(
+    @CurrentUser() user: CurrentUserType,
+    @Param('orderCode') orderCode: string,
+  ) {
+    return this.paymentService.getOrderByCode(user.id, orderCode);
   }
 }
