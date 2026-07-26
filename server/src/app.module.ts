@@ -19,10 +19,12 @@ import { AppUpdateController } from './config/app-update.controller';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 100, // Tối đa 100 request / phút / IP
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 100, // Tối đa 100 request / phút / IP
+      },
+    ]),
     PrismaModule,
     AuthModule,
     RedisModule,

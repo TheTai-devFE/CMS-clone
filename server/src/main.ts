@@ -9,7 +9,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { Logger } from '@nestjs/common';
 
 // Global polyfill to serialize BigInt fields automatically in JSON responses
-(BigInt.prototype as unknown as Record<string, unknown>).toJSON = function () {
+(BigInt.prototype as any).toJSON = function (this: bigint) {
   return this.toString();
 };
 
