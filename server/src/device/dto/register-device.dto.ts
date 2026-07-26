@@ -3,7 +3,7 @@ import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 export class RegisterDeviceDto {
   @IsString()
   @IsNotEmpty()
-  deviceName: string;
+  deviceName!: string;
 
   @IsString()
   @IsOptional()

@@ -14,10 +14,10 @@ import {
  */
 export class PublishDeviceItemDto {
   @IsUUID('4', { message: 'deviceId phải là UUID hợp lệ' })
-  deviceId: string;
+  deviceId!: string;
 
   @IsBoolean({ message: 'enabled phải là boolean' })
-  enabled: boolean;
+  enabled!: boolean;
 }
 
 /**
@@ -29,7 +29,7 @@ export class PublishPlaylistDto {
   @ArrayMinSize(1, { message: 'Phải chọn ít nhất 1 thiết bị' })
   @ValidateNested({ each: true })
   @Type(() => PublishDeviceItemDto)
-  devices: PublishDeviceItemDto[];
+  devices!: PublishDeviceItemDto[];
 
   /**
    * Tên hiển thị cho Schedule sẽ tạo (optional). Nếu không truyền, dùng

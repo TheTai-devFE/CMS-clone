@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -18,11 +19,12 @@ import {
 
 @Injectable()
 export class MediaService {
+  private readonly logger = new Logger(MediaService.name);
   private readonly storageType: string;
   private readonly uploadDir: string;
   private s3Client: S3Client | null = null;
-  private r2BucketName: string;
-  private r2PublicUrl: string;
+  private r2BucketName!: string;
+  private r2PublicUrl!: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -117,7 +119,7 @@ export class MediaService {
         const stats = fs.statSync(compressedTempPath);
         file.size = stats.size;
       } catch (err) {
-        console.error('Lỗi khi tối ưu hóa hình ảnh bằng Sharp:', err);
+        this.logger.error('Lỗi khi tối ưu hóa hình ảnh bằng Sharp:', err);
         // Nếu nén lỗi thì tiếp tục quy trình lưu file gốc, không chặn upload
       }
     }
@@ -307,7 +309,7 @@ export class MediaService {
               }),
             );
           } catch (err) {
-            console.error('Lỗi khi xóa tệp trên Cloudflare R2:', err);
+            this.logger.error('Lỗi khi xóa tệp trên Cloudflare R2:', err);
           }
         }
       } else {

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -19,6 +20,7 @@ import { DevicePairingService } from './device-pairing.service';
 
 @Injectable()
 export class DeviceService {
+  private readonly logger = new Logger(DeviceService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
@@ -69,7 +71,7 @@ export class DeviceService {
           return updatedDevice;
         }
       } catch (err) {
-        console.error('Lỗi khi kiểm tra/cập nhật thiết bị hiện có:', err);
+        this.logger.error('Lỗi khi kiểm tra/cập nhật thiết bị hiện có:', err);
       }
     }
 

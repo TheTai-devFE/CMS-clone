@@ -3,7 +3,7 @@ import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 export class CreatePlaylistDto {
   @IsString()
   @IsNotEmpty()
-  playlistName: string;
+  playlistName!: string;
 
   @IsString()
   @IsOptional()

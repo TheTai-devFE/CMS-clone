@@ -24,7 +24,7 @@ import { ClaimDeviceDto } from './dto/claim-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 
 export class BatchActionDto {
-  deviceIds: string[];
+  deviceIds!: string[];
   volume?: number;
   apkUrl?: string;
 }

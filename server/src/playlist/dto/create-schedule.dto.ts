@@ -10,7 +10,7 @@ import {
 export class CreateScheduleDto {
   @IsString()
   @IsNotEmpty()
-  scheduleName: string;
+  scheduleName!: string;
 
   @IsString()
   @IsOptional()
@@ -22,21 +22,21 @@ export class CreateScheduleDto {
 
   @IsArray()
   @IsString({ each: true })
-  deviceIds: string[];
+  deviceIds!: string[];
 
   @IsString()
   @IsNotEmpty()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, {
     message: 'startDate phải có định dạng YYYY-MM-DD',
   })
-  startDate: string;
+  startDate!: string;
 
   @IsString()
   @IsNotEmpty()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, {
     message: 'endDate phải có định dạng YYYY-MM-DD',
   })
-  endDate: string;
+  endDate!: string;
 
   @IsString()
   @IsOptional()

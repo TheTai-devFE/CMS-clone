@@ -4,10 +4,10 @@ export class CreateCheckoutDto {
   @IsInt()
   @Min(1)
   @IsNotEmpty()
-  licenseQuantity: number;
+  licenseQuantity!: number;
 
   @IsString()
   @IsIn(['rent', 'buy'])
   @IsNotEmpty()
-  purchaseType: 'rent' | 'buy';
+  purchaseType!: 'rent' | 'buy';
 }

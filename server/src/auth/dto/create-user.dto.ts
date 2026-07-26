@@ -20,11 +20,11 @@ export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(3, { message: 'Tên tài khoản phải có ít nhất 3 ký tự' })
-  username: string;
+  username!: string;
 
   @IsEmail({}, { message: 'Email không hợp lệ' })
   @IsNotEmpty()
-  email: string;
+  email!: string;
 
   @IsString()
   @IsIn(['user', 'admin'], { message: 'Role phải là user hoặc admin' })

@@ -3,9 +3,9 @@ import { IsNotEmpty, IsString } from 'class-validator';
 export class ClaimDeviceDto {
   @IsString()
   @IsNotEmpty()
-  pairingCode: string;
+  pairingCode!: string;
 
   @IsString()
   @IsNotEmpty()
-  deviceName: string;
+  deviceName!: string;
 }

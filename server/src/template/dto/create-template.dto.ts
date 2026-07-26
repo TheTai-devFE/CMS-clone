@@ -11,23 +11,23 @@ import { Type } from 'class-transformer';
 export class CreateZoneDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @IsString()
   @IsNotEmpty()
-  type: string; // 'media' | 'text' | 'clock' | 'weather' | 'web'
+  type!: string; // 'media' | 'text' | 'clock' | 'weather' | 'web'|!: string; // 'media' | 'text' | 'clock' | 'weather' | 'web'|!: string; // 'media' | 'text' | 'clock' | 'weather' | 'web'|!: string; // 'media' | 'text' | 'clock' | 'weather' | 'web'|!: string; // 'media' | 'text' | 'clock' | 'weather' | 'web'
 
   @IsInt()
-  x: number;
+  x!: number;
 
   @IsInt()
-  y: number;
+  y!: number;
 
   @IsInt()
-  width: number;
+  width!: number;
 
   @IsInt()
-  height: number;
+  height!: number;
 
   @IsOptional()
   contentData?: Record<string, unknown>;
@@ -36,7 +36,7 @@ export class CreateZoneDto {
 export class CreateTemplateDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @IsInt()
   @IsOptional()

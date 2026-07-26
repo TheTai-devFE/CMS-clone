@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDashboard } from "@/app/dashboard/context/DashboardContext";
 import { api } from "@/utils/api";
 import ContentTab from "@/components/dashboard/ContentTab";
@@ -11,7 +17,13 @@ import { useMedia } from "@/hooks/useApi";
 // T3: Loại filter media. 'all' = không filter.
 export type MediaTypeFilter = "all" | "image" | "video" | "pdf" | "url";
 
-const VALID_FILTERS: MediaTypeFilter[] = ["all", "image", "video", "pdf", "url"];
+const VALID_FILTERS: MediaTypeFilter[] = [
+  "all",
+  "image",
+  "video",
+  "pdf",
+  "url",
+];
 
 function isValidFilter(s: string | null): s is MediaTypeFilter {
   return !!s && (VALID_FILTERS as string[]).includes(s);
@@ -21,11 +33,14 @@ function isValidFilter(s: string | null): s is MediaTypeFilter {
  * Phân loại 1 media item theo mimeType.
  * Phải khớp với logic ở ContentTab.tsx (isVideo/isUrl/isPdf/isSlides).
  */
-export function getMediaType(mimeType: string): "image" | "video" | "pdf" | "url" | "slides" {
+export function getMediaType(
+  mimeType: string
+): "image" | "video" | "pdf" | "url" | "slides" {
   if (mimeType.startsWith("video/")) return "video";
   if (mimeType === "url") return "url";
   if (mimeType === "application/pdf") return "pdf";
-  if (mimeType.includes("presentation") || mimeType.includes("powerpoint")) return "slides";
+  if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
+    return "slides";
   return "image";
 }
 
@@ -44,17 +59,17 @@ export default function ContentPageClient() {
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // T3: Media type filter (Image / Video / PDF / Web) + URL sync
-  const [mediaTypeFilter, setMediaTypeFilter] = useState<MediaTypeFilter>("all");
+  const [mediaTypeFilter, setMediaTypeFilter] =
+    useState<MediaTypeFilter>("all");
 
   // Sync filter với URL query param ?type=...
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const t = params.get("type");
-    if (isValidFilter(t) && t !== mediaTypeFilter) {
-      setMediaTypeFilter(t);
+    if (isValidFilter(t)) {
+      setMediaTypeFilter((prev) => (t !== prev ? t : prev));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateFilter = useCallback((next: MediaTypeFilter) => {
@@ -73,7 +88,10 @@ export default function ContentPageClient() {
   }, []);
 
   // Use SWR hook for caching and automatic revalidation
-  const { mediaList, total, totalPages, mutate } = useMedia(currentPage, itemsPerPage);
+  const { mediaList, total, totalPages, mutate } = useMedia(
+    currentPage,
+    itemsPerPage
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
   const [isWebUrlModalOpen, setIsWebUrlModalOpen] = useState(false);
@@ -95,7 +113,14 @@ export default function ContentPageClient() {
   // T3: Count từng loại trong mediaList hiện tại (chính xác trong trang này).
   // Note: đây là count trong 1 page, không phải total. Đủ dùng cho UX MVP.
   const counts = useMemo(() => {
-    const c = { all: mediaList.length, image: 0, video: 0, pdf: 0, url: 0, slides: 0 };
+    const c = {
+      all: mediaList.length,
+      image: 0,
+      video: 0,
+      pdf: 0,
+      url: 0,
+      slides: 0,
+    };
     for (const m of mediaList) {
       const t = getMediaType(m.mimeType);
       c[t]++;
@@ -138,7 +163,7 @@ export default function ContentPageClient() {
 
     if (invalidFiles.length > 0) {
       setError(
-        `Chỉ cho phép tải lên ảnh, video (.mp4), PDF (.pdf) hoặc Slide thuyết trình (.pptx, .ppt). Phát hiện ${invalidFiles.length} tệp không hợp lệ.`,
+        `Chỉ cho phép tải lên ảnh, video (.mp4), PDF (.pdf) hoặc Slide thuyết trình (.pptx, .ppt). Phát hiện ${invalidFiles.length} tệp không hợp lệ.`
       );
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
@@ -156,7 +181,7 @@ export default function ContentPageClient() {
           formData.append("file", file);
           await api.post("/api/media/upload", formData, { useMultipart: true });
           return file.name;
-        }),
+        })
       );
 
       const succeeded = uploadResults
@@ -171,11 +196,11 @@ export default function ContentPageClient() {
       } else {
         const errorDetails = failed
           .map((err) =>
-            err instanceof Error ? err.message : "Lỗi không xác định",
+            err instanceof Error ? err.message : "Lỗi không xác định"
           )
           .join(", ");
         setError(
-          `Tải lên hoàn thành: ${succeeded.length} thành công, ${failed.length} thất bại. Chi tiết lỗi: ${errorDetails}`,
+          `Tải lên hoàn thành: ${succeeded.length} thành công, ${failed.length} thất bại. Chi tiết lỗi: ${errorDetails}`
         );
         if (succeeded.length > 0) {
           setSuccessMsg(`Đã tải lên thành công: ${succeeded.join(", ")}`);

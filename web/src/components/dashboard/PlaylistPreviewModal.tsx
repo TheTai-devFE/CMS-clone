@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
@@ -97,7 +97,7 @@ export default function PlaylistPreviewModal({
         videoRefs.current = {}; // reset video wall refs
 
         const data = (await api.get(
-          `/api/playlists/${playlist.id}/items`,
+          `/api/playlists/${playlist.id}/items`
         )) as PlaylistItem[];
         setItems(data || []);
       } catch (err) {
@@ -115,7 +115,7 @@ export default function PlaylistPreviewModal({
   const slideDurationMs = (currentItem?.duration || 10) * 1000;
 
   // Handle slide transitions
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (items.length <= 1) {
       // Loop single slide
       setProgress(0);
@@ -130,7 +130,7 @@ export default function PlaylistPreviewModal({
     setCurrentIndex((prev) => (prev + 1) % items.length);
     setProgress(0);
     elapsedPausedRef.current = 0;
-  };
+  }, [items.length]);
 
   const handlePrev = () => {
     if (items.length <= 1) {
@@ -211,8 +211,16 @@ export default function PlaylistPreviewModal({
       if (progressIntervalRef.current)
         clearInterval(progressIntervalRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, isPlaying, items, isOpen, isVideo, isVideoWall]);
+  }, [
+    currentIndex,
+    isPlaying,
+    items,
+    isOpen,
+    isVideo,
+    isVideoWall,
+    handleNext,
+    slideDurationMs,
+  ]);
 
   // Pause / Play toggle handler
   const handleTogglePlay = () => {
@@ -235,7 +243,8 @@ export default function PlaylistPreviewModal({
     } else {
       setIsPlaying(true);
       if (isVideoWall) {
-        if (masterVideoRef.current) masterVideoRef.current.play().catch(() => {});
+        if (masterVideoRef.current)
+          masterVideoRef.current.play().catch(() => {});
         Object.values(videoRefs.current).forEach((video) => {
           if (video) video.play().catch(() => {});
         });
@@ -265,10 +274,7 @@ export default function PlaylistPreviewModal({
           const cIdx = i % videoWallCols;
           // Match canvas internal size to a single tile of the source video
           // so drawing the source-rect maps 1:1 onto the canvas.
-          if (
-            canvas.width !== tileW ||
-            canvas.height !== tileH
-          ) {
+          if (canvas.width !== tileW || canvas.height !== tileH) {
             canvas.width = tileW;
             canvas.height = tileH;
           }
@@ -283,7 +289,7 @@ export default function PlaylistPreviewModal({
             0,
             0,
             tileW,
-            tileH,
+            tileH
           );
         }
       }
@@ -458,8 +464,8 @@ export default function PlaylistPreviewModal({
                 {isVideoWall
                   ? "Đang mô phỏng đồng bộ Video Wall"
                   : isVideo
-                    ? "Thời lượng: Theo Video"
-                    : `Thời lượng slide: ${currentItem?.duration}s`}
+                  ? "Thời lượng: Theo Video"
+                  : `Thời lượng slide: ${currentItem?.duration}s`}
               </span>
             </div>
           </div>

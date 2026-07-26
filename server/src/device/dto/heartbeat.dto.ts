@@ -10,11 +10,11 @@ import {
 export class HeartbeatDto {
   @IsString()
   @IsNotEmpty()
-  deviceId: string;
+  deviceId!: string;
 
   @IsString()
   @IsNotEmpty()
-  apiKey: string;
+  apiKey!: string;
 
   @IsString()
   @IsOptional()

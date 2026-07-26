@@ -12,11 +12,11 @@ import { Type } from 'class-transformer';
 export class PlaylistItemDto {
   @IsString()
   @IsNotEmpty()
-  mediaId: string;
+  mediaId!: string;
 
   @IsInt()
   @Min(0)
-  sortOrder: number;
+  sortOrder!: number;
 
   @IsInt()
   @Min(1)
@@ -32,5 +32,5 @@ export class AddPlaylistItemsDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => PlaylistItemDto)
-  items: PlaylistItemDto[];
+  items!: PlaylistItemDto[];
 }

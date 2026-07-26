@@ -29,7 +29,8 @@ export class PlaylistScheduleService {
         typeof syncLayout.deviceMapping === 'object'
       ) {
         for (const key in syncLayout.deviceMapping) {
-          const ids = syncLayout.deviceMapping[key];
+          const deviceMapping = syncLayout.deviceMapping as Record<string, unknown>;
+          const ids = deviceMapping[key];
           if (Array.isArray(ids)) {
             ids.forEach((id) => {
               if (typeof id === 'string') deviceIds.add(id);

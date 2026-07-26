@@ -6,10 +6,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUser as CurrentUserType } from '../auth/interfaces/current-user.interface';
 
 export class GenerateLicenseDto {
-  customerName: string;
-  deviceLimit: number;
-  expireMonths: number; // 0 = LIFETIME
-  privateKeyPem: string;
+  customerName!: string;
+  deviceLimit!: number;
+  expireMonths!: number; // 0 = LIFETIME
+  privateKeyPem!: string;
 }
 
 @Controller('api/license')
